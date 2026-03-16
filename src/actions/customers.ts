@@ -110,6 +110,31 @@ export async function importCustomers(
   return { success: true, data: { imported, skipped } };
 }
 
+export async function updateCustomerName(
+  customerId: string,
+  name: string
+): Promise<ActionResult> {
+  const { businessId } = await requireBusinessOwner();
+  const trimmed = name.trim();
+  if (!trimmed) return { success: false, error: "Name is required." };
+
+  const customer = await db.query.customers.findFirst({
+    where: and(eq(customers.id, customerId), eq(customers.businessId, businessId)),
+    columns: { userId: true },
+  });
+
+  if (!customer) return { success: false, error: "Customer not found." };
+
+  await db
+    .update(users)
+    .set({ name: trimmed, updatedAt: new Date() })
+    .where(eq(users.id, customer.userId));
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath("/dashboard/customers");
+  return { success: true, data: undefined };
+}
+
 export async function deleteCustomer(customerId: string): Promise<ActionResult> {
   const { businessId } = await requireBusinessOwner();
 

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
-import { addCustomerNote, updateCustomerTags } from "@/actions/customers";
+import { addCustomerNote, updateCustomerTags, updateCustomerName } from "@/actions/customers";
 import {
   Calendar,
   XCircle,
@@ -21,6 +21,8 @@ import {
   X,
   Send,
   StickyNote,
+  Pencil,
+  Check,
 } from "lucide-react";
 import type { CustomerDetail } from "@/lib/db/queries/customers";
 
@@ -36,7 +38,7 @@ export function CustomerDetailView({ customer, businessId }: Props) {
 
   return (
     <div className="space-y-6">
-      <HeaderCard customer={customer} locale={locale} />
+      <HeaderCard customer={customer} locale={locale} onRefresh={() => router.refresh()} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <StatCard
@@ -82,15 +84,36 @@ export function CustomerDetailView({ customer, businessId }: Props) {
 function HeaderCard({
   customer,
   locale,
+  onRefresh,
 }: {
   customer: CustomerDetail;
   locale: "en" | "he";
+  onRefresh: () => void;
 }) {
   const t = useT();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(customer.name);
+  const [pending, startTransition] = useTransition();
+
   const joinDate = new Date(customer.createdAt).toLocaleDateString(
     locale === "he" ? "he-IL" : "en-US",
     { year: "numeric", month: "long", day: "numeric" }
   );
+
+  function handleSave() {
+    if (!name.trim() || name.trim() === customer.name) {
+      setName(customer.name);
+      setEditing(false);
+      return;
+    }
+    startTransition(async () => {
+      const res = await updateCustomerName(customer.id, name.trim());
+      if (res.success) {
+        setEditing(false);
+        onRefresh();
+      }
+    });
+  }
 
   return (
     <Card>
@@ -101,7 +124,44 @@ function HeaderCard({
           </span>
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <h2 className="text-xl font-semibold">{customer.name}</h2>
+          {editing ? (
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+              className="flex items-center gap-2"
+            >
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-9 max-w-xs text-lg font-semibold"
+                autoFocus
+                disabled={pending}
+              />
+              <Button type="submit" size="sm" variant="ghost" disabled={pending || !name.trim()}>
+                <Check className="size-4 text-green-600" />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => { setName(customer.name); setEditing(false); }}
+                disabled={pending}
+              >
+                <X className="size-4" />
+              </Button>
+            </form>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold">{customer.name}</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setEditing(true)}
+              >
+                <Pencil className="size-3.5 text-muted-foreground" />
+              </Button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
             {customer.phone && (
               <span className="flex items-center gap-1.5">
