@@ -3,7 +3,7 @@
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { customers, customerNotes } from "@/lib/db/schema";
+import { customers, customerNotes, users } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import type { ActionResult } from "@/types";
 
@@ -53,6 +53,70 @@ export async function updateCustomerTags(
     .where(and(eq(customers.id, customerId), eq(customers.businessId, businessId)));
 
   revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath("/dashboard/customers");
+  return { success: true, data: undefined };
+}
+
+export async function importCustomers(
+  rows: { name: string; phone: string; email?: string }[]
+): Promise<ActionResult<{ imported: number; skipped: number }>> {
+  const { businessId } = await requireBusinessOwner();
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    const phone = row.phone?.replace(/[^+\d]/g, "");
+    if (!row.name?.trim() || !phone) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.phone, phone),
+        columns: { id: true },
+      });
+
+      let userId: string;
+      if (existing) {
+        userId = existing.id;
+      } else {
+        const [newUser] = await db
+          .insert(users)
+          .values({ name: row.name.trim(), phone, role: "CUSTOMER" })
+          .returning({ id: users.id });
+        userId = newUser.id;
+      }
+
+      const existingCustomer = await db.query.customers.findFirst({
+        where: and(eq(customers.businessId, businessId), eq(customers.userId, userId)),
+        columns: { id: true },
+      });
+
+      if (existingCustomer) {
+        skipped++;
+        continue;
+      }
+
+      await db.insert(customers).values({ businessId, userId });
+      imported++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  revalidatePath("/dashboard/customers");
+  return { success: true, data: { imported, skipped } };
+}
+
+export async function deleteCustomer(customerId: string): Promise<ActionResult> {
+  const { businessId } = await requireBusinessOwner();
+
+  await db
+    .delete(customers)
+    .where(and(eq(customers.id, customerId), eq(customers.businessId, businessId)));
+
   revalidatePath("/dashboard/customers");
   return { success: true, data: undefined };
 }

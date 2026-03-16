@@ -18,6 +18,10 @@ export async function getCustomersForBusiness(businessId: string) {
         (SELECT count(*)::int FROM appointment
          WHERE appointment.customer_id = ${customers.id})
       `,
+      lastAppointmentDate: sql<string | null>`
+        (SELECT max(appointment.start_time)::text FROM appointment
+         WHERE appointment.customer_id = ${customers.id})
+      `,
     })
     .from(customers)
     .innerJoin(users, eq(customers.userId, users.id))
