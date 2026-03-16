@@ -1,0 +1,71 @@
+/* Puck Editor overrides to match the BookIT dashboard indigo theme */
+
+.puck-wrapper {
+  --puck-color-azure-04: theme("colors.indigo.600");
+  --puck-color-azure-05: theme("colors.indigo.500");
+  --puck-color-azure-06: theme("colors.indigo.400");
+  --puck-color-azure-09: theme("colors.indigo.100");
+  --puck-color-azure-12: theme("colors.indigo.50");
+  border-radius: theme("borderRadius.lg");
+  overflow: hidden;
+  border: 1px solid theme("colors.gray.200");
+}
+
+/* Make the Puck header blend with the dashboard */
+[class*="Puck-header"] {
+  background: white !important;
+  border-bottom: 1px solid theme("colors.gray.200") !important;
+}
+
+/* Smoother sidebar */
+[class*="Puck-leftSideBar"],
+[class*="Puck-rightSideBar"] {
+  background: theme("colors.gray.50") !important;
+}
+
+/* Preview area */
+[class*="Puck-frame"] {
+  background: theme("colors.gray.100") !important;
+}
+
+/* ── RTL support for Hebrew field inputs in the sidebar ── */
+
+/* Sidebar panels: RTL direction for field labels and inputs */
+.puck-rtl [class*="Puck-leftSideBar"],
+.puck-rtl [class*="Puck-rightSideBar"] {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Text fields: ensure Hebrew typing goes right-to-left */
+.puck-rtl [class*="Puck-leftSideBar"] input[type="text"],
+.puck-rtl [class*="Puck-leftSideBar"] textarea,
+.puck-rtl [class*="Puck-rightSideBar"] input[type="text"],
+.puck-rtl [class*="Puck-rightSideBar"] textarea {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+
+/* Labels */
+.puck-rtl [class*="Puck-leftSideBar"] label,
+.puck-rtl [class*="Puck-rightSideBar"] label {
+  text-align: right;
+  direction: rtl;
+}
+
+/* Radio/select groups should flow RTL */
+.puck-rtl [class*="Puck-leftSideBar"] [class*="Field--"],
+.puck-rtl [class*="Puck-rightSideBar"] [class*="Field--"] {
+  direction: rtl;
+}
+
+/* Keep the Puck header chrome LTR (buttons, icons, viewport switcher) */
+.puck-rtl [class*="Puck-header"] {
+  direction: ltr;
+}
+
+/* Component list on the right sidebar stays LTR for consistent DnD */
+.puck-rtl [class*="Puck-rightSideBar"] [class*="ComponentList"] {
+  direction: ltr;
+}
