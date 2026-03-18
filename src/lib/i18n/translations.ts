@@ -710,11 +710,15 @@ export const translations = {
 
     // ── Calendar ──
     "cal.title": "Calendar",
-    "cal.subtitle": "Weekly overview of all appointments.",
+    "cal.subtitle": "View and manage all appointments.",
     "cal.today": "Today",
     "cal.prev_week": "Previous Week",
     "cal.next_week": "Next Week",
     "cal.no_staff": "Add staff members to see the calendar.",
+    "cal.view_day": "Day",
+    "cal.view_week": "Week",
+    "cal.view_month": "Month",
+    "cal.all_staff": "All",
 
     // ── Products ──
     "prod.title": "Products",
@@ -1536,11 +1540,15 @@ export const translations = {
 
     // ── Calendar ──
     "cal.title": "יומן",
-    "cal.subtitle": "סקירה שבועית של כל התורים.",
+    "cal.subtitle": "צפייה וניהול כל התורים.",
     "cal.today": "היום",
     "cal.prev_week": "שבוע קודם",
     "cal.next_week": "שבוע הבא",
     "cal.no_staff": "הוסיפו חברי צוות כדי לראות את היומן.",
+    "cal.view_day": "יום",
+    "cal.view_week": "שבוע",
+    "cal.view_month": "חודש",
+    "cal.all_staff": "הכל",
 
     // ── Products ──
     "prod.title": "מוצרים",

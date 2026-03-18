@@ -140,6 +140,36 @@ export async function getWeekAppointments(businessId: string, weekStart: Date) {
     .orderBy(appointments.startTime);
 }
 
+export async function getMonthAppointments(businessId: string, rangeStart: Date, rangeEnd: Date) {
+  return db
+    .select({
+      id: appointments.id,
+      status: appointments.status,
+      startTime: appointments.startTime,
+      endTime: appointments.endTime,
+      serviceName: services.title,
+      staffId: staffMembers.id,
+      staffName: staffMembers.name,
+      customerName: users.name,
+      customerPhone: users.phone,
+      notes: appointments.notes,
+    })
+    .from(appointments)
+    .innerJoin(services, eq(appointments.serviceId, services.id))
+    .innerJoin(staffMembers, eq(appointments.staffId, staffMembers.id))
+    .innerJoin(customers, eq(appointments.customerId, customers.id))
+    .innerJoin(users, eq(customers.userId, users.id))
+    .where(
+      and(
+        eq(appointments.businessId, businessId),
+        gte(appointments.startTime, rangeStart),
+        lt(appointments.startTime, rangeEnd),
+        ne(appointments.status, "CANCELLED")
+      )
+    )
+    .orderBy(appointments.startTime);
+}
+
 export interface AppointmentFilters {
   status?: string;
   staffId?: string;
