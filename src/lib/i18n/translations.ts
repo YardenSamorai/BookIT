@@ -720,6 +720,24 @@ export const translations = {
     "cal.view_month": "Month",
     "cal.all_staff": "All",
 
+    // ── Manual Booking ──
+    "manual.title": "New Appointment",
+    "manual.description": "Create an appointment for a customer manually.",
+    "manual.add_apt": "New Appointment",
+    "manual.customer_name": "Customer Name",
+    "manual.customer_name_ph": "Full name",
+    "manual.customer_phone": "Phone Number",
+    "manual.service": "Service",
+    "manual.staff": "Staff Member",
+    "manual.date": "Date",
+    "manual.time": "Time",
+    "manual.notes": "Notes",
+    "manual.notes_ph": "Optional notes...",
+    "manual.create": "Create Appointment",
+    "manual.error_required": "Customer name and phone are required.",
+    "manual.error_invalid_date": "Invalid date or time.",
+    "manual.error_generic": "Something went wrong. Please try again.",
+
     // ── Products ──
     "prod.title": "Products",
     "prod.subtitle": "Manage your product catalog.",
@@ -1549,6 +1567,24 @@ export const translations = {
     "cal.view_week": "שבוע",
     "cal.view_month": "חודש",
     "cal.all_staff": "הכל",
+
+    // ── Manual Booking ──
+    "manual.title": "תור חדש",
+    "manual.description": "יצירת תור ידנית עבור לקוח.",
+    "manual.add_apt": "תור חדש",
+    "manual.customer_name": "שם הלקוח",
+    "manual.customer_name_ph": "שם מלא",
+    "manual.customer_phone": "מספר טלפון",
+    "manual.service": "שירות",
+    "manual.staff": "נותן שירות",
+    "manual.date": "תאריך",
+    "manual.time": "שעה",
+    "manual.notes": "הערות",
+    "manual.notes_ph": "הערות אופציונליות...",
+    "manual.create": "צור תור",
+    "manual.error_required": "שם ומספר טלפון של הלקוח נדרשים.",
+    "manual.error_invalid_date": "תאריך או שעה לא תקינים.",
+    "manual.error_generic": "משהו השתבש. נסו שוב.",
 
     // ── Products ──
     "prod.title": "מוצרים",

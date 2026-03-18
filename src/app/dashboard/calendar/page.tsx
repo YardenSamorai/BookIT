@@ -1,6 +1,7 @@
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessLocale } from "@/lib/db/queries/business";
 import { getStaffMembers } from "@/lib/db/queries/staff";
+import { getServices } from "@/lib/db/queries/services";
 import { getMonthAppointments } from "@/lib/db/queries/appointments";
 import { t } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
@@ -38,11 +39,16 @@ export default async function CalendarPage({
   const month = baseDate.getMonth();
   const { rangeStart, rangeEnd } = getMonthRange(year, month);
 
-  const [staff, appointments, locale] = await Promise.all([
+  const [staff, servicesList, appointments, locale] = await Promise.all([
     getStaffMembers(businessId),
+    getServices(businessId),
     getMonthAppointments(businessId, rangeStart, rangeEnd),
     getBusinessLocale(businessId),
   ]);
+
+  const activeServices = servicesList
+    .filter((s) => s.isActive)
+    .map((s) => ({ id: s.id, title: s.title, durationMinutes: s.durationMinutes }));
 
   return (
     <div className="space-y-6">
@@ -52,6 +58,8 @@ export default async function CalendarPage({
       />
       <CalendarShell
         staff={staff}
+        services={activeServices}
+        businessId={businessId}
         appointments={appointments}
         initialView={view}
         initialDate={baseDate.toISOString()}

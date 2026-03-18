@@ -221,6 +221,120 @@ export async function createAppointment(
   return { success: true, data: { appointmentId: appointment.id } };
 }
 
+export async function createManualAppointment(input: {
+  businessId: string;
+  customerPhone: string;
+  customerName: string;
+  serviceId: string;
+  staffId: string;
+  startTime: string;
+  notes?: string;
+}): Promise<ActionResult<{ appointmentId: string }>> {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  await requireBusinessOwner();
+
+  const { businessId, customerPhone, customerName, serviceId, staffId, startTime: startTimeStr, notes } = input;
+
+  if (!customerPhone?.trim() || !customerName?.trim()) {
+    return { success: false, error: "Customer name and phone are required" };
+  }
+
+  const { users } = await import("@/lib/db/schema");
+  const phone = customerPhone.replace(/[\s\-()]/g, "");
+
+  let user = await db.query.users.findFirst({
+    where: eq(users.phone, phone),
+    columns: { id: true },
+  });
+
+  if (!user) {
+    const [created] = await db
+      .insert(users)
+      .values({ name: customerName.trim(), phone, role: "CUSTOMER" })
+      .returning({ id: users.id });
+    user = created;
+  }
+
+  const customerId = await findOrCreateCustomer(businessId, user.id);
+
+  const service = await db.query.services.findFirst({
+    where: and(eq(services.id, serviceId), eq(services.businessId, businessId)),
+  });
+
+  if (!service) return { success: false, error: "Service not found" };
+
+  const startTime = new Date(startTimeStr);
+  const endTime = new Date(startTime.getTime() + service.durationMinutes * 60 * 1000);
+
+  const conflicts = await db
+    .select({ id: appointments.id })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.staffId, staffId),
+        ne(appointments.status, "CANCELLED"),
+        lt(appointments.startTime, endTime),
+        gte(appointments.endTime, startTime)
+      )
+    )
+    .limit(1);
+
+  if (conflicts.length > 0) {
+    return { success: false, error: "Time slot not available" };
+  }
+
+  const [appointment] = await db
+    .insert(appointments)
+    .values({
+      businessId,
+      customerId,
+      serviceId,
+      staffId,
+      startTime,
+      endTime,
+      status: "CONFIRMED",
+      paymentStatus: service.paymentMode === "FREE" ? "FREE" : "ON_SITE",
+      paymentAmount: service.price || null,
+      notes: notes || null,
+      source: "DASHBOARD",
+    })
+    .returning({ id: appointments.id });
+
+  await db.insert(appointmentLogs).values({
+    appointmentId: appointment.id,
+    action: "CREATED",
+    newValue: "CONFIRMED",
+    performedBy: "BUSINESS",
+  });
+
+  // Send SMS to customer
+  try {
+    const { sendSms } = await import("@/lib/notifications/sms");
+    const business = await db.query.businesses.findFirst({
+      where: eq(businesses.id, businessId),
+      columns: { name: true },
+    });
+    const dateStr = startTime.toLocaleDateString("he-IL", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    const timeStr = startTime.toLocaleTimeString("he-IL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const msg = `שלום ${customerName}, נקבע לך תור ב${business?.name ?? "BookIT"} ב${dateStr} בשעה ${timeStr}. שירות: ${service.title}.`;
+    await sendSms(phone, msg);
+  } catch {
+    // SMS failure should not block appointment creation
+  }
+
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/appointments");
+  revalidatePath("/dashboard");
+  return { success: true, data: { appointmentId: appointment.id } };
+}
+
 export async function cancelAppointment(
   appointmentId: string,
   cancelledBy: "CUSTOMER" | "BUSINESS",

@@ -2,13 +2,14 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import {
   AppointmentQuickView,
   type QuickViewAppointment,
 } from "./appointment-quick-view";
+import { ManualBookingDialog } from "./manual-booking-dialog";
 import { WeekView } from "./week-view";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
@@ -17,6 +18,8 @@ import { STAFF_COLORS } from "./calendar-types";
 
 interface CalendarShellProps {
   staff: Staff[];
+  services: { id: string; title: string; durationMinutes: number }[];
+  businessId: string;
   appointments: Appointment[];
   initialView: string;
   initialDate: string;
@@ -26,6 +29,8 @@ interface CalendarShellProps {
 
 export function CalendarShell({
   staff,
+  services,
+  businessId,
   appointments,
   initialView,
   initialDate,
@@ -44,6 +49,7 @@ export function CalendarShell({
   const [selectedApt, setSelectedApt] = useState<QuickViewAppointment | null>(
     null
   );
+  const [bookingOpen, setBookingOpen] = useState(false);
 
   const handleAptClick = useCallback((apt: Appointment) => {
     setSelectedApt(apt as QuickViewAppointment);
@@ -163,7 +169,7 @@ export function CalendarShell({
           ))}
         </div>
 
-        {/* Navigation */}
+        {/* Navigation + Add button */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -186,6 +192,14 @@ export function CalendarShell({
             ) : (
               <ChevronRight className="size-4" />
             )}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setBookingOpen(true)}
+            className="ms-2"
+          >
+            <Plus className="size-4 me-1" />
+            {t("manual.add_apt")}
           </Button>
         </div>
       </div>
@@ -279,6 +293,15 @@ export function CalendarShell({
         onOpenChange={(open) => {
           if (!open) setSelectedApt(null);
         }}
+      />
+
+      <ManualBookingDialog
+        open={bookingOpen}
+        onOpenChange={setBookingOpen}
+        businessId={businessId}
+        staff={staff.map((s) => ({ id: s.id, name: s.name }))}
+        services={services}
+        initialDate={currentDate.toISOString().slice(0, 10)}
       />
     </div>
   );
