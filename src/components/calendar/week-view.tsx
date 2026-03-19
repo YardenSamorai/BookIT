@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { ChevronLeft } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-context";
 import type { Appointment, Staff } from "./calendar-types";
 import { STAFF_COLORS, isSameDay, formatTime } from "./calendar-types";
@@ -16,7 +17,8 @@ interface WeekViewProps {
 }
 
 const DAY_NAMES_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const DAY_NAMES_HE = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const DAY_NAMES_HE = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "שבת"];
+const DAY_NAMES_HE_FULL = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
 export function WeekView({
   appointments,
@@ -31,6 +33,7 @@ export function WeekView({
   const isRtl = locale === "he";
   const dateLocale = isRtl ? "he-IL" : "en-US";
   const dayNames = isRtl ? DAY_NAMES_HE : DAY_NAMES_EN;
+  const dayNamesFull = isRtl ? DAY_NAMES_HE_FULL : DAY_NAMES_EN;
   const today = new Date();
   const multiStaff = staff.length > 1;
 
@@ -66,65 +69,149 @@ export function WeekView({
   }, [appointments, weekDays]);
 
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {weekDays.map((day, i) => {
-        const isCurrentDay = isSameDay(day, today);
-        const dayApts = appointmentsByDay.get(i) ?? [];
+    <>
+      {/* ── Desktop: grid layout ── */}
+      <div className="hidden md:grid md:grid-cols-7 md:gap-1.5">
+        {weekDays.map((day, i) => {
+          const isCurrentDay = isSameDay(day, today);
+          const dayApts = appointmentsByDay.get(i) ?? [];
 
-        return (
-          <div
-            key={i}
-            className={`min-h-[180px] rounded-xl border p-1.5 transition-colors ${
-              isCurrentDay
-                ? "border-primary/30 bg-primary/5"
-                : "border-border bg-card"
-            }`}
-          >
-            {/* Day header */}
+          return (
+            <div
+              key={i}
+              className={`min-h-[180px] rounded-xl border p-1.5 transition-colors ${
+                isCurrentDay
+                  ? "border-primary/30 bg-primary/5"
+                  : "border-border bg-card"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onDayClick(day)}
+                className="mb-1.5 w-full text-center transition-colors hover:text-primary"
+              >
+                <p className="text-[10px] text-muted-foreground">{dayNamesFull[day.getDay()]}</p>
+                <p
+                  className={`text-lg font-bold leading-none ${
+                    isCurrentDay ? "text-primary" : "text-foreground"
+                  }`}
+                >
+                  {day.getDate()}
+                </p>
+              </button>
+
+              {multiStaff ? (
+                <StaffSubColumns
+                  staff={staff}
+                  staffFilter={staffFilter}
+                  staffColorMap={staffColorMap}
+                  dayApts={dayApts}
+                  dateLocale={dateLocale}
+                  onAptClick={onAptClick}
+                />
+              ) : (
+                <div className="space-y-1">
+                  {dayApts.map((apt) => (
+                    <AptCard
+                      key={apt.id}
+                      apt={apt}
+                      staffColorMap={staffColorMap}
+                      dateLocale={dateLocale}
+                      onAptClick={onAptClick}
+                    />
+                  ))}
+                  {dayApts.length === 0 && (
+                    <p className="py-3 text-center text-[10px] text-muted-foreground/50">—</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Mobile: vertical list layout ── */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {weekDays.map((day, i) => {
+          const isCurrentDay = isSameDay(day, today);
+          const dayApts = appointmentsByDay.get(i) ?? [];
+
+          return (
             <button
+              key={i}
               type="button"
               onClick={() => onDayClick(day)}
-              className="mb-1.5 w-full text-center transition-colors hover:text-primary"
+              className={`flex items-start gap-3 rounded-xl border p-3 text-start transition-colors active:scale-[0.99] ${
+                isCurrentDay
+                  ? "border-primary/30 bg-primary/5"
+                  : "border-border bg-card"
+              }`}
             >
-              <p className="text-[10px] text-muted-foreground">{dayNames[day.getDay()]}</p>
-              <p
-                className={`text-lg font-bold leading-none ${
-                  isCurrentDay ? "text-primary" : "text-foreground"
-                }`}
-              >
-                {day.getDate()}
-              </p>
-            </button>
+              {/* Date badge */}
+              <div className="flex w-11 shrink-0 flex-col items-center">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {dayNames[day.getDay()]}
+                </span>
+                <span
+                  className={`mt-0.5 flex size-9 items-center justify-center rounded-full text-base font-bold ${
+                    isCurrentDay
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground"
+                  }`}
+                >
+                  {day.getDate()}
+                </span>
+              </div>
 
-            {multiStaff ? (
-              <StaffSubColumns
-                staff={staff}
-                staffFilter={staffFilter}
-                staffColorMap={staffColorMap}
-                dayApts={dayApts}
-                dateLocale={dateLocale}
-                onAptClick={onAptClick}
-              />
-            ) : (
-              <div className="space-y-1">
-                {dayApts.map((apt) => (
-                  <AptCard
-                    key={apt.id}
-                    apt={apt}
-                    staffColorMap={staffColorMap}
-                    dateLocale={dateLocale}
-                    onAptClick={onAptClick}
-                  />
-                ))}
-                {dayApts.length === 0 && (
-                  <p className="py-3 text-center text-[10px] text-muted-foreground/50">-</p>
+              {/* Appointments list */}
+              <div className="flex-1 min-w-0">
+                {dayApts.length === 0 ? (
+                  <p className="py-2 text-sm text-muted-foreground/50">—</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {dayApts.map((apt) => {
+                      const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
+                      const start = new Date(apt.startTime);
+                      const end = new Date(apt.endTime);
+                      return (
+                        <div
+                          key={apt.id}
+                          className="flex items-center gap-1.5 rounded-lg border-s-2 px-2 py-1 text-[12px] leading-tight shadow-sm"
+                          style={{
+                            backgroundColor: clr.bg,
+                            borderColor: clr.border,
+                            color: clr.text,
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAptClick(apt);
+                          }}
+                        >
+                          <span className="font-semibold tabular-nums whitespace-nowrap">
+                            {formatTime(start, dateLocale)}
+                          </span>
+                          <span className="truncate opacity-80">{apt.serviceName}</span>
+                          {apt.customerName && (
+                            <span className="hidden xs:inline truncate text-[11px] opacity-60">
+                              · {apt.customerName}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+
+              {/* Chevron */}
+              <ChevronLeft
+                className={`mt-2 size-4 shrink-0 text-muted-foreground/40 ${isRtl ? "" : "rotate-180"}`}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

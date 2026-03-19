@@ -15,6 +15,7 @@ import {
   PaintBucket,
   Star,
   ExternalLink,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -93,6 +94,7 @@ export function AppSidebar({ businessSlug }: { businessSlug?: string }) {
     { title: t("dash.appointments"), href: "/dashboard/appointments", icon: ClipboardList },
     { title: t("dash.customers"), href: "/dashboard/customers", icon: Users },
     { title: t("dash.reviews"), href: "/dashboard/reviews", icon: Star },
+    { title: t("dash.statistics"), href: "/dashboard/statistics", icon: BarChart3 },
   ];
 
   const manageNav: NavItem[] = [

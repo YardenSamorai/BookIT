@@ -174,24 +174,16 @@ export function CalendarShell({
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(1)}
           >
-            {isRtl ? (
-              <ChevronRight className="size-4" />
-            ) : (
-              <ChevronLeft className="size-4" />
-            )}
+            <ChevronRight className="size-4" />
           </Button>
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => navigate(1)}
+            onClick={() => navigate(-1)}
           >
-            {isRtl ? (
-              <ChevronLeft className="size-4" />
-            ) : (
-              <ChevronRight className="size-4" />
-            )}
+            <ChevronLeft className="size-4" />
           </Button>
           <Button
             size="sm"
