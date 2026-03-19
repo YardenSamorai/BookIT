@@ -11,6 +11,8 @@ import {
   businesses,
   customerPackages,
   servicePackages,
+  staffMembers,
+  users,
 } from "@/lib/db/schema";
 import { bookingSchema, type BookingInput } from "@/validators/booking";
 import type { ActionResult } from "@/types";
@@ -229,11 +231,12 @@ export async function createManualAppointment(input: {
   staffId: string;
   startTime: string;
   notes?: string;
+  durationMinutes?: number;
 }): Promise<ActionResult<{ appointmentId: string }>> {
   const { requireBusinessOwner } = await import("@/lib/auth/guards");
   await requireBusinessOwner();
 
-  const { businessId, customerPhone, customerName, serviceId, staffId, startTime: startTimeStr, notes } = input;
+  const { businessId, customerPhone, customerName, serviceId, staffId, startTime: startTimeStr, notes, durationMinutes: customDurationMin } = input;
 
   if (!customerPhone?.trim() || !customerName?.trim()) {
     return { success: false, error: "Customer name and phone are required" };
@@ -257,14 +260,30 @@ export async function createManualAppointment(input: {
 
   const customerId = await findOrCreateCustomer(businessId, user.id);
 
+  const startTime = new Date(startTimeStr);
+  if (isNaN(startTime.getTime())) {
+    return { success: false, error: "Invalid date/time" };
+  }
+  if (startTime.getTime() < Date.now() - 60_000) {
+    return { success: false, error: "Cannot book appointments in the past" };
+  }
+
   const service = await db.query.services.findFirst({
     where: and(eq(services.id, serviceId), eq(services.businessId, businessId)),
   });
 
   if (!service) return { success: false, error: "Service not found" };
 
-  const startTime = new Date(startTimeStr);
-  const endTime = new Date(startTime.getTime() + service.durationMinutes * 60 * 1000);
+  const effectiveDuration = customDurationMin && customDurationMin > 0 ? customDurationMin : service.durationMinutes;
+  const endTime = new Date(startTime.getTime() + effectiveDuration * 60 * 1000);
+
+  const business = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { defaultBufferMin: true },
+  });
+  const bufferMin = service.bufferMinutes ?? business?.defaultBufferMin ?? 0;
+  const bufferedStart = new Date(startTime.getTime() - bufferMin * 60 * 1000);
+  const bufferedEnd = new Date(endTime.getTime() + bufferMin * 60 * 1000);
 
   const conflicts = await db
     .select({ id: appointments.id })
@@ -273,14 +292,54 @@ export async function createManualAppointment(input: {
       and(
         eq(appointments.staffId, staffId),
         ne(appointments.status, "CANCELLED"),
-        lt(appointments.startTime, endTime),
-        gte(appointments.endTime, startTime)
+        lt(appointments.startTime, bufferedEnd),
+        gte(appointments.endTime, bufferedStart)
       )
     )
     .limit(1);
 
   if (conflicts.length > 0) {
     return { success: false, error: "Time slot not available" };
+  }
+
+  if (service.blocksAllStaff) {
+    const crossConflicts = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.businessId, businessId),
+          ne(appointments.staffId, staffId),
+          ne(appointments.status, "CANCELLED"),
+          lt(appointments.startTime, bufferedEnd),
+          gte(appointments.endTime, bufferedStart)
+        )
+      )
+      .limit(1);
+
+    if (crossConflicts.length > 0) {
+      return { success: false, error: "Time slot not available – this service blocks all staff" };
+    }
+  }
+
+  const globalBlockConflicts = await db
+    .select({ id: appointments.id })
+    .from(appointments)
+    .innerJoin(services, eq(appointments.serviceId, services.id))
+    .where(
+      and(
+        eq(appointments.businessId, businessId),
+        eq(services.blocksAllStaff, true),
+        ne(appointments.staffId, staffId),
+        ne(appointments.status, "CANCELLED"),
+        lt(appointments.startTime, bufferedEnd),
+        gte(appointments.endTime, bufferedStart)
+      )
+    )
+    .limit(1);
+
+  if (globalBlockConflicts.length > 0) {
+    return { success: false, error: "Time slot blocked by another service" };
   }
 
   const [appointment] = await db
@@ -310,11 +369,18 @@ export async function createManualAppointment(input: {
   // Send SMS to customer
   try {
     const { sendSms } = await import("@/lib/notifications/sms");
-    const business = await db.query.businesses.findFirst({
-      where: eq(businesses.id, businessId),
-      columns: { name: true },
-    });
+    const [business, staffMember] = await Promise.all([
+      db.query.businesses.findFirst({
+        where: eq(businesses.id, businessId),
+        columns: { name: true },
+      }),
+      db.query.staffMembers.findFirst({
+        where: eq(staffMembers.id, staffId),
+        columns: { name: true },
+      }),
+    ]);
     const dateStr = startTime.toLocaleDateString("he-IL", {
+      weekday: "long",
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -323,7 +389,8 @@ export async function createManualAppointment(input: {
       hour: "2-digit",
       minute: "2-digit",
     });
-    const msg = `שלום ${customerName}, נקבע לך תור ב${business?.name ?? "BookIT"} ב${dateStr} בשעה ${timeStr}. שירות: ${service.title}.`;
+    const staffLine = staffMember ? `\nנותן שירות: ${staffMember.name}` : "";
+    const msg = `שלום ${customerName}, נקבע לך תור ב${business?.name ?? "BookIT"}.\n📅 ${dateStr} בשעה ${timeStr}\n💇 שירות: ${service.title}${staffLine}\nנתראה!`;
     await sendSms(phone, msg);
   } catch {
     // SMS failure should not block appointment creation
@@ -333,6 +400,73 @@ export async function createManualAppointment(input: {
   revalidatePath("/dashboard/appointments");
   revalidatePath("/dashboard");
   return { success: true, data: { appointmentId: appointment.id } };
+}
+
+export async function getStaffDaySchedule(
+  _staffId: string,
+  businessId: string,
+  dateStr: string
+): Promise<{ startTime: string; endTime: string; isActive: boolean } | null> {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  await requireBusinessOwner();
+
+  const { businessHours } = await import("@/lib/db/schema");
+  const d = new Date(dateStr + "T12:00:00");
+  const dayOfWeek = d.getDay();
+
+  const hours = await db.query.businessHours.findFirst({
+    where: and(
+      eq(businessHours.businessId, businessId),
+      eq(businessHours.dayOfWeek, dayOfWeek)
+    ),
+  });
+
+  if (!hours) return null;
+  return {
+    startTime: hours.startTime,
+    endTime: hours.endTime,
+    isActive: hours.isOpen,
+  };
+}
+
+export async function getDayAppointments(
+  businessId: string,
+  date: string,
+  staffId?: string
+) {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  await requireBusinessOwner();
+
+  const dayStart = new Date(date + "T00:00:00");
+  const dayEnd = new Date(date + "T23:59:59.999");
+
+  const conditions = [
+    eq(appointments.businessId, businessId),
+    gte(appointments.startTime, dayStart),
+    lt(appointments.startTime, dayEnd),
+    ne(appointments.status, "CANCELLED"),
+  ];
+  if (staffId) conditions.push(eq(appointments.staffId, staffId));
+
+  return db
+    .select({
+      id: appointments.id,
+      status: appointments.status,
+      startTime: appointments.startTime,
+      endTime: appointments.endTime,
+      serviceName: services.title,
+      staffId: appointments.staffId,
+      staffName: staffMembers.name,
+      customerName: users.name,
+      blocksAllStaff: services.blocksAllStaff,
+    })
+    .from(appointments)
+    .innerJoin(services, eq(appointments.serviceId, services.id))
+    .innerJoin(staffMembers, eq(appointments.staffId, staffMembers.id))
+    .innerJoin(customers, eq(appointments.customerId, customers.id))
+    .innerJoin(users, eq(customers.userId, users.id))
+    .where(and(...conditions))
+    .orderBy(appointments.startTime);
 }
 
 export async function cancelAppointment(
@@ -428,6 +562,14 @@ export async function rescheduleAppointment(
   const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
   const staffId = newStaffId || appointment.staffId;
 
+  const business = await db.query.businesses.findFirst({
+    where: eq(businesses.id, appointment.businessId),
+    columns: { defaultBufferMin: true },
+  });
+  const bufferMin = service.bufferMinutes ?? business?.defaultBufferMin ?? 0;
+  const bufferedStart = new Date(start.getTime() - bufferMin * 60 * 1000);
+  const bufferedEnd = new Date(end.getTime() + bufferMin * 60 * 1000);
+
   const conflicts = await db
     .select({ id: appointments.id })
     .from(appointments)
@@ -436,14 +578,56 @@ export async function rescheduleAppointment(
         eq(appointments.staffId, staffId),
         ne(appointments.id, appointmentId),
         ne(appointments.status, "CANCELLED"),
-        lt(appointments.startTime, end),
-        gte(appointments.endTime, start)
+        lt(appointments.startTime, bufferedEnd),
+        gte(appointments.endTime, bufferedStart)
       )
     )
     .limit(1);
 
   if (conflicts.length > 0) {
     return { success: false, error: "Time slot not available" };
+  }
+
+  if (service.blocksAllStaff) {
+    const crossConflicts = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.businessId, appointment.businessId),
+          ne(appointments.staffId, staffId),
+          ne(appointments.id, appointmentId),
+          ne(appointments.status, "CANCELLED"),
+          lt(appointments.startTime, bufferedEnd),
+          gte(appointments.endTime, bufferedStart)
+        )
+      )
+      .limit(1);
+
+    if (crossConflicts.length > 0) {
+      return { success: false, error: "Time slot not available – this service blocks all staff" };
+    }
+  }
+
+  const globalBlockConflicts = await db
+    .select({ id: appointments.id })
+    .from(appointments)
+    .innerJoin(services, eq(appointments.serviceId, services.id))
+    .where(
+      and(
+        eq(appointments.businessId, appointment.businessId),
+        eq(services.blocksAllStaff, true),
+        ne(appointments.staffId, staffId),
+        ne(appointments.id, appointmentId),
+        ne(appointments.status, "CANCELLED"),
+        lt(appointments.startTime, bufferedEnd),
+        gte(appointments.endTime, bufferedStart)
+      )
+    )
+    .limit(1);
+
+  if (globalBlockConflicts.length > 0) {
+    return { success: false, error: "Time slot blocked by another service" };
   }
 
   const oldStart = appointment.startTime;

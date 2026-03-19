@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -23,7 +23,9 @@ interface ManualBookingDialogProps {
   businessId: string;
   staff: { id: string; name: string }[];
   services: { id: string; title: string; durationMinutes: number }[];
+  serviceStaffLinks?: { serviceId: string; staffId: string }[];
   initialDate?: string;
+  prefillCustomer?: { name: string; phone: string };
 }
 
 export function ManualBookingDialog({
@@ -32,7 +34,9 @@ export function ManualBookingDialog({
   businessId,
   staff,
   services,
+  serviceStaffLinks,
   initialDate,
+  prefillCustomer,
 }: ManualBookingDialogProps) {
   const t = useT();
   const locale = useLocale();
@@ -40,7 +44,8 @@ export function ManualBookingDialog({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const [form, setForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -50,6 +55,31 @@ export function ManualBookingDialog({
     time: "10:00",
     notes: "",
   });
+
+  const availableStaff = useMemo(() => {
+    if (!serviceStaffLinks || serviceStaffLinks.length === 0) return staff;
+    const linkedIds = new Set(
+      serviceStaffLinks.filter((l) => l.serviceId === form.serviceId).map((l) => l.staffId)
+    );
+    if (linkedIds.size === 0) return staff;
+    return staff.filter((s) => linkedIds.has(s.id));
+  }, [staff, form.serviceId, serviceStaffLinks]);
+
+  useEffect(() => {
+    if (open && prefillCustomer) {
+      setForm((prev) => ({
+        ...prev,
+        customerName: prefillCustomer.name,
+        customerPhone: prefillCustomer.phone,
+      }));
+    }
+  }, [open, prefillCustomer]);
+
+  useEffect(() => {
+    if (availableStaff.length > 0 && !availableStaff.some((s) => s.id === form.staffId)) {
+      setForm((prev) => ({ ...prev, staffId: availableStaff[0].id }));
+    }
+  }, [availableStaff, form.staffId]);
 
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -72,6 +102,10 @@ export function ManualBookingDialog({
       setError(t("manual.error_invalid_date"));
       return;
     }
+    if (startTime.getTime() < Date.now()) {
+      setError(t("manual.error_past_time"));
+      return;
+    }
 
     startTransition(async () => {
       const result = await createManualAppointment({
@@ -87,8 +121,8 @@ export function ManualBookingDialog({
       if (result.success) {
         onOpenChange(false);
         setForm({
-          customerName: "",
-          customerPhone: "",
+          customerName: prefillCustomer?.name ?? "",
+          customerPhone: prefillCustomer?.phone ?? "",
           serviceId: services[0]?.id ?? "",
           staffId: staff[0]?.id ?? "",
           date: today,
@@ -104,7 +138,7 @@ export function ManualBookingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent dir={locale === "he" ? "rtl" : "ltr"} className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarPlus className="size-5" />
@@ -123,6 +157,8 @@ export function ManualBookingDialog({
                 onChange={(e) => update("customerName", e.target.value)}
                 placeholder={t("manual.customer_name_ph")}
                 disabled={isPending}
+                readOnly={!!prefillCustomer}
+                className={prefillCustomer ? "bg-muted" : ""}
               />
             </div>
             <div className="space-y-1.5">
@@ -133,6 +169,8 @@ export function ManualBookingDialog({
                 placeholder="05X-XXXXXXX"
                 dir="ltr"
                 disabled={isPending}
+                readOnly={!!prefillCustomer}
+                className={prefillCustomer ? "bg-muted" : ""}
               />
             </div>
           </div>
@@ -163,7 +201,7 @@ export function ManualBookingDialog({
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               disabled={isPending}
             >
-              {staff.map((s) => (
+              {availableStaff.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -178,6 +216,7 @@ export function ManualBookingDialog({
               <Input
                 type="date"
                 value={form.date}
+                min={today}
                 onChange={(e) => update("date", e.target.value)}
                 disabled={isPending}
               />

@@ -247,7 +247,13 @@ export function AppointmentDetail({ appointment }: AppointmentDetailProps) {
                 <span className="text-muted-foreground">
                   {t("apt.source")}:
                 </span>
-                <span className="font-medium">{appointment.source}</span>
+                <span className="font-medium">
+                  {appointment.source === "DASHBOARD"
+                    ? t("apt.source_dashboard")
+                    : appointment.source === "ONLINE"
+                      ? t("apt.source_online")
+                      : appointment.source}
+                </span>
               </div>
 
               <div className="flex items-center gap-2 text-sm">

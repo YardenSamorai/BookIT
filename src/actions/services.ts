@@ -108,6 +108,9 @@ export async function createService(
       meetingLink: data.meetingLink || null,
       cancelHoursBefore: data.cancelHoursBefore ?? null,
       rescheduleHoursBefore: data.rescheduleHoursBefore ?? null,
+      isGroup: data.isGroup,
+      maxParticipants: data.maxParticipants,
+      blocksAllStaff: data.blocksAllStaff,
       isActive: data.isActive,
     })
     .returning({ id: services.id });
@@ -147,6 +150,9 @@ export async function updateService(
       meetingLink: data.meetingLink || null,
       cancelHoursBefore: data.cancelHoursBefore ?? null,
       rescheduleHoursBefore: data.rescheduleHoursBefore ?? null,
+      isGroup: data.isGroup,
+      maxParticipants: data.maxParticipants,
+      blocksAllStaff: data.blocksAllStaff,
       isActive: data.isActive,
       updatedAt: new Date(),
     })

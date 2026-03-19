@@ -9,6 +9,7 @@ interface WeekViewProps {
   appointments: Appointment[];
   staff: Staff[];
   staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
+  staffFilter: string | null;
   currentDate: Date;
   onAptClick: (apt: Appointment) => void;
   onDayClick: (date: Date) => void;
@@ -21,6 +22,7 @@ export function WeekView({
   appointments,
   staff,
   staffColorMap,
+  staffFilter,
   currentDate,
   onAptClick,
   onDayClick,
@@ -30,6 +32,7 @@ export function WeekView({
   const dateLocale = isRtl ? "he-IL" : "en-US";
   const dayNames = isRtl ? DAY_NAMES_HE : DAY_NAMES_EN;
   const today = new Date();
+  const multiStaff = staff.length > 1;
 
   const weekStart = useMemo(() => {
     const d = new Date(currentDate);
@@ -63,7 +66,7 @@ export function WeekView({
   }, [appointments, weekDays]);
 
   return (
-    <div className="grid grid-cols-7 gap-2">
+    <div className="grid grid-cols-7 gap-1.5">
       {weekDays.map((day, i) => {
         const isCurrentDay = isSameDay(day, today);
         const dayApts = appointmentsByDay.get(i) ?? [];
@@ -71,7 +74,7 @@ export function WeekView({
         return (
           <div
             key={i}
-            className={`min-h-[180px] rounded-xl border p-2 transition-colors ${
+            className={`min-h-[180px] rounded-xl border p-1.5 transition-colors ${
               isCurrentDay
                 ? "border-primary/30 bg-primary/5"
                 : "border-border bg-card"
@@ -81,11 +84,11 @@ export function WeekView({
             <button
               type="button"
               onClick={() => onDayClick(day)}
-              className="mb-2 w-full text-center transition-colors hover:text-primary"
+              className="mb-1.5 w-full text-center transition-colors hover:text-primary"
             >
-              <p className="text-xs text-muted-foreground">{dayNames[day.getDay()]}</p>
+              <p className="text-[10px] text-muted-foreground">{dayNames[day.getDay()]}</p>
               <p
-                className={`text-2xl font-bold ${
+                className={`text-lg font-bold leading-none ${
                   isCurrentDay ? "text-primary" : "text-foreground"
                 }`}
               >
@@ -93,42 +96,148 @@ export function WeekView({
               </p>
             </button>
 
-            {/* Appointments */}
-            <div className="space-y-1.5">
-              {dayApts.map((apt) => {
-                const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
-                const start = new Date(apt.startTime);
-                const end = new Date(apt.endTime);
-
-                return (
-                  <button
+            {multiStaff ? (
+              <StaffSubColumns
+                staff={staff}
+                staffFilter={staffFilter}
+                staffColorMap={staffColorMap}
+                dayApts={dayApts}
+                dateLocale={dateLocale}
+                onAptClick={onAptClick}
+              />
+            ) : (
+              <div className="space-y-1">
+                {dayApts.map((apt) => (
+                  <AptCard
                     key={apt.id}
-                    type="button"
-                    onClick={() => onAptClick(apt)}
-                    className="w-full cursor-pointer rounded-lg border-s-2 px-2 py-1.5 text-start text-[11px] leading-tight shadow-sm transition-shadow hover:shadow-md"
-                    style={{
-                      backgroundColor: clr.bg,
-                      borderColor: clr.border,
-                      color: clr.text,
-                    }}
-                  >
-                    <p className="font-semibold tabular-nums">
-                      {formatTime(start, dateLocale)}-{formatTime(end, dateLocale)}
-                    </p>
-                    {staff.length > 1 && (
-                      <p className="truncate font-medium">{apt.staffName}</p>
-                    )}
-                    <p className="truncate opacity-75">{apt.serviceName}</p>
-                  </button>
-                );
-              })}
-              {dayApts.length === 0 && (
-                <p className="py-4 text-center text-[11px] text-muted-foreground/50">-</p>
-              )}
+                    apt={apt}
+                    staffColorMap={staffColorMap}
+                    dateLocale={dateLocale}
+                    onAptClick={onAptClick}
+                  />
+                ))}
+                {dayApts.length === 0 && (
+                  <p className="py-3 text-center text-[10px] text-muted-foreground/50">-</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StaffSubColumns({
+  staff,
+  staffFilter,
+  staffColorMap,
+  dayApts,
+  dateLocale,
+  onAptClick,
+}: {
+  staff: Staff[];
+  staffFilter: string | null;
+  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
+  dayApts: Appointment[];
+  dateLocale: string;
+  onAptClick: (apt: Appointment) => void;
+}) {
+  return (
+    <div className="flex gap-0.5">
+      {staff.map((s) => {
+        const clr = staffColorMap.get(s.id) ?? STAFF_COLORS[0];
+        const dimmed = staffFilter !== null && staffFilter !== s.id;
+        const staffApts = dayApts.filter((a) => a.staffId === s.id);
+
+        return (
+          <div
+            key={s.id}
+            className={`flex-1 min-w-0 transition-opacity ${dimmed ? "opacity-30" : ""}`}
+          >
+            {/* Mini staff header */}
+            <div className="mb-1 flex items-center justify-center gap-0.5 rounded-md py-0.5" style={{ backgroundColor: `${clr.border}18` }}>
+              <span
+                className="size-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: clr.border }}
+              />
+              <span className="text-[9px] font-medium truncate" style={{ color: clr.text }}>
+                {staff.length > 3 ? s.name.charAt(0) : s.name.split(" ")[0]}
+              </span>
+            </div>
+
+            {/* Appointments */}
+            <div className="space-y-0.5">
+              {staffApts.map((apt) => (
+                <AptCard
+                  key={apt.id}
+                  apt={apt}
+                  staffColorMap={staffColorMap}
+                  dateLocale={dateLocale}
+                  onAptClick={onAptClick}
+                  compact
+                />
+              ))}
             </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+function AptCard({
+  apt,
+  staffColorMap,
+  dateLocale,
+  onAptClick,
+  compact,
+}: {
+  apt: Appointment;
+  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
+  dateLocale: string;
+  onAptClick: (apt: Appointment) => void;
+  compact?: boolean;
+}) {
+  const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
+  const start = new Date(apt.startTime);
+  const end = new Date(apt.endTime);
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => onAptClick(apt)}
+        className="w-full cursor-pointer rounded border-s-2 px-1 py-0.5 text-start text-[9px] leading-tight shadow-sm transition-shadow hover:shadow-md"
+        style={{
+          backgroundColor: clr.bg,
+          borderColor: clr.border,
+          color: clr.text,
+        }}
+      >
+        <p className="font-semibold tabular-nums truncate">
+          {formatTime(start, dateLocale)}
+        </p>
+        <p className="truncate opacity-75">{apt.serviceName}</p>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onAptClick(apt)}
+      className="w-full cursor-pointer rounded-lg border-s-2 px-2 py-1.5 text-start text-[11px] leading-tight shadow-sm transition-shadow hover:shadow-md"
+      style={{
+        backgroundColor: clr.bg,
+        borderColor: clr.border,
+        color: clr.text,
+      }}
+    >
+      <p className="font-semibold tabular-nums">
+        {formatTime(start, dateLocale)}-{formatTime(end, dateLocale)}
+      </p>
+      <p className="truncate opacity-75">{apt.serviceName}</p>
+    </button>
   );
 }

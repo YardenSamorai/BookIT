@@ -14,12 +14,17 @@ export const businessInfoSchema = z.object({
   language: z.enum(["en", "he"]).optional(),
 });
 
-export const businessHoursEntrySchema = z.object({
-  dayOfWeek: z.number().int().min(0).max(6),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
-  isOpen: z.boolean(),
-});
+export const businessHoursEntrySchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Invalid time format").transform((v) => v.slice(0, 5)),
+    endTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Invalid time format").transform((v) => v.slice(0, 5)),
+    isOpen: z.boolean(),
+  })
+  .refine(
+    (e) => !e.isOpen || e.startTime < e.endTime,
+    { message: "End time must be after start time", path: ["endTime"] }
+  );
 
 export const businessHoursSchema = z.array(businessHoursEntrySchema).length(7);
 

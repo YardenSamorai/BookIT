@@ -14,9 +14,10 @@ interface DayViewProps {
   onAptClick: (apt: Appointment) => void;
 }
 
-const HOUR_START = 8;
-const HOUR_END = 20;
-const ROW_HEIGHT = 60;
+const HOUR_START = 7;
+const HOUR_END = 22;
+const ROW_HEIGHT = 64;
+const PX_PER_MIN = ROW_HEIGHT / 60;
 
 export function DayView({
   appointments,
@@ -43,6 +44,7 @@ export function DayView({
 
   const gridHeight = hours.length * ROW_HEIGHT;
   const totalMinutes = (HOUR_END - HOUR_START) * 60;
+  const multiStaff = staff.length > 1;
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -51,11 +53,15 @@ export function DayView({
 
   useEffect(() => {
     if (!gridRef.current) return;
+    if (!isSameDay(now, currentDate)) {
+      gridRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     const mins = now.getHours() * 60 + now.getMinutes() - HOUR_START * 60;
     if (mins < 0) return;
     const scrollTarget = Math.max(0, (mins / 60) * ROW_HEIGHT - 120);
     gridRef.current.scrollTo({ top: scrollTarget, behavior: "smooth" });
-  }, [currentDate]);
+  }, [currentDate, now]);
 
   const currentTimeTop = useMemo(() => {
     if (!isSameDay(now, currentDate)) return null;
@@ -64,29 +70,25 @@ export function DayView({
     return (mins / 60) * ROW_HEIGHT;
   }, [now, currentDate, totalMinutes]);
 
-  const visibleStaff = staffFilter
-    ? staff.filter((s) => s.id === staffFilter)
-    : staff;
-  const showColumns = visibleStaff.length > 1 && !staffFilter;
-
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      {/* Staff column headers (multi-staff, no filter) */}
-      {showColumns && (
-        <div className="flex border-b bg-muted/30">
-          <div className="w-16 shrink-0" />
-          {visibleStaff.map((s, i) => {
+      {/* Sticky staff column headers */}
+      {multiStaff && (
+        <div className="sticky top-0 z-20 flex border-b bg-card/95 backdrop-blur-sm">
+          <div className="w-14 shrink-0" />
+          {staff.map((s, i) => {
             const clr = STAFF_COLORS[i % STAFF_COLORS.length];
+            const dimmed = staffFilter !== null && staffFilter !== s.id;
             return (
               <div
                 key={s.id}
-                className="flex flex-1 items-center justify-center gap-1.5 border-s border-border/30 py-2"
+                className={`flex flex-1 items-center justify-center gap-1.5 border-s border-border/30 py-2.5 transition-opacity ${dimmed ? "opacity-40" : ""}`}
               >
                 <span
-                  className="size-2 rounded-full"
+                  className="size-2.5 rounded-full"
                   style={{ backgroundColor: clr.border }}
                 />
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-xs font-semibold">
                   {s.name}
                 </span>
               </div>
@@ -102,40 +104,55 @@ export function DayView({
       >
         <div className="relative flex" style={{ height: gridHeight }}>
           {/* Time axis */}
-          <div className="w-16 shrink-0 border-e border-border/30">
+          <div className="w-14 shrink-0 border-e border-border/30">
             {hours.map((h) => (
               <div
                 key={h}
                 className="flex items-start justify-end pe-2 pt-1"
                 style={{ height: ROW_HEIGHT }}
               >
-                <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
                   {String(h).padStart(2, "0")}:00
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Appointment columns */}
-          {showColumns ? (
-            visibleStaff.map((s, si) => (
-              <StaffColumn
-                key={s.id}
-                staffId={s.id}
-                appointments={dayApts.filter((a) => a.staffId === s.id)}
-                staffColorMap={staffColorMap}
-                dateLocale={dateLocale}
-                onAptClick={onAptClick}
-                showBorder={si > 0}
-              />
-            ))
+          {/* Staff columns (always shown when multi-staff) */}
+          {multiStaff ? (
+            staff.map((s, si) => {
+              const dimmed = staffFilter !== null && staffFilter !== s.id;
+              return (
+                <div
+                  key={s.id}
+                  className={`relative flex-1 ${si > 0 ? "border-s border-border/20" : ""} transition-opacity ${dimmed ? "opacity-30" : ""}`}
+                >
+                  {dayApts
+                    .filter((a) => a.staffId === s.id)
+                    .map((apt) => (
+                      <AptBlock
+                        key={apt.id}
+                        apt={apt}
+                        staffColorMap={staffColorMap}
+                        dateLocale={dateLocale}
+                        onAptClick={onAptClick}
+                      />
+                    ))}
+                </div>
+              );
+            })
           ) : (
-            <SingleColumn
-              appointments={dayApts}
-              staffColorMap={staffColorMap}
-              dateLocale={dateLocale}
-              onAptClick={onAptClick}
-            />
+            <div className="relative flex-1">
+              {dayApts.map((apt) => (
+                <AptBlock
+                  key={apt.id}
+                  apt={apt}
+                  staffColorMap={staffColorMap}
+                  dateLocale={dateLocale}
+                  onAptClick={onAptClick}
+                />
+              ))}
+            </div>
           )}
 
           {/* Hour grid lines */}
@@ -143,11 +160,16 @@ export function DayView({
             <div
               key={h}
               className="pointer-events-none absolute border-t border-border/30"
-              style={{
-                top: i * ROW_HEIGHT,
-                left: 64,
-                right: 0,
-              }}
+              style={{ top: i * ROW_HEIGHT, left: 56, right: 0 }}
+            />
+          ))}
+
+          {/* Half-hour grid lines */}
+          {hours.map((h) => (
+            <div
+              key={`half-${h}`}
+              className="pointer-events-none absolute border-t border-dashed border-border/15"
+              style={{ top: (h - HOUR_START) * ROW_HEIGHT + ROW_HEIGHT / 2, left: 56, right: 0 }}
             />
           ))}
 
@@ -155,7 +177,7 @@ export function DayView({
           {currentTimeTop !== null && (
             <div
               className="pointer-events-none absolute z-10"
-              style={{ top: currentTimeTop, left: 56, right: 0 }}
+              style={{ top: currentTimeTop, left: 48, right: 0 }}
             >
               <div className="relative flex items-center">
                 <div className="absolute -start-1 size-2.5 rounded-full bg-red-500" />
@@ -165,64 +187,6 @@ export function DayView({
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function StaffColumn({
-  staffId,
-  appointments,
-  staffColorMap,
-  dateLocale,
-  onAptClick,
-  showBorder,
-}: {
-  staffId: string;
-  appointments: Appointment[];
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
-  dateLocale: string;
-  onAptClick: (apt: Appointment) => void;
-  showBorder: boolean;
-}) {
-  return (
-    <div
-      className={`relative flex-1 ${showBorder ? "border-s border-border/20" : ""}`}
-    >
-      {appointments.map((apt) => (
-        <AptBlock
-          key={apt.id}
-          apt={apt}
-          staffColorMap={staffColorMap}
-          dateLocale={dateLocale}
-          onAptClick={onAptClick}
-        />
-      ))}
-    </div>
-  );
-}
-
-function SingleColumn({
-  appointments,
-  staffColorMap,
-  dateLocale,
-  onAptClick,
-}: {
-  appointments: Appointment[];
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
-  dateLocale: string;
-  onAptClick: (apt: Appointment) => void;
-}) {
-  return (
-    <div className="relative flex-1">
-      {appointments.map((apt) => (
-        <AptBlock
-          key={apt.id}
-          apt={apt}
-          staffColorMap={staffColorMap}
-          dateLocale={dateLocale}
-          onAptClick={onAptClick}
-        />
-      ))}
     </div>
   );
 }
@@ -243,8 +207,9 @@ function AptBlock({
   const startMins = start.getHours() * 60 + start.getMinutes() - HOUR_START * 60;
   const durationMins = (end.getTime() - start.getTime()) / 60_000;
   const top = (startMins / 60) * ROW_HEIGHT;
-  const height = Math.max((durationMins / 60) * ROW_HEIGHT, ROW_HEIGHT * 0.4);
+  const heightPx = Math.max(durationMins * PX_PER_MIN, 24);
   const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
+  const timeStr = `${formatTime(start, dateLocale)}–${formatTime(end, dateLocale)}`;
 
   if (startMins < 0) return null;
 
@@ -252,20 +217,34 @@ function AptBlock({
     <button
       type="button"
       onClick={() => onAptClick(apt)}
-      className="absolute inset-x-1 cursor-pointer overflow-hidden rounded-lg border-s-[3px] px-2 py-1 text-start shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-black/10"
+      className="absolute inset-x-1 cursor-pointer overflow-hidden rounded-lg border-s-[3px] text-start shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-black/10"
       style={{
         top,
-        height,
+        height: heightPx,
         backgroundColor: clr.bg,
         borderColor: clr.border,
         color: clr.text,
       }}
     >
-      <p className="truncate text-xs font-semibold">{apt.serviceName}</p>
-      <p className="truncate text-[11px] opacity-75">{apt.customerName}</p>
-      <p className="text-[10px] tabular-nums opacity-60">
-        {formatTime(start, dateLocale)}–{formatTime(end, dateLocale)}
-      </p>
+      {heightPx < 28 ? (
+        <p className="flex items-center h-full px-1.5 text-[11px] truncate gap-1">
+          <span className="font-semibold">{apt.serviceName}</span>
+          <span className="opacity-60 tabular-nums shrink-0">{timeStr}</span>
+        </p>
+      ) : heightPx < 46 ? (
+        <div className="px-1.5 py-0.5">
+          <p className="truncate text-xs font-semibold leading-tight">{apt.serviceName}</p>
+          <p className="truncate text-[11px] opacity-70 leading-tight">
+            {apt.customerName} · {timeStr}
+          </p>
+        </div>
+      ) : (
+        <div className="px-2 py-1">
+          <p className="truncate text-xs font-semibold leading-tight">{apt.serviceName}</p>
+          <p className="truncate text-[11px] opacity-75 leading-tight">{apt.customerName}</p>
+          <p className="text-[10px] tabular-nums opacity-60 leading-tight">{timeStr}</p>
+        </div>
+      )}
     </button>
   );
 }

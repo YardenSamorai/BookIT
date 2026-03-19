@@ -108,7 +108,7 @@ export async function getAvailability(opts: {
   const cursor = new Date(startDate);
 
   while (cursor <= endDate) {
-    const dateStr = cursor.toISOString().slice(0, 10);
+    const dateStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
     const dayOfWeek = cursor.getDay();
 
     const staffAvailability: StaffAvailability[] = [];

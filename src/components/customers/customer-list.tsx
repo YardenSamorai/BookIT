@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   Users,
   Search,
   Download,
@@ -17,18 +25,25 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
-import { importCustomers, deleteCustomer } from "@/actions/customers";
+import { importCustomers, deleteCustomer, addCustomer } from "@/actions/customers";
+import { BookingCalendarSheet } from "@/components/customers/booking-calendar-sheet";
 import type { CustomerRow } from "@/lib/db/queries/customers";
 
 interface CustomerListProps {
   customers: CustomerRow[];
+  businessId: string;
+  staff: { id: string; name: string }[];
+  services: { id: string; title: string; durationMinutes: number }[];
+  serviceStaffLinks?: { serviceId: string; staffId: string }[];
 }
 
 type SortKey = "name" | "phone" | "createdAt" | "lastAppointmentDate" | "appointmentCount";
 type SortDir = "asc" | "desc";
 
-export function CustomerList({ customers }: CustomerListProps) {
+export function CustomerList({ customers, businessId, staff, services, serviceStaffLinks }: CustomerListProps) {
   const t = useT();
   const locale = useLocale();
   const router = useRouter();
@@ -37,6 +52,8 @@ export function CustomerList({ customers }: CustomerListProps) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [bookingCustomer, setBookingCustomer] = useState<{ name: string; phone: string } | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
 
   const toggleSort = (key: SortKey) => {
@@ -159,17 +176,24 @@ export function CustomerList({ customers }: CustomerListProps) {
 
   if (customers.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <Users className="size-10 text-muted-foreground" />
-          <div>
-            <p className="font-medium">{t("cust.no_customers")}</p>
-            <p className="text-sm text-muted-foreground">
-              {t("cust.no_customers_desc")}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <Users className="size-10 text-muted-foreground" />
+            <div>
+              <p className="font-medium">{t("cust.no_customers")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("cust.no_customers_desc")}
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+              <UserPlus className="size-4 me-1.5" />
+              {t("cust.add_customer")}
+            </Button>
+          </CardContent>
+        </Card>
+        <AddCustomerDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+      </>
     );
   }
 
@@ -186,6 +210,10 @@ export function CustomerList({ customers }: CustomerListProps) {
           />
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+            <UserPlus className="size-4 me-1.5" />
+            {t("cust.add_customer")}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="size-4 me-1.5" />
             {t("cust.export_excel")}
@@ -281,7 +309,7 @@ export function CustomerList({ customers }: CustomerListProps) {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-xs"
-                        onClick={() => router.push(`/dashboard/calendar`)}
+                        onClick={() => setBookingCustomer({ name: c.name, phone: c.phone ?? "" })}
                       >
                         <CalendarPlus className="size-3 me-1" />
                         {t("cust.col_book")}
@@ -303,7 +331,152 @@ export function CustomerList({ customers }: CustomerListProps) {
           </table>
         </div>
       )}
+
+      {bookingCustomer && (
+        <BookingCalendarSheet
+          open={!!bookingCustomer}
+          onOpenChange={(open) => { if (!open) setBookingCustomer(null); }}
+          businessId={businessId}
+          customer={bookingCustomer}
+          staff={staff}
+          services={services}
+          serviceStaffLinks={serviceStaffLinks}
+        />
+      )}
+
+      <AddCustomerDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+      />
     </div>
+  );
+}
+
+function AddCustomerDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const locale = useLocale();
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setName("");
+    setPhone("");
+    setEmail("");
+    setError(null);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) {
+      setError(t("cust.add_error_required"));
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await addCustomer({
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+      });
+
+      if (result.success) {
+        onOpenChange(false);
+        reset();
+        router.refresh();
+      } else {
+        setError(
+          result.error?.includes("already exists")
+            ? t("cust.add_error_exists")
+            : result.error ?? t("cust.add_error_required")
+        );
+      }
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
+      <DialogContent dir={locale === "he" ? "rtl" : "ltr"} className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="size-5" />
+            {t("cust.add_customer")}
+          </DialogTitle>
+          <DialogDescription>{t("cust.add_customer_desc")}</DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>{t("cust.add_name")}</Label>
+            <Input
+              value={name}
+              onChange={(e) => { setName(e.target.value); setError(null); }}
+              placeholder={t("cust.add_name")}
+              disabled={isPending}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t("cust.add_phone")}</Label>
+            <Input
+              value={phone}
+              onChange={(e) => { setPhone(e.target.value); setError(null); }}
+              placeholder="05X-XXXXXXX"
+              dir="ltr"
+              disabled={isPending}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t("cust.add_email")}</Label>
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@example.com"
+              type="email"
+              dir="ltr"
+              disabled={isPending}
+            />
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { onOpenChange(false); reset(); }}
+              disabled={isPending}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? (
+                <Loader2 className="size-4 me-1.5 animate-spin" />
+              ) : (
+                <UserPlus className="size-4 me-1.5" />
+              )}
+              {t("cust.add_customer")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -1,7 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  ArrowLeft,
+  Sun,
+  Sunset,
+  Moon,
+  CalendarDays,
+  Clock,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { DayAvailability } from "@/lib/scheduling/types";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 
@@ -19,7 +30,7 @@ interface StepDateTimeProps {
   onBack: () => void;
 }
 
-function formatSlotTime(iso: string, dateLocale: string): string {
+function fmtSlotTime(iso: string, dateLocale: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
@@ -39,6 +50,8 @@ function getMonthDays(year: number, month: number) {
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
 }
+
+const FEW_SLOTS_THRESHOLD = 3;
 
 export function StepDateTime({
   businessId,
@@ -61,9 +74,13 @@ export function StepDateTime({
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [activeDate, setActiveDate] = useState(selectedDate);
+  const [pickedTime, setPickedTime] = useState<string | null>(null);
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [isGroupService, setIsGroupService] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [monthDir, setMonthDir] = useState(0);
+
+  const timeSlotsRef = useRef<HTMLDivElement>(null);
 
   const monthCells = useMemo(
     () => getMonthDays(viewYear, viewMonth),
@@ -76,13 +93,7 @@ export function StepDateTime({
 
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({
-      businessId,
-      serviceId,
-      staffId,
-      dateFrom,
-      dateTo,
-    });
+    const params = new URLSearchParams({ businessId, serviceId, staffId, dateFrom, dateTo });
     fetch(`/api/availability?${params}`)
       .then((r) => r.json())
       .then((data: { days: DayAvailability[]; isGroup: boolean; maxParticipants: number }) => {
@@ -100,12 +111,20 @@ export function StepDateTime({
       .finally(() => setLoading(false));
   }, [businessId, serviceId, staffId, dateFrom, dateTo]);
 
+  // Map: dateStr → total slot count
+  const slotCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    availability.forEach((d) => {
+      const count = d.staffAvailability.reduce((sum, sa) => sum + sa.slots.length, 0);
+      map.set(d.date, count);
+    });
+    return map;
+  }, [availability]);
+
   const availableDates = useMemo(() => {
     const set = new Set<string>();
     availability.forEach((d) => {
-      if (d.staffAvailability.some((sa) => sa.slots.length > 0)) {
-        set.add(d.date);
-      }
+      if (d.staffAvailability.some((sa) => sa.slots.length > 0)) set.add(d.date);
     });
     return set;
   }, [availability]);
@@ -124,32 +143,22 @@ export function StepDateTime({
     ) ?? [];
 
   const uniqueTimes = Array.from(
-    new Map(
-      allSlots.map((s) => [new Date(s.start).toISOString(), s])
-    ).values()
-  ).sort(
-    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
-  );
+    new Map(allSlots.map((s) => [new Date(s.start).toISOString(), s])).values()
+  ).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
   function getSlotHour(s: { start: Date }) {
-    const d =
-      s.start instanceof Date
-        ? s.start
-        : new Date(s.start as unknown as string);
+    const d = s.start instanceof Date ? s.start : new Date(s.start as unknown as string);
     return d.getHours();
   }
 
   const morningSlots = uniqueTimes.filter((s) => getSlotHour(s) < 12);
-  const afternoonSlots = uniqueTimes.filter((s) => {
-    const h = getSlotHour(s);
-    return h >= 12 && h < 17;
-  });
+  const afternoonSlots = uniqueTimes.filter((s) => { const h = getSlotHour(s); return h >= 12 && h < 17; });
   const eveningSlots = uniqueTimes.filter((s) => getSlotHour(s) >= 17);
 
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const dayLabels = useMemo(() => {
-    const base = new Date(2024, 0, 7); // Sunday
+    const base = new Date(2024, 0, 7);
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
@@ -158,49 +167,95 @@ export function StepDateTime({
   }, [dateLocale]);
 
   function prevMonth() {
+    setMonthDir(-1);
     setViewMonth((m) => {
-      if (m === 0) {
-        setViewYear((y) => y - 1);
-        return 11;
-      }
+      if (m === 0) { setViewYear((y) => y - 1); return 11; }
       return m - 1;
     });
   }
 
   function nextMonth() {
+    setMonthDir(1);
     setViewMonth((m) => {
-      if (m === 11) {
-        setViewYear((y) => y + 1);
-        return 0;
-      }
+      if (m === 11) { setViewYear((y) => y + 1); return 0; }
       return m + 1;
     });
   }
 
-  const isPrevDisabled =
-    viewYear === now.getFullYear() && viewMonth <= now.getMonth();
+  const isPrevDisabled = viewYear === now.getFullYear() && viewMonth <= now.getMonth();
+
+  const activeDateFormatted = activeDate
+    ? new Date(activeDate + "T00:00:00").toLocaleDateString(dateLocale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      })
+    : "";
+
+  function handleDateClick(dateStr: string) {
+    setActiveDate(dateStr);
+    // Scroll to time slots after a short delay to let React render
+    setTimeout(() => {
+      timeSlotsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  function handleTimeClick(iso: string) {
+    setPickedTime(iso);
+  }
+
+  function handleConfirmTime() {
+    if (pickedTime && activeDate) {
+      onSelect(activeDate, pickedTime);
+    }
+  }
+
+  useEffect(() => {
+    setPickedTime(null);
+  }, [activeDate]);
+
+  const pickedEndTime = pickedTime
+    ? new Date(new Date(pickedTime).getTime() + durationMin * 60_000).toISOString()
+    : null;
+
+  /**
+   * Determine the status indicator color for a calendar day cell.
+   * - green:  available with plenty of slots
+   * - orange: available but few slots left (≤ FEW_SLOTS_THRESHOLD)
+   * - red:    future date with zero available slots (closed / fully booked)
+   * - null:   past date or not in data range (no indicator)
+   */
+  function getDayStatus(dateStr: string, isPast: boolean): "green" | "orange" | "red" | null {
+    if (isPast) return null;
+    const count = slotCountMap.get(dateStr);
+    if (count === undefined || count === 0) return "red";
+    if (count <= FEW_SLOTS_THRESHOLD) return "orange";
+    return "green";
+  }
+
+  const STATUS_COLORS = {
+    green: "#22c55e",
+    orange: "#f59e0b",
+    red: "#ef4444",
+  };
 
   return (
-    <div className="flex flex-1 flex-col">
-      {/* Back + staff chip row */}
+    <div className="flex flex-1 flex-col pb-24">
+      {/* Top bar */}
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-600"
+          className="flex items-center gap-1.5 text-sm text-gray-400 transition-colors hover:text-gray-600"
         >
-          <ChevronLeft className="size-4" />
+          <ArrowLeft className="size-4 rtl:rotate-180" />
           {t("book.change_service")}
         </button>
 
         {staffName && (
-          <div className="flex items-center gap-2 rounded-full bg-gray-50 py-1 pe-3 ps-1">
+          <div className="flex items-center gap-2 rounded-full border border-gray-100 bg-white py-1 pe-3 ps-1 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {staffImage ? (
-              <img
-                src={staffImage}
-                alt={staffName}
-                className="size-6 rounded-full object-cover"
-              />
+              <img src={staffImage} alt={staffName} className="size-6 rounded-full object-cover ring-1 ring-black/5" />
             ) : (
               <div
                 className="flex size-6 items-center justify-center rounded-full text-[9px] font-bold text-white"
@@ -209,159 +264,291 @@ export function StepDateTime({
                 {staffName.charAt(0)}
               </div>
             )}
-            <span className="text-xs font-medium text-gray-500">
-              {staffName}
-            </span>
+            <span className="text-xs font-medium text-gray-500">{staffName}</span>
           </div>
         )}
       </div>
 
-      <h2 className="text-lg font-bold text-gray-900">
+      <h2 className="text-xl font-bold tracking-tight text-gray-900">
         {t("book.pick_datetime")}
       </h2>
 
       {/* Calendar card */}
-      <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         {/* Month header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-4 pt-4">
           <button
             type="button"
             disabled={isPrevDisabled}
             onClick={prevMonth}
-            className="flex size-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
+            className="flex size-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-700 disabled:opacity-20"
           >
             <ChevronLeft className="size-4" />
           </button>
-          <span className="text-sm font-semibold text-gray-800">
-            {new Date(viewYear, viewMonth).toLocaleDateString(dateLocale, {
-              month: "long",
-              year: "numeric",
-            })}
-          </span>
+
+          <AnimatePresence mode="wait" custom={monthDir}>
+            <motion.span
+              key={`${viewYear}-${viewMonth}`}
+              custom={monthDir}
+              initial={{ opacity: 0, y: monthDir > 0 ? 12 : -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: monthDir > 0 ? -12 : 12 }}
+              transition={{ duration: 0.15 }}
+              className="text-sm font-semibold text-gray-800"
+            >
+              {new Date(viewYear, viewMonth).toLocaleDateString(dateLocale, {
+                month: "long",
+                year: "numeric",
+              })}
+            </motion.span>
+          </AnimatePresence>
+
           <button
             type="button"
             onClick={nextMonth}
-            className="flex size-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="flex size-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-700"
           >
             <ChevronRight className="size-4" />
           </button>
         </div>
 
-        {/* Day-of-week labels */}
-        <div className="mt-3 grid grid-cols-7 text-center">
+        {/* Day labels */}
+        <div className="mt-3 grid grid-cols-7 px-3 text-center">
           {dayLabels.map((label, i) => (
-            <span
-              key={i}
-              className="pb-2 text-[11px] font-semibold text-gray-400"
-            >
+            <span key={i} className="pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-300">
               {label}
             </span>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 text-center">
+        <div className="grid grid-cols-7 gap-y-0.5 px-3 pb-4 text-center">
           {monthCells.map((day, idx) => {
-            if (day === null) {
-              return <div key={`e-${idx}`} className="h-9" />;
-            }
+            if (day === null) return <div key={`e-${idx}`} className="h-11" />;
 
             const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const isAvailable = availableDates.has(dateStr);
             const isActive = activeDate === dateStr;
             const isPast = dateStr < todayStr;
             const isToday = dateStr === todayStr;
+            const status = !loading ? getDayStatus(dateStr, isPast) : null;
 
             return (
               <button
                 key={dateStr}
                 type="button"
                 disabled={isPast || !isAvailable}
-                onClick={() => setActiveDate(dateStr)}
-                className={`mx-auto flex size-9 items-center justify-center rounded-full text-sm transition-all ${
-                  isActive
-                    ? "font-bold text-white"
-                    : isToday
-                      ? "font-semibold"
-                      : isAvailable && !isPast
-                        ? "font-medium text-gray-700 hover:bg-gray-50"
-                        : "text-gray-300"
-                }`}
-                style={
-                  isActive
-                    ? {
-                        backgroundColor: secondaryColor,
-                        boxShadow: `0 2px 8px ${secondaryColor}40`,
-                      }
-                    : isToday && !isActive
-                      ? { color: secondaryColor }
-                      : undefined
-                }
+                onClick={() => handleDateClick(dateStr)}
+                className="group relative mx-auto flex size-11 flex-col items-center justify-center rounded-xl text-[13px] transition-all duration-200"
               >
-                {day}
+                {isActive && (
+                  <motion.div
+                    layoutId="activeDate"
+                    className="absolute inset-0.5 rounded-xl"
+                    style={{
+                      backgroundColor: secondaryColor,
+                      boxShadow: `0 3px 12px ${secondaryColor}35`,
+                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span
+                  className={`relative z-10 ${
+                    isActive
+                      ? "font-bold text-white"
+                      : isToday
+                        ? "font-bold"
+                        : isAvailable && !isPast
+                          ? "font-medium text-gray-700 group-hover:text-gray-900"
+                          : isPast
+                            ? "text-gray-200"
+                            : "text-gray-300"
+                  }`}
+                  style={isToday && !isActive ? { color: secondaryColor } : undefined}
+                >
+                  {day}
+                </span>
+                {/* Status dot */}
+                {status && !isActive && (
+                  <span
+                    className="relative z-10 mt-0.5 size-[5px] rounded-full"
+                    style={{ backgroundColor: STATUS_COLORS[status] }}
+                  />
+                )}
+                {/* White dot when active */}
+                {isActive && (
+                  <span className="relative z-10 mt-0.5 size-[5px] rounded-full bg-white/70" />
+                )}
               </button>
             );
           })}
         </div>
-      </div>
 
-      {/* Time slots */}
-      <div className="mt-4">
-        {loading ? (
-          <div className="flex flex-col items-center py-10">
-            <Loader2 className="size-6 animate-spin text-gray-300" />
-            <p className="mt-2 text-xs text-gray-400">
-              {t("book.loading_availability")}
-            </p>
-          </div>
-        ) : uniqueTimes.length === 0 && activeDate ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 py-10 text-center">
-            <p className="text-sm text-gray-400">{t("book.no_times")}</p>
-            <p className="mt-1 text-xs text-gray-300">
-              {t("book.try_another")}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <TimeGroup
-              label={t("book.morning")}
-              slots={morningSlots}
-              selectedDate={selectedDate}
-              selectedTime={selectedTime}
-              activeDate={activeDate}
-              secondaryColor={secondaryColor}
-              dateLocale={dateLocale}
-              isGroup={isGroupService}
-              onSelect={onSelect}
-            />
-            <TimeGroup
-              label={t("book.afternoon")}
-              slots={afternoonSlots}
-              selectedDate={selectedDate}
-              selectedTime={selectedTime}
-              activeDate={activeDate}
-              secondaryColor={secondaryColor}
-              dateLocale={dateLocale}
-              isGroup={isGroupService}
-              onSelect={onSelect}
-            />
-            <TimeGroup
-              label={t("book.evening")}
-              slots={eveningSlots}
-              selectedDate={selectedDate}
-              selectedTime={selectedTime}
-              activeDate={activeDate}
-              secondaryColor={secondaryColor}
-              dateLocale={dateLocale}
-              isGroup={isGroupService}
-              onSelect={onSelect}
-            />
+        {/* Legend */}
+        {!loading && (
+          <div className="flex items-center justify-center gap-4 border-t border-gray-50 px-4 py-2.5">
+            <LegendItem color={STATUS_COLORS.green} label={t("book.available_times")} />
+            <LegendItem color={STATUS_COLORS.orange} label={t("book.few_left")} />
+            <LegendItem color={STATUS_COLORS.red} label={t("book.unavailable")} />
           </div>
         )}
       </div>
+
+      {/* Time slots section */}
+      <div className="mt-5 scroll-mt-4" ref={timeSlotsRef}>
+        {activeDate && !loading && uniqueTimes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 flex items-center gap-2.5"
+          >
+            <div
+              className="flex size-9 shrink-0 items-center justify-center rounded-xl"
+              style={{ background: `${secondaryColor}10`, color: secondaryColor }}
+            >
+              <CalendarDays className="size-4" />
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold text-gray-800">{activeDateFormatted}</p>
+              <p className="text-[11px] text-gray-400">{t("book.select_time")}</p>
+            </div>
+          </motion.div>
+        )}
+
+        <AnimatePresence mode="wait">
+          {loading ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center py-10"
+            >
+              <div
+                className="flex size-10 items-center justify-center rounded-xl"
+                style={{ background: `${secondaryColor}10` }}
+              >
+                <Loader2 className="size-5 animate-spin" style={{ color: secondaryColor }} />
+              </div>
+              <p className="mt-3 text-xs text-gray-400">{t("book.loading_availability")}</p>
+            </motion.div>
+          ) : uniqueTimes.length === 0 && activeDate ? (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center"
+            >
+              <CalendarDays className="size-8 text-gray-200" />
+              <p className="mt-3 text-sm font-medium text-gray-400">{t("book.no_times")}</p>
+              <p className="mt-1 text-xs text-gray-300">{t("book.try_another")}</p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={activeDate}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-5"
+            >
+              <TimeGroup
+                label={t("book.morning")}
+                icon={<Sun className="size-3.5" />}
+                iconBg="#FEF3C7"
+                iconColor="#D97706"
+                slots={morningSlots}
+                pickedTime={pickedTime}
+                activeDate={activeDate}
+                secondaryColor={secondaryColor}
+                dateLocale={dateLocale}
+                durationMin={durationMin}
+                isGroup={isGroupService}
+                onTimeClick={handleTimeClick}
+              />
+              <TimeGroup
+                label={t("book.afternoon")}
+                icon={<Sunset className="size-3.5" />}
+                iconBg="#FEE2E2"
+                iconColor="#DC2626"
+                slots={afternoonSlots}
+                pickedTime={pickedTime}
+                activeDate={activeDate}
+                secondaryColor={secondaryColor}
+                dateLocale={dateLocale}
+                durationMin={durationMin}
+                isGroup={isGroupService}
+                onTimeClick={handleTimeClick}
+              />
+              <TimeGroup
+                label={t("book.evening")}
+                icon={<Moon className="size-3.5" />}
+                iconBg="#EDE9FE"
+                iconColor="#7C3AED"
+                slots={eveningSlots}
+                pickedTime={pickedTime}
+                activeDate={activeDate}
+                secondaryColor={secondaryColor}
+                dateLocale={dateLocale}
+                durationMin={durationMin}
+                isGroup={isGroupService}
+                onTimeClick={handleTimeClick}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Floating confirm bar */}
+      <AnimatePresence>
+        {pickedTime && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 px-5 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur-xl"
+          >
+            <div className="mx-auto flex max-w-lg items-center gap-3">
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-gray-800">{activeDateFormatted}</p>
+                <p className="text-[12px] text-gray-400" dir="ltr">
+                  <Clock className="me-1 inline size-3" />
+                  {fmtSlotTime(pickedTime, dateLocale)} – {pickedEndTime && fmtSlotTime(pickedEndTime, dateLocale)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleConfirmTime}
+                className="rounded-xl px-6 py-3 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.97]"
+                style={{
+                  background: `linear-gradient(135deg, ${secondaryColor}, ${secondaryColor}dd)`,
+                  boxShadow: `0 4px 16px ${secondaryColor}35`,
+                }}
+              >
+                {t("book.continue")}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
+/* ---------- Legend item ---------- */
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="size-[6px] rounded-full" style={{ backgroundColor: color }} />
+      <span className="text-[10px] text-gray-400">{label}</span>
+    </div>
+  );
+}
+
+/* ---------- Slot item type ---------- */
 
 interface SlotItem {
   staffId: string;
@@ -372,71 +559,94 @@ interface SlotItem {
   maxParticipants?: number;
 }
 
+/* ---------- Time group ---------- */
+
 function TimeGroup({
   label,
+  icon,
+  iconBg,
+  iconColor,
   slots,
-  selectedDate,
-  selectedTime,
+  pickedTime,
   activeDate,
   secondaryColor,
   dateLocale,
+  durationMin,
   isGroup,
-  onSelect,
+  onTimeClick,
 }: {
   label: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
   slots: SlotItem[];
-  selectedDate: string;
-  selectedTime: string;
+  pickedTime: string | null;
   activeDate: string;
   secondaryColor: string;
   dateLocale: string;
+  durationMin: number;
   isGroup: boolean;
-  onSelect: (date: string, startTime: string) => void;
+  onTimeClick: (iso: string) => void;
 }) {
   if (slots.length === 0) return null;
 
   return (
     <div>
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-        {label}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {slots.map((slot) => {
-          const startDate =
-            slot.start instanceof Date
-              ? slot.start
-              : new Date(slot.start as unknown as string);
+      <div className="mb-2.5 flex items-center gap-2">
+        <div
+          className="flex size-6 items-center justify-center rounded-md"
+          style={{ backgroundColor: iconBg, color: iconColor }}
+        >
+          {icon}
+        </div>
+        <span className="text-[12px] font-semibold text-gray-500">{label}</span>
+        <span className="text-[11px] text-gray-300">({slots.length})</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {slots.map((slot, i) => {
+          const startDate = slot.start instanceof Date ? slot.start : new Date(slot.start as unknown as string);
           const iso = startDate.toISOString();
-          const isSelected =
-            selectedTime === iso && activeDate === selectedDate;
+          const endDate = new Date(startDate.getTime() + durationMin * 60_000);
+          const isSelected = pickedTime === iso;
 
           const spotsLeft = isGroup && slot.maxParticipants
             ? slot.maxParticipants - (slot.bookedCount ?? 0)
             : null;
 
           return (
-            <button
+            <motion.button
               key={iso}
               type="button"
-              onClick={() => onSelect(activeDate, iso)}
-              className={`flex flex-col items-center rounded-xl border px-3.5 py-2 text-sm font-medium transition-all ${
+              onClick={() => onTimeClick(iso)}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.02, duration: 0.15 }}
+              className={`relative flex flex-col items-center rounded-xl border py-2.5 transition-all duration-200 ${
                 isSelected
-                  ? "border-transparent text-white shadow-md"
-                  : "border-gray-100 bg-white text-gray-700 shadow-sm hover:border-gray-200 hover:shadow-md"
+                  ? "border-transparent text-white"
+                  : "border-gray-100 bg-white text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:border-gray-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.97]"
               }`}
               style={
                 isSelected
                   ? {
                       backgroundColor: secondaryColor,
-                      boxShadow: `0 2px 10px ${secondaryColor}40`,
+                      boxShadow: `0 4px 16px ${secondaryColor}40`,
                     }
                   : undefined
               }
             >
-              <span dir="ltr">{formatSlotTime(iso, dateLocale)}</span>
+              <span className="text-[14px] font-semibold" dir="ltr">
+                {fmtSlotTime(iso, dateLocale)}
+              </span>
+              <span
+                className={`mt-0.5 text-[10px] ${isSelected ? "text-white/70" : "text-gray-300"}`}
+                dir="ltr"
+              >
+                {fmtSlotTime(endDate.toISOString(), dateLocale)}
+              </span>
               {spotsLeft !== null && (
                 <span
-                  className={`mt-0.5 text-[10px] font-normal ${
+                  className={`mt-1 text-[9px] font-medium ${
                     isSelected
                       ? "text-white/80"
                       : spotsLeft <= 3
@@ -447,7 +657,7 @@ function TimeGroup({
                   {slot.bookedCount}/{slot.maxParticipants}
                 </span>
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>

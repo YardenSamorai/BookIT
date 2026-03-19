@@ -135,6 +135,57 @@ export async function updateCustomerName(
   return { success: true, data: undefined };
 }
 
+export async function addCustomer(data: {
+  name: string;
+  phone: string;
+  email?: string;
+}): Promise<ActionResult<{ customerId: string }>> {
+  const { businessId } = await requireBusinessOwner();
+
+  const phone = data.phone?.replace(/[^+\d]/g, "");
+  if (!data.name?.trim() || !phone) {
+    return { success: false, error: "Name and phone are required." };
+  }
+
+  const existing = await db.query.users.findFirst({
+    where: eq(users.phone, phone),
+    columns: { id: true },
+  });
+
+  let userId: string;
+  if (existing) {
+    userId = existing.id;
+  } else {
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        name: data.name.trim(),
+        phone,
+        email: data.email?.trim() || null,
+        role: "CUSTOMER",
+      })
+      .returning({ id: users.id });
+    userId = newUser.id;
+  }
+
+  const existingCustomer = await db.query.customers.findFirst({
+    where: and(eq(customers.businessId, businessId), eq(customers.userId, userId)),
+    columns: { id: true },
+  });
+
+  if (existingCustomer) {
+    return { success: false, error: "Customer already exists." };
+  }
+
+  const [customer] = await db
+    .insert(customers)
+    .values({ businessId, userId })
+    .returning({ id: customers.id });
+
+  revalidatePath("/dashboard/customers");
+  return { success: true, data: { customerId: customer.id } };
+}
+
 export async function deleteCustomer(customerId: string): Promise<ActionResult> {
   const { businessId } = await requireBusinessOwner();
 

@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { Phone, ArrowLeft, Loader2 } from "lucide-react";
+import { Phone, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/lib/i18n/locale-context";
 
 interface BookingAuthProps {
@@ -125,69 +126,99 @@ export function BookingAuth({ secondaryColor, onAuthenticated }: BookingAuthProp
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      {/* Phone input step */}
-      {authStep === "phone" && (
-        <div>
-          <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-gray-50">
-            <Phone className="size-5 text-gray-400" />
-          </div>
-          <h3 className="text-base font-bold text-gray-900">
-            {t("book.phone_login_title")}
-          </h3>
-          <p className="mt-1 text-xs text-gray-400">
-            {t("book.phone_login_desc")}
-          </p>
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <AnimatePresence mode="wait">
+        {authStep === "phone" && (
+          <motion.div
+            key="phone"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="p-5"
+          >
+            <div className="mb-4 flex items-center gap-3">
+              <div
+                className="flex size-10 items-center justify-center rounded-xl"
+                style={{ background: `${secondaryColor}12`, color: secondaryColor }}
+              >
+                <Phone className="size-5" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-bold text-gray-900">
+                  {t("book.phone_login_title")}
+                </h3>
+                <p className="text-[12px] text-gray-400">
+                  {t("book.phone_login_desc")}
+                </p>
+              </div>
+            </div>
 
-          <div className="mt-4">
             <input
               type="tel"
               dir="ltr"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder={t("book.phone_placeholder")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-base tracking-wider placeholder:text-gray-300 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100"
+              className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3.5 text-center text-base tracking-wider transition-all placeholder:text-gray-300 focus:border-gray-200 focus:bg-white focus:outline-none focus:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
               onKeyDown={(e) => e.key === "Enter" && phone.length >= 10 && handleSendOtp()}
             />
-          </div>
 
-          {error && (
-            <p className="mt-2 text-xs text-red-500">{error}</p>
-          )}
+            {error && (
+              <p className="mt-2 text-xs text-red-500">{error}</p>
+            )}
 
-          <button
-            type="button"
-            onClick={handleSendOtp}
-            disabled={loading || phone.length < 10}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all disabled:opacity-50"
-            style={{ backgroundColor: secondaryColor }}
+            <button
+              type="button"
+              onClick={handleSendOtp}
+              disabled={loading || phone.length < 10}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              style={{
+                background: `linear-gradient(135deg, ${secondaryColor}, ${secondaryColor}dd)`,
+                boxShadow: `0 2px 12px ${secondaryColor}30`,
+              }}
+            >
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? t("book.sending") : t("book.send_code")}
+            </button>
+          </motion.div>
+        )}
+
+        {authStep === "code" && (
+          <motion.div
+            key="code"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="p-5"
           >
-            {loading && <Loader2 className="size-4 animate-spin" />}
-            {loading ? t("book.sending") : t("book.send_code")}
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => { setAuthStep("phone"); setCode(""); setError(""); }}
+              className="mb-3 flex items-center gap-1 text-xs text-gray-400 transition-colors hover:text-gray-600"
+            >
+              <ArrowLeft className="size-3 rtl:rotate-180" />
+              {t("book.wrong_number")}
+            </button>
 
-      {/* OTP code step */}
-      {authStep === "code" && (
-        <div>
-          <button
-            type="button"
-            onClick={() => { setAuthStep("phone"); setCode(""); setError(""); }}
-            className="mb-3 flex items-center gap-1 text-xs text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <ArrowLeft className="size-3" />
-            {t("book.wrong_number")}
-          </button>
+            <div className="mb-4 flex items-center gap-3">
+              <div
+                className="flex size-10 items-center justify-center rounded-xl"
+                style={{ background: `${secondaryColor}12`, color: secondaryColor }}
+              >
+                <ShieldCheck className="size-5" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-bold text-gray-900">
+                  {t("book.enter_code")}
+                </h3>
+                <p className="text-[12px] text-gray-400" dir="ltr">
+                  {t("book.code_sent_to", { phone })}
+                </p>
+              </div>
+            </div>
 
-          <h3 className="text-base font-bold text-gray-900">
-            {t("book.enter_code")}
-          </h3>
-          <p className="mt-1 text-xs text-gray-400" dir="ltr">
-            {t("book.code_sent_to", { phone })}
-          </p>
-
-          <div className="mt-4">
             <input
               ref={codeInputRef}
               type="text"
@@ -197,79 +228,91 @@ export function BookingAuth({ secondaryColor, onAuthenticated }: BookingAuthProp
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
               placeholder={t("book.code_placeholder")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-2xl font-bold tracking-[0.3em] placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-300 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100"
+              className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3.5 text-center text-2xl font-bold tracking-[0.3em] transition-all placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-300 focus:border-gray-200 focus:bg-white focus:outline-none focus:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
               onKeyDown={(e) => e.key === "Enter" && code.length === 6 && handleVerifyOtp()}
             />
-          </div>
 
-          {error && (
-            <p className="mt-2 text-xs text-red-500">{error}</p>
-          )}
+            {error && (
+              <p className="mt-2 text-xs text-red-500">{error}</p>
+            )}
 
-          <button
-            type="button"
-            onClick={handleVerifyOtp}
-            disabled={loading || code.length !== 6}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all disabled:opacity-50"
-            style={{ backgroundColor: secondaryColor }}
+            <button
+              type="button"
+              onClick={handleVerifyOtp}
+              disabled={loading || code.length !== 6}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              style={{
+                background: `linear-gradient(135deg, ${secondaryColor}, ${secondaryColor}dd)`,
+                boxShadow: `0 2px 12px ${secondaryColor}30`,
+              }}
+            >
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? t("book.verifying") : t("book.verify")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setCode(""); setError(""); handleSendOtp(); }}
+              disabled={loading}
+              className="mt-2 w-full text-center text-xs text-gray-400 transition-colors hover:text-gray-600"
+            >
+              {t("book.resend_code")}
+            </button>
+          </motion.div>
+        )}
+
+        {authStep === "name" && (
+          <motion.div
+            key="name"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="p-5"
           >
-            {loading && <Loader2 className="size-4 animate-spin" />}
-            {loading ? t("book.verifying") : t("book.verify")}
-          </button>
+            <h3 className="mb-4 text-[15px] font-bold text-gray-900">
+              {t("book.enter_name")}
+            </h3>
 
-          <button
-            type="button"
-            onClick={() => { setCode(""); setError(""); handleSendOtp(); }}
-            disabled={loading}
-            className="mt-2 w-full text-center text-xs text-gray-400 transition-colors hover:text-gray-600"
-          >
-            {t("book.resend_code")}
-          </button>
-        </div>
-      )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder={t("book.first_name_placeholder")}
+                className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3.5 text-center text-base transition-all placeholder:text-gray-300 focus:border-gray-200 focus:bg-white focus:outline-none focus:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+                autoFocus
+              />
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder={t("book.last_name_placeholder")}
+                className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3.5 text-center text-base transition-all placeholder:text-gray-300 focus:border-gray-200 focus:bg-white focus:outline-none focus:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+                onKeyDown={(e) => e.key === "Enter" && firstName.trim().length >= 2 && lastName.trim().length >= 1 && handleNameSubmit()}
+              />
+            </div>
 
-      {/* Name input step (new users) */}
-      {authStep === "name" && (
-        <div>
-          <h3 className="text-base font-bold text-gray-900">
-            {t("book.enter_name")}
-          </h3>
+            {error && (
+              <p className="mt-2 text-xs text-red-500">{error}</p>
+            )}
 
-          <div className="mt-4 flex gap-2">
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder={t("book.first_name_placeholder")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-base placeholder:text-gray-300 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100"
-              autoFocus
-            />
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder={t("book.last_name_placeholder")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-base placeholder:text-gray-300 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100"
-              onKeyDown={(e) => e.key === "Enter" && firstName.trim().length >= 2 && lastName.trim().length >= 1 && handleNameSubmit()}
-            />
-          </div>
-
-          {error && (
-            <p className="mt-2 text-xs text-red-500">{error}</p>
-          )}
-
-          <button
-            type="button"
-            onClick={handleNameSubmit}
-            disabled={loading || firstName.trim().length < 2 || lastName.trim().length < 1}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all disabled:opacity-50"
-            style={{ backgroundColor: secondaryColor }}
-          >
-            {loading && <Loader2 className="size-4 animate-spin" />}
-            {loading ? t("book.verifying") : t("book.continue")}
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={handleNameSubmit}
+              disabled={loading || firstName.trim().length < 2 || lastName.trim().length < 1}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              style={{
+                background: `linear-gradient(135deg, ${secondaryColor}, ${secondaryColor}dd)`,
+                boxShadow: `0 2px 12px ${secondaryColor}30`,
+              }}
+            >
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? t("book.verifying") : t("book.continue")}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

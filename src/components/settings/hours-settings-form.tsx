@@ -26,13 +26,18 @@ interface HoursSettingsFormProps {
   hours: BusinessHoursRow[];
 }
 
+function normalizeTime(t: string | undefined, fallback: string) {
+  if (!t) return fallback;
+  return t.slice(0, 5);
+}
+
 function toEntries(rows: BusinessHoursRow[]): HoursEntry[] {
   return Array.from({ length: 7 }, (_, i) => {
     const row = rows.find((r) => r.dayOfWeek === i);
     return {
       dayOfWeek: i,
-      startTime: row?.startTime ?? "09:00",
-      endTime: row?.endTime ?? "18:00",
+      startTime: normalizeTime(row?.startTime, "09:00"),
+      endTime: normalizeTime(row?.endTime, "18:00"),
       isOpen: row?.isOpen ?? false,
     };
   });
@@ -56,6 +61,14 @@ export function HoursSettingsForm({ hours }: HoursSettingsFormProps) {
     setLoading(true);
     setError("");
     setSuccess(false);
+
+    const invalid = entries.find((e) => e.isOpen && e.startTime >= e.endTime);
+    if (invalid) {
+      const dayLabel = t(DAYS_SHORT_KEYS[invalid.dayOfWeek]);
+      setError(t("settings.error_end_before_start").replace("{day}", dayLabel));
+      setLoading(false);
+      return;
+    }
 
     const result = await updateBusinessHours(entries);
 

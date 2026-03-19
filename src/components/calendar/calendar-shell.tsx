@@ -19,17 +19,17 @@ import { STAFF_COLORS } from "./calendar-types";
 interface CalendarShellProps {
   staff: Staff[];
   services: { id: string; title: string; durationMinutes: number }[];
+  serviceStaffLinks?: { serviceId: string; staffId: string }[];
   businessId: string;
   appointments: Appointment[];
   initialView: string;
   initialDate: string;
-  rangeStartIso: string;
-  rangeEndIso: string;
 }
 
 export function CalendarShell({
   staff,
   services,
+  serviceStaffLinks,
   businessId,
   appointments,
   initialView,
@@ -258,9 +258,10 @@ export function CalendarShell({
       {/* Calendar view */}
       {view === "week" && (
         <WeekView
-          appointments={filteredAppointments}
+          appointments={appointments}
           staff={staff}
           staffColorMap={staffColorMap}
+          staffFilter={staffFilter}
           currentDate={currentDate}
           onAptClick={handleAptClick}
           onDayClick={goToDay}
@@ -268,7 +269,7 @@ export function CalendarShell({
       )}
       {view === "day" && (
         <DayView
-          appointments={filteredAppointments}
+          appointments={appointments}
           staff={staff}
           staffColorMap={staffColorMap}
           staffFilter={staffFilter}
@@ -301,6 +302,7 @@ export function CalendarShell({
         businessId={businessId}
         staff={staff.map((s) => ({ id: s.id, name: s.name }))}
         services={services}
+        serviceStaffLinks={serviceStaffLinks}
         initialDate={currentDate.toISOString().slice(0, 10)}
       />
     </div>
