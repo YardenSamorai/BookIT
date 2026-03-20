@@ -3,11 +3,12 @@
 import { useMemo } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-context";
-import type { Appointment, Staff } from "./calendar-types";
+import type { Appointment, Staff, ClassInstance } from "./calendar-types";
 import { STAFF_COLORS, isSameDay, formatTime } from "./calendar-types";
 
 interface WeekViewProps {
   appointments: Appointment[];
+  classInstances?: ClassInstance[];
   staff: Staff[];
   staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
   staffFilter: string | null;
@@ -22,6 +23,7 @@ const DAY_NAMES_HE_FULL = ["ראשון", "שני", "שלישי", "רביעי", "
 
 export function WeekView({
   appointments,
+  classInstances = [],
   staff,
   staffColorMap,
   staffFilter,
@@ -68,6 +70,23 @@ export function WeekView({
     return map;
   }, [appointments, weekDays]);
 
+  const classInstancesByDay = useMemo(() => {
+    const map = new Map<number, ClassInstance[]>();
+    for (const ci of classInstances) {
+      if (ci.status !== "SCHEDULED") continue;
+      for (let i = 0; i < 7; i++) {
+        const dayStr = `${weekDays[i].getFullYear()}-${String(weekDays[i].getMonth() + 1).padStart(2, "0")}-${String(weekDays[i].getDate()).padStart(2, "0")}`;
+        if (ci.date === dayStr) {
+          const list = map.get(i) ?? [];
+          list.push(ci);
+          map.set(i, list);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [classInstances, weekDays]);
+
   return (
     <>
       {/* ── Desktop: grid layout ── */}
@@ -75,6 +94,7 @@ export function WeekView({
         {weekDays.map((day, i) => {
           const isCurrentDay = isSameDay(day, today);
           const dayApts = appointmentsByDay.get(i) ?? [];
+          const dayCIs = classInstancesByDay.get(i) ?? [];
 
           return (
             <div
@@ -120,11 +140,15 @@ export function WeekView({
                       onAptClick={onAptClick}
                     />
                   ))}
-                  {dayApts.length === 0 && (
+                  {dayApts.length === 0 && dayCIs.length === 0 && (
                     <p className="py-3 text-center text-[10px] text-muted-foreground/50">—</p>
                   )}
                 </div>
               )}
+
+              {dayCIs.map((ci) => (
+                <ClassCard key={ci.id} instance={ci} dateLocale={dateLocale} />
+              ))}
             </div>
           );
         })}
@@ -135,6 +159,7 @@ export function WeekView({
         {weekDays.map((day, i) => {
           const isCurrentDay = isSameDay(day, today);
           const dayApts = appointmentsByDay.get(i) ?? [];
+          const dayCIs = classInstancesByDay.get(i) ?? [];
 
           return (
             <button
@@ -163,16 +188,15 @@ export function WeekView({
                 </span>
               </div>
 
-              {/* Appointments list */}
+              {/* Appointments & class instances list */}
               <div className="flex-1 min-w-0">
-                {dayApts.length === 0 ? (
+                {dayApts.length === 0 && dayCIs.length === 0 ? (
                   <p className="py-2 text-sm text-muted-foreground/50">—</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {dayApts.map((apt) => {
                       const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
                       const start = new Date(apt.startTime);
-                      const end = new Date(apt.endTime);
                       return (
                         <div
                           key={apt.id}
@@ -196,6 +220,29 @@ export function WeekView({
                               · {apt.customerName}
                             </span>
                           )}
+                        </div>
+                      );
+                    })}
+                    {dayCIs.map((ci) => {
+                      const start = new Date(ci.startTime);
+                      const booked = ci.bookedCount ?? 0;
+                      return (
+                        <div
+                          key={ci.id}
+                          className="flex items-center gap-1.5 rounded-lg border-s-2 border-dashed px-2 py-1 text-[12px] leading-tight shadow-sm"
+                          style={{
+                            backgroundColor: "#EDE9FE",
+                            borderColor: "#8B5CF6",
+                            color: "#4C1D95",
+                          }}
+                        >
+                          <span className="font-semibold tabular-nums whitespace-nowrap">
+                            {formatTime(start, dateLocale)}
+                          </span>
+                          <span className="truncate opacity-80">⟳ {ci.serviceName}</span>
+                          <span className="text-[11px] opacity-60 shrink-0">
+                            {booked}/{ci.maxParticipants}
+                          </span>
                         </div>
                       );
                     })}
@@ -326,5 +373,34 @@ function AptCard({
       </p>
       <p className="truncate opacity-75">{apt.serviceName}</p>
     </button>
+  );
+}
+
+function ClassCard({
+  instance,
+  dateLocale,
+}: {
+  instance: ClassInstance;
+  dateLocale: string;
+}) {
+  const start = new Date(instance.startTime);
+  const booked = instance.bookedCount ?? 0;
+
+  return (
+    <div
+      className="mt-1 w-full rounded-lg border-s-2 border-dashed px-2 py-1.5 text-start text-[11px] leading-tight shadow-sm"
+      style={{
+        backgroundColor: "#EDE9FE",
+        borderColor: "#8B5CF6",
+        color: "#4C1D95",
+      }}
+    >
+      <p className="font-semibold tabular-nums">
+        {formatTime(start, dateLocale)} · ⟳ {instance.serviceName}
+      </p>
+      <p className="truncate opacity-75">
+        {booked}/{instance.maxParticipants}
+      </p>
+    </div>
   );
 }

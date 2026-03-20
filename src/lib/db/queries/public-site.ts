@@ -10,6 +10,7 @@ import {
   products,
   reviews,
   users,
+  classSchedules,
 } from "@/lib/db/schema";
 import { getBusinessRatingStats } from "./reviews";
 
@@ -20,7 +21,7 @@ export async function getPublicBusinessData(slug: string) {
 
   if (!business || !business.published) return null;
 
-  const [hours, serviceList, staff, siteConfig, staffServiceRows, productList, publishedReviews, ratingStats] = await Promise.all([
+  const [hours, serviceList, staff, siteConfig, staffServiceRows, productList, publishedReviews, ratingStats, activeClassSchedule] = await Promise.all([
     db.query.businessHours.findMany({
       where: eq(businessHours.businessId, business.id),
       orderBy: [asc(businessHours.dayOfWeek)],
@@ -57,6 +58,13 @@ export async function getPublicBusinessData(slug: string) {
       .orderBy(desc(reviews.createdAt))
       .limit(20),
     getBusinessRatingStats(business.id),
+    db.query.classSchedules.findFirst({
+      where: and(
+        eq(classSchedules.businessId, business.id),
+        eq(classSchedules.isActive, true)
+      ),
+      columns: { id: true },
+    }),
   ]);
 
   const visibleProducts = productList.filter((p) => p.isVisible);
@@ -90,6 +98,7 @@ export async function getPublicBusinessData(slug: string) {
     products: visibleProducts,
     reviews: publishedReviews,
     ratingStats,
+    hasWorkouts: !!activeClassSchedule,
   };
 }
 

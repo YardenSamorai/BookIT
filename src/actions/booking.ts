@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, lt, ne, sql } from "drizzle-orm";
+import { and, eq, gte, lt, ne, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
@@ -67,10 +67,28 @@ export async function createAppointment(
     return { success: false, error: parsed.error.errors[0].message };
   }
 
-  const { serviceId, staffId, startTime: startTimeStr, notes } = parsed.data;
+  const { serviceId, staffId, startTime: startTimeStr, notes, classInstanceId } = parsed.data;
   const startTime = new Date(startTimeStr);
 
   const customerId = await findOrCreateCustomer(businessId, userId);
+
+  if (classInstanceId) {
+    const [existing] = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.classInstanceId, classInstanceId),
+          eq(appointments.customerId, customerId),
+          ne(appointments.status, "CANCELLED")
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      return { success: false, error: "ALREADY_REGISTERED" };
+    }
+  }
 
   const service = await db.query.services.findFirst({
     where: and(eq(services.id, serviceId), eq(services.businessId, businessId)),
@@ -94,24 +112,46 @@ export async function createAppointment(
   const bufferedEnd = new Date(endTime.getTime() + bufferMin * 60 * 1000);
   const bufferedStart = new Date(startTime.getTime() - bufferMin * 60 * 1000);
 
-  const conflicts = await db
-    .select({ id: appointments.id })
-    .from(appointments)
-    .where(
-      and(
-        eq(appointments.staffId, staffId),
-        ne(appointments.status, "CANCELLED"),
-        lt(appointments.startTime, bufferedEnd),
-        gte(appointments.endTime, bufferedStart)
+  if (service.isGroup) {
+    const [groupCount] = await db
+      .select({ value: count() })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.staffId, staffId),
+          eq(appointments.serviceId, serviceId),
+          ne(appointments.status, "CANCELLED"),
+          lt(appointments.startTime, bufferedEnd),
+          gte(appointments.endTime, bufferedStart)
+        )
+      );
+    const maxP = service.maxParticipants ?? 1;
+    if ((groupCount?.value ?? 0) >= maxP) {
+      return {
+        success: false,
+        error: "This class is full. Please choose another time.",
+      };
+    }
+  } else {
+    const conflicts = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.staffId, staffId),
+          ne(appointments.status, "CANCELLED"),
+          lt(appointments.startTime, bufferedEnd),
+          gte(appointments.endTime, bufferedStart)
+        )
       )
-    )
-    .limit(1);
+      .limit(1);
 
-  if (conflicts.length > 0) {
-    return {
-      success: false,
-      error: "This time slot is no longer available. Please choose another.",
-    };
+    if (conflicts.length > 0) {
+      return {
+        success: false,
+        error: "This time slot is no longer available. Please choose another.",
+      };
+    }
   }
 
   // If this service blocks all staff, no one in the business can have overlapping appointments
@@ -196,6 +236,7 @@ export async function createAppointment(
       customerPackageId,
       notes: notes || null,
       source: "ONLINE",
+      classInstanceId: classInstanceId || null,
     })
     .returning({ id: appointments.id });
 

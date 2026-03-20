@@ -2,11 +2,12 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n/locale-context";
-import type { Appointment, Staff } from "./calendar-types";
+import type { Appointment, Staff, ClassInstance } from "./calendar-types";
 import { STAFF_COLORS, isSameDay, formatTime } from "./calendar-types";
 
 interface DayViewProps {
   appointments: Appointment[];
+  classInstances?: ClassInstance[];
   staff: Staff[];
   staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
   staffFilter: string | null;
@@ -21,6 +22,7 @@ const PX_PER_MIN = ROW_HEIGHT / 60;
 
 export function DayView({
   appointments,
+  classInstances = [],
   staff,
   staffColorMap,
   staffFilter,
@@ -35,6 +37,11 @@ export function DayView({
   const dayApts = useMemo(() => {
     return appointments.filter((a) => isSameDay(new Date(a.startTime), currentDate));
   }, [appointments, currentDate]);
+
+  const dayClassInstances = useMemo(() => {
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
+    return classInstances.filter((ci) => ci.date === dateStr && ci.status === "SCHEDULED");
+  }, [classInstances, currentDate]);
 
   const hours = useMemo(() => {
     const h: number[] = [];
@@ -138,6 +145,15 @@ export function DayView({
                         onAptClick={onAptClick}
                       />
                     ))}
+                  {dayClassInstances
+                    .filter((ci) => ci.staffId === s.id)
+                    .map((ci) => (
+                      <ClassBlock
+                        key={ci.id}
+                        instance={ci}
+                        dateLocale={dateLocale}
+                      />
+                    ))}
                 </div>
               );
             })
@@ -150,6 +166,13 @@ export function DayView({
                   staffColorMap={staffColorMap}
                   dateLocale={dateLocale}
                   onAptClick={onAptClick}
+                />
+              ))}
+              {dayClassInstances.map((ci) => (
+                <ClassBlock
+                  key={ci.id}
+                  instance={ci}
+                  dateLocale={dateLocale}
                 />
               ))}
             </div>
@@ -246,5 +269,58 @@ function AptBlock({
         </div>
       )}
     </button>
+  );
+}
+
+function ClassBlock({
+  instance,
+  dateLocale,
+}: {
+  instance: ClassInstance;
+  dateLocale: string;
+}) {
+  const start = new Date(instance.startTime);
+  const end = new Date(instance.endTime);
+  const startMins = start.getHours() * 60 + start.getMinutes() - HOUR_START * 60;
+  const durationMins = (end.getTime() - start.getTime()) / 60_000;
+  const top = (startMins / 60) * ROW_HEIGHT;
+  const heightPx = Math.max(durationMins * PX_PER_MIN, 24);
+  const timeStr = `${formatTime(start, dateLocale)}–${formatTime(end, dateLocale)}`;
+  const booked = instance.bookedCount ?? 0;
+  const capacityStr = `${booked}/${instance.maxParticipants}`;
+
+  if (startMins < 0) return null;
+
+  return (
+    <div
+      className="absolute inset-x-1 overflow-hidden rounded-lg border-s-[3px] border-dashed text-start shadow-sm"
+      style={{
+        top,
+        height: heightPx,
+        backgroundColor: "#EDE9FE",
+        borderColor: "#8B5CF6",
+        color: "#4C1D95",
+      }}
+    >
+      {heightPx < 28 ? (
+        <p className="flex items-center h-full px-1.5 text-[11px] truncate gap-1">
+          <span className="font-semibold">⟳ {instance.serviceName}</span>
+          <span className="opacity-60 shrink-0">{capacityStr}</span>
+        </p>
+      ) : heightPx < 46 ? (
+        <div className="px-1.5 py-0.5">
+          <p className="truncate text-xs font-semibold leading-tight">⟳ {instance.serviceName}</p>
+          <p className="truncate text-[11px] opacity-70 leading-tight">
+            {capacityStr} · {timeStr}
+          </p>
+        </div>
+      ) : (
+        <div className="px-2 py-1">
+          <p className="truncate text-xs font-semibold leading-tight">⟳ {instance.serviceName}</p>
+          <p className="truncate text-[11px] opacity-75 leading-tight">{capacityStr}</p>
+          <p className="text-[10px] tabular-nums opacity-60 leading-tight">{timeStr}</p>
+        </div>
+      )}
+    </div>
   );
 }

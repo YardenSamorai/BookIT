@@ -51,6 +51,18 @@ function getMonthDays(year: number, month: number) {
   return cells;
 }
 
+interface ClassInstanceSlot {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  maxParticipants: number;
+  bookedCount: number;
+  staffId: string;
+  staffName: string;
+  serviceName: string;
+}
+
 const FEW_SLOTS_THRESHOLD = 3;
 
 export function StepDateTime({
@@ -77,6 +89,7 @@ export function StepDateTime({
   const [pickedTime, setPickedTime] = useState<string | null>(null);
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [isGroupService, setIsGroupService] = useState(false);
+  const [classInstanceSlots, setClassInstanceSlots] = useState<ClassInstanceSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [monthDir, setMonthDir] = useState(0);
 
@@ -96,38 +109,63 @@ export function StepDateTime({
     const params = new URLSearchParams({ businessId, serviceId, staffId, dateFrom, dateTo });
     fetch(`/api/availability?${params}`)
       .then((r) => r.json())
-      .then((data: { days: DayAvailability[]; isGroup: boolean; maxParticipants: number }) => {
+      .then((data: { days: DayAvailability[]; isGroup: boolean; maxParticipants: number; classInstances?: ClassInstanceSlot[] }) => {
         const days = data.days ?? data;
         setAvailability(Array.isArray(days) ? days : []);
         setIsGroupService(data.isGroup ?? false);
+        setClassInstanceSlots(data.classInstances ?? []);
+
+        const hasClassSchedule = (data.classInstances ?? []).length > 0;
+
         if (!activeDate) {
-          const arr = Array.isArray(days) ? days : [];
-          const first = arr.find((d: DayAvailability) =>
-            d.staffAvailability.some((sa) => sa.slots.length > 0)
-          );
-          if (first) setActiveDate(first.date);
+          if (hasClassSchedule) {
+            const firstCI = (data.classInstances ?? []).find((ci) => ci.bookedCount < ci.maxParticipants);
+            if (firstCI) setActiveDate(firstCI.date);
+          } else {
+            const arr = Array.isArray(days) ? days : [];
+            const first = arr.find((d: DayAvailability) =>
+              d.staffAvailability.some((sa) => sa.slots.length > 0)
+            );
+            if (first) setActiveDate(first.date);
+          }
         }
       })
       .finally(() => setLoading(false));
   }, [businessId, serviceId, staffId, dateFrom, dateTo]);
 
-  // Map: dateStr → total slot count
+  const hasClassSchedule = classInstanceSlots.length > 0;
+  const activeDateCIs = classInstanceSlots.filter((ci) => ci.date === activeDate);
+
   const slotCountMap = useMemo(() => {
     const map = new Map<string, number>();
-    availability.forEach((d) => {
-      const count = d.staffAvailability.reduce((sum, sa) => sum + sa.slots.length, 0);
-      map.set(d.date, count);
-    });
+
+    if (hasClassSchedule) {
+      classInstanceSlots.forEach((ci) => {
+        const spotsLeft = ci.maxParticipants - ci.bookedCount;
+        map.set(ci.date, (map.get(ci.date) ?? 0) + (spotsLeft > 0 ? 1 : 0));
+      });
+    } else {
+      availability.forEach((d) => {
+        const count = d.staffAvailability.reduce((sum, sa) => sum + sa.slots.length, 0);
+        map.set(d.date, count);
+      });
+    }
     return map;
-  }, [availability]);
+  }, [availability, classInstanceSlots, hasClassSchedule]);
 
   const availableDates = useMemo(() => {
     const set = new Set<string>();
-    availability.forEach((d) => {
-      if (d.staffAvailability.some((sa) => sa.slots.length > 0)) set.add(d.date);
-    });
+    if (hasClassSchedule) {
+      classInstanceSlots.forEach((ci) => {
+        if (ci.bookedCount < ci.maxParticipants) set.add(ci.date);
+      });
+    } else {
+      availability.forEach((d) => {
+        if (d.staffAvailability.some((sa) => sa.slots.length > 0)) set.add(d.date);
+      });
+    }
     return set;
-  }, [availability]);
+  }, [availability, classInstanceSlots, hasClassSchedule]);
 
   const daySlots = availability.find((d) => d.date === activeDate);
   const allSlots =
@@ -396,7 +434,7 @@ export function StepDateTime({
 
       {/* Time slots section */}
       <div className="mt-5 scroll-mt-4" ref={timeSlotsRef}>
-        {activeDate && !loading && uniqueTimes.length > 0 && (
+        {activeDate && !loading && (hasClassSchedule ? activeDateCIs.length > 0 : uniqueTimes.length > 0) && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -432,6 +470,81 @@ export function StepDateTime({
               </div>
               <p className="mt-3 text-xs text-gray-400">{t("book.loading_availability")}</p>
             </motion.div>
+          ) : hasClassSchedule && activeDate ? (
+            activeDateCIs.length === 0 ? (
+              <motion.div
+                key="empty-ci"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center"
+              >
+                <CalendarDays className="size-8 text-gray-200" />
+                <p className="mt-3 text-sm font-medium text-gray-400">{t("book.no_times")}</p>
+                <p className="mt-1 text-xs text-gray-300">{t("book.try_another")}</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`ci-${activeDate}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-3"
+              >
+                {activeDateCIs.map((ci, i) => {
+                  const startDate = new Date(ci.startTime);
+                  const endDate = new Date(ci.endTime);
+                  const spotsLeft = ci.maxParticipants - ci.bookedCount;
+                  const isFull = spotsLeft <= 0;
+                  const isSelected = pickedTime === ci.startTime;
+
+                  return (
+                    <motion.button
+                      key={ci.id}
+                      type="button"
+                      disabled={isFull}
+                      onClick={() => handleTimeClick(ci.startTime)}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`flex w-full items-center justify-between rounded-2xl border p-4 transition-all ${
+                        isFull
+                          ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-50"
+                          : isSelected
+                            ? "border-transparent text-white"
+                            : "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-gray-200 hover:shadow-md active:scale-[0.99]"
+                      }`}
+                      style={
+                        isSelected
+                          ? { backgroundColor: secondaryColor, boxShadow: `0 4px 16px ${secondaryColor}40` }
+                          : undefined
+                      }
+                    >
+                      <div className="text-start">
+                        <p className={`text-base font-bold ${isSelected ? "text-white" : "text-gray-800"}`} dir="ltr">
+                          {fmtSlotTime(ci.startTime, dateLocale)} – {fmtSlotTime(ci.endTime, dateLocale)}
+                        </p>
+                        <p className={`mt-0.5 text-xs ${isSelected ? "text-white/70" : "text-gray-400"}`}>
+                          {ci.staffName}
+                        </p>
+                      </div>
+                      <div className="text-end">
+                        {isFull ? (
+                          <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-500">
+                            {t("cls.full")}
+                          </span>
+                        ) : (
+                          <span className={`text-sm font-semibold ${isSelected ? "text-white/90" : spotsLeft <= 3 ? "text-orange-500" : "text-green-600"}`}>
+                            {spotsLeft} {t("cls.spots_left")}
+                          </span>
+                        )}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+            )
           ) : uniqueTimes.length === 0 && activeDate ? (
             <motion.div
               key="empty"

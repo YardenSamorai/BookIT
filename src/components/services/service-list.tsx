@@ -21,11 +21,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { deleteService } from "@/actions/services";
+import { deleteService, getServiceAppointmentCount } from "@/actions/services";
 import { ServiceStaffEditor } from "./service-staff-editor";
 import type { InferSelectModel } from "drizzle-orm";
 import type { services, serviceCategories, staffMembers } from "@/lib/db/schema";
-import { Clock, Loader2, MoreVertical, Pencil, Scissors, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Clock, Loader2, MoreVertical, Pencil, Scissors, Trash2, Users } from "lucide-react";
 import { useT } from "@/lib/i18n/locale-context";
 
 type Service = InferSelectModel<typeof services>;
@@ -98,12 +98,22 @@ function ServiceRow({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [staffOpen, setStaffOpen] = useState(false);
+  const [appointmentCount, setAppointmentCount] = useState(0);
+  const [loadingCount, setLoadingCount] = useState(false);
 
   const category = categories.find((c) => c.id === svc.categoryId);
 
+  async function handleDeleteClick() {
+    setLoadingCount(true);
+    setDeleteOpen(true);
+    const count = await getServiceAppointmentCount(svc.id);
+    setAppointmentCount(count);
+    setLoadingCount(false);
+  }
+
   async function handleDelete() {
     setDeleting(true);
-    await deleteService(svc.id);
+    await deleteService(svc.id, appointmentCount > 0);
     setDeleteOpen(false);
     setDeleting(false);
     router.refresh();
@@ -199,7 +209,7 @@ function ServiceRow({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => setDeleteOpen(true)}
+                onClick={handleDeleteClick}
               >
                 <Trash2 className="me-2 size-4" />
                 {t("common.delete")}
@@ -217,13 +227,29 @@ function ServiceRow({
               {t("svc.delete_confirm", { title: svc.title })}
             </DialogDescription>
           </DialogHeader>
+
+          {loadingCount ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : appointmentCount > 0 ? (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <p className="text-sm text-amber-800">
+                {t("svc.delete_has_appointments" as Parameters<typeof t>[0], { count: String(appointmentCount) })}
+              </p>
+            </div>
+          ) : null}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
               {t("common.cancel")}
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting || loadingCount}>
               {deleting && <Loader2 className="me-2 size-4 animate-spin" />}
-              {t("common.delete")}
+              {appointmentCount > 0
+                ? t("svc.delete_confirm_with_appointments" as Parameters<typeof t>[0], { count: String(appointmentCount) })
+                : t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

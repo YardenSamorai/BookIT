@@ -9,6 +9,7 @@ import {
   serviceCategories,
   servicePackages,
   serviceStaff,
+  appointments,
 } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { canAddService, canAddPackage } from "@/lib/plans/gates";
@@ -162,10 +163,56 @@ export async function updateService(
   return { success: true, data: undefined };
 }
 
-export async function deleteService(
+export async function getServiceAppointmentCount(
   serviceId: string
+): Promise<number> {
+  const { businessId } = await requireBusinessOwner();
+
+  const [result] = await db
+    .select({ value: count() })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.serviceId, serviceId),
+        eq(appointments.businessId, businessId)
+      )
+    );
+  return result?.value ?? 0;
+}
+
+export async function deleteService(
+  serviceId: string,
+  forceDeleteAppointments = false
 ): Promise<ActionResult> {
   const { businessId } = await requireBusinessOwner();
+
+  const [aptCount] = await db
+    .select({ value: count() })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.serviceId, serviceId),
+        eq(appointments.businessId, businessId)
+      )
+    );
+
+  if ((aptCount?.value ?? 0) > 0 && !forceDeleteAppointments) {
+    return {
+      success: false,
+      error: `SERVICE_HAS_APPOINTMENTS:${aptCount.value}`,
+    };
+  }
+
+  if (forceDeleteAppointments) {
+    await db
+      .delete(appointments)
+      .where(
+        and(
+          eq(appointments.serviceId, serviceId),
+          eq(appointments.businessId, businessId)
+        )
+      );
+  }
 
   await db
     .delete(services)

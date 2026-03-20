@@ -5,6 +5,7 @@ export * from "./staff";
 export * from "./services";
 export * from "./packages";
 export * from "./customers";
+export * from "./classes";
 export * from "./appointments";
 export * from "./products";
 export * from "./site-config";

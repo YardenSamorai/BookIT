@@ -30,6 +30,21 @@ export const STAFF_COLORS = [
   { bg: "#FDF2F8", border: "#EC4899", text: "#831843" },
 ];
 
+export type ClassInstance = {
+  id: string;
+  classScheduleId: string;
+  serviceId: string;
+  staffId: string;
+  date: string;
+  startTime: Date;
+  endTime: Date;
+  maxParticipants: number;
+  status: string;
+  serviceName: string;
+  staffName: string;
+  bookedCount?: number;
+};
+
 export function getStaffColor(staffId: string, staffList: Staff[]) {
   const idx = staffList.findIndex((s) => s.id === staffId);
   return STAFF_COLORS[idx >= 0 ? idx % STAFF_COLORS.length : 0];

@@ -13,7 +13,7 @@ import { ManualBookingDialog } from "./manual-booking-dialog";
 import { WeekView } from "./week-view";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
-import type { CalendarViewType, Staff, Appointment } from "./calendar-types";
+import type { CalendarViewType, Staff, Appointment, ClassInstance } from "./calendar-types";
 import { STAFF_COLORS } from "./calendar-types";
 
 interface CalendarShellProps {
@@ -22,6 +22,7 @@ interface CalendarShellProps {
   serviceStaffLinks?: { serviceId: string; staffId: string }[];
   businessId: string;
   appointments: Appointment[];
+  classInstances?: ClassInstance[];
   initialView: string;
   initialDate: string;
 }
@@ -32,6 +33,7 @@ export function CalendarShell({
   serviceStaffLinks,
   businessId,
   appointments,
+  classInstances = [],
   initialView,
   initialDate,
 }: CalendarShellProps) {
@@ -251,6 +253,7 @@ export function CalendarShell({
       {view === "week" && (
         <WeekView
           appointments={appointments}
+          classInstances={classInstances}
           staff={staff}
           staffColorMap={staffColorMap}
           staffFilter={staffFilter}
@@ -262,6 +265,7 @@ export function CalendarShell({
       {view === "day" && (
         <DayView
           appointments={appointments}
+          classInstances={classInstances}
           staff={staff}
           staffColorMap={staffColorMap}
           staffFilter={staffFilter}

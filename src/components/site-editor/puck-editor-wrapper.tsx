@@ -66,8 +66,14 @@ export function PuckEditorWrapper({
           {children}
         </IframeRtlOverride>
       ),
+      headerActions: ({ children }: { children: ReactNode }) => (
+        <div className="flex items-center gap-2">
+          {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+          {children}
+        </div>
+      ),
     }),
-    [dir, businessData.locale]
+    [dir, businessData.locale, saving]
   );
 
   return (
@@ -78,11 +84,6 @@ export function PuckEditorWrapper({
           data={initialData}
           onPublish={handlePublish}
           overrides={overrides}
-          renderHeaderActions={() => (
-            <div className="flex items-center gap-2">
-              {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-            </div>
-          )}
         />
       </div>
     </PuckBusinessProvider>

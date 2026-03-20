@@ -16,6 +16,7 @@ import {
   Star,
   ExternalLink,
   BarChart3,
+  Repeat,
 } from "lucide-react";
 import {
   Sidebar,
@@ -99,6 +100,7 @@ export function AppSidebar({ businessSlug }: { businessSlug?: string }) {
 
   const manageNav: NavItem[] = [
     { title: t("dash.services"), href: "/dashboard/services", icon: Scissors },
+    { title: t("dash.classes"), href: "/dashboard/classes", icon: Repeat },
     { title: t("dash.staff"), href: "/dashboard/staff", icon: UserCog },
     { title: t("dash.products"), href: "/dashboard/products", icon: ShoppingBag },
   ];

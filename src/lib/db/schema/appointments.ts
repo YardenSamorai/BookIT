@@ -18,6 +18,7 @@ import { customers } from "./customers";
 import { services } from "./services";
 import { staffMembers } from "./staff";
 import { customerPackages } from "./customers";
+import { classInstances } from "./classes";
 
 export const appointments = pgTable(
   "appointment",
@@ -37,6 +38,10 @@ export const appointments = pgTable(
       .references(() => staffMembers.id, { onDelete: "restrict" }),
     customerPackageId: uuid("customer_package_id").references(
       () => customerPackages.id,
+      { onDelete: "set null" }
+    ),
+    classInstanceId: uuid("class_instance_id").references(
+      () => classInstances.id,
       { onDelete: "set null" }
     ),
     startTime: timestamp("start_time", { withTimezone: true }).notNull(),

@@ -121,3 +121,8 @@ export const notificationStatusEnum = pgEnum("notification_status", [
   "DELIVERED",
   "FAILED",
 ]);
+
+export const classInstanceStatusEnum = pgEnum("class_instance_status", [
+  "SCHEDULED",
+  "CANCELLED",
+]);

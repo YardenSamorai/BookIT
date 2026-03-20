@@ -19,6 +19,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
 
   const activeServices = data.services.filter((s) => s.isActive);
   const activeStaff = data.staff.filter((s) => s.isActive);
+  const hasRegularServices = activeServices.some((s) => !s.isGroup);
   const locale = (data.business.language as Locale) || "he";
   const dir = getDir(locale);
   const { primaryColor, secondaryColor, name, logoUrl } = data.business;
@@ -85,6 +86,8 @@ export default async function BookingPage({ params, searchParams }: Props) {
             currency={data.business.currency}
             locale={locale}
             initialServiceId={validPreSelected}
+            hasWorkouts={data.hasWorkouts}
+            hasRegularServices={hasRegularServices}
           />
         </div>
       </main>
