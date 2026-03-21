@@ -19,7 +19,7 @@ export default async function CustomersPage() {
 
   const activeServices = servicesList
     .filter((s) => s.isActive)
-    .map((s) => ({ id: s.id, title: s.title, durationMinutes: s.durationMinutes }));
+    .map((s) => ({ id: s.id, title: s.title, durationMinutes: s.durationMinutes, isGroup: s.isGroup }));
 
   return (
     <div className="space-y-6">

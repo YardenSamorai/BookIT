@@ -481,6 +481,193 @@ export async function createManualAppointment(input: {
   return { success: true, data: { appointmentId: appointment.id } };
 }
 
+export async function getUpcomingClassInstances(
+  businessId: string,
+  serviceId: string
+) {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  await requireBusinessOwner();
+
+  const { classInstances } = await import("@/lib/db/schema");
+  const now = new Date();
+
+  const instances = await db
+    .select({
+      id: classInstances.id,
+      date: classInstances.date,
+      startTime: classInstances.startTime,
+      endTime: classInstances.endTime,
+      maxParticipants: classInstances.maxParticipants,
+      staffId: classInstances.staffId,
+      classScheduleId: classInstances.classScheduleId,
+    })
+    .from(classInstances)
+    .where(
+      and(
+        eq(classInstances.businessId, businessId),
+        eq(classInstances.serviceId, serviceId),
+        eq(classInstances.status, "SCHEDULED"),
+        gte(classInstances.startTime, now)
+      )
+    )
+    .orderBy(classInstances.startTime)
+    .limit(30);
+
+  const result = [];
+  for (const inst of instances) {
+    const [countRow] = await db
+      .select({ value: count() })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.classInstanceId, inst.id),
+          ne(appointments.status, "CANCELLED")
+        )
+      );
+    result.push({
+      ...inst,
+      startTime: inst.startTime.toISOString(),
+      endTime: inst.endTime.toISOString(),
+      bookedCount: countRow?.value ?? 0,
+    });
+  }
+
+  return result;
+}
+
+export async function enrollCustomerInClass(input: {
+  businessId: string;
+  customerPhone: string;
+  customerName: string;
+  classInstanceId: string;
+  notes?: string;
+}): Promise<ActionResult<{ appointmentId: string }>> {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  await requireBusinessOwner();
+
+  const { businessId, customerPhone, customerName, classInstanceId, notes } = input;
+
+  if (!customerPhone?.trim() || !customerName?.trim()) {
+    return { success: false, error: "Customer name and phone are required" };
+  }
+
+  const { classInstances } = await import("@/lib/db/schema");
+  const instance = await db.query.classInstances.findFirst({
+    where: and(
+      eq(classInstances.id, classInstanceId),
+      eq(classInstances.businessId, businessId),
+      eq(classInstances.status, "SCHEDULED")
+    ),
+  });
+
+  if (!instance) return { success: false, error: "Class instance not found" };
+
+  const phone = customerPhone.replace(/[\s\-()]/g, "");
+  let user = await db.query.users.findFirst({
+    where: eq(users.phone, phone),
+    columns: { id: true },
+  });
+
+  if (!user) {
+    const [created] = await db
+      .insert(users)
+      .values({ name: customerName.trim(), phone, role: "CUSTOMER" })
+      .returning({ id: users.id });
+    user = created;
+  }
+
+  const customerId = await findOrCreateCustomer(businessId, user.id);
+
+  const [existing] = await db
+    .select({ id: appointments.id })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.classInstanceId, classInstanceId),
+        eq(appointments.customerId, customerId),
+        ne(appointments.status, "CANCELLED")
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    return { success: false, error: "ALREADY_REGISTERED" };
+  }
+
+  const [countRow] = await db
+    .select({ value: count() })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.classInstanceId, classInstanceId),
+        ne(appointments.status, "CANCELLED")
+      )
+    );
+
+  if ((countRow?.value ?? 0) >= instance.maxParticipants) {
+    return { success: false, error: "Class is full" };
+  }
+
+  const service = await db.query.services.findFirst({
+    where: eq(services.id, instance.serviceId),
+    columns: { title: true, paymentMode: true, price: true },
+  });
+
+  const [appointment] = await db
+    .insert(appointments)
+    .values({
+      businessId,
+      customerId,
+      serviceId: instance.serviceId,
+      staffId: instance.staffId,
+      startTime: instance.startTime,
+      endTime: instance.endTime,
+      status: "CONFIRMED",
+      paymentStatus: service?.paymentMode === "FREE" ? "FREE" : "ON_SITE",
+      paymentAmount: service?.price || null,
+      notes: notes || null,
+      source: "DASHBOARD",
+      classInstanceId,
+    })
+    .returning({ id: appointments.id });
+
+  await db.insert(appointmentLogs).values({
+    appointmentId: appointment.id,
+    action: "CREATED",
+    newValue: "CONFIRMED",
+    performedBy: "BUSINESS",
+  });
+
+  try {
+    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const [biz, staffMember] = await Promise.all([
+      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true } }),
+      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, instance.staffId), columns: { name: true } }),
+    ]);
+    const dateStr = instance.startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+    const timeStr = instance.startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    await sendBookingNotificationSafe({
+      businessId,
+      appointmentId: appointment.id,
+      recipientPhone: phone,
+      type: "BOOKING_CONFIRMED",
+      variables: {
+        customerName,
+        businessName: biz?.name || "",
+        date: dateStr,
+        time: timeStr,
+        service: service?.title || "",
+        staff: staffMember?.name || "",
+      },
+    });
+  } catch { /* notification failure must not block enrollment */ }
+
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/customers");
+  revalidatePath("/dashboard/classes");
+  return { success: true, data: { appointmentId: appointment.id } };
+}
+
 export async function getStaffDaySchedule(
   _staffId: string,
   businessId: string,

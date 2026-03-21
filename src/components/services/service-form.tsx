@@ -128,7 +128,11 @@ export function ServiceForm({ categories, defaultValues, onSuccess }: ServiceFor
             onValueChange={(v) => update({ categoryId: (v ?? "") as string })}
           >
             <SelectTrigger>
-              <SelectValue placeholder={t("svc.no_category")} />
+              <span>
+                {form.categoryId
+                  ? categories.find((c) => c.id === form.categoryId)?.name ?? t("svc.no_category")
+                  : t("svc.no_category")}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {categories.map((cat) => (

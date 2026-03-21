@@ -12,7 +12,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -164,7 +163,11 @@ export function PackageList({ packages, services: serviceList }: PackageListProp
               <Label>{t("pkg.service")}</Label>
               <Select value={serviceId} onValueChange={(v) => setServiceId(v as string)}>
                 <SelectTrigger>
-                  <SelectValue placeholder={t("pkg.select_service")} />
+                  <span>
+                    {serviceId
+                      ? serviceList.find((s) => s.id === serviceId)?.title ?? t("pkg.select_service")
+                      : t("pkg.select_service")}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {serviceList.map((svc) => (

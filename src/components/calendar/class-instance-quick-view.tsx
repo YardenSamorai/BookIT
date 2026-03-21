@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -17,6 +17,8 @@ import {
   Trash2,
   Pencil,
   Users,
+  UserMinus,
+  UserPlus,
   Clock,
   Calendar,
   Scissors,
@@ -27,10 +29,13 @@ import { useT, useLocale } from "@/lib/i18n/locale-context";
 import {
   cancelClassInstance,
   cancelAllFutureInstances,
+  cancelParticipantBooking,
   updateClassInstanceTime,
   updateAllFutureInstancesTime,
   getClassInstanceParticipants,
+  searchBusinessCustomers,
 } from "@/actions/classes";
+import { enrollCustomerInClass } from "@/actions/booking";
 import type { ClassInstance } from "./calendar-types";
 
 interface Props {
@@ -67,6 +72,15 @@ export function ClassInstanceQuickView({
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<{ name: string; phone: string } | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dtLocale = locale === "he" ? "he-IL" : "en-US";
 
@@ -97,6 +111,12 @@ export function ClassInstanceQuickView({
       setEditScope(null);
       setShowParticipants(false);
       setParticipants([]);
+      setShowAddForm(false);
+      setAddName("");
+      setAddPhone("");
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedCustomer(null);
       loadParticipants();
     }
   }, [open, instance, loadParticipants]);
@@ -125,7 +145,7 @@ export function ClassInstanceQuickView({
 
   const startDate = new Date(instance.startTime);
   const endDate = new Date(instance.endTime);
-  const booked = instance.bookedCount ?? 0;
+  const booked = participants.length > 0 ? participants.length : (instance.bookedCount ?? 0);
 
   const dateStr = startDate.toLocaleDateString(dtLocale, {
     weekday: "short",
@@ -155,6 +175,68 @@ export function ClassInstanceQuickView({
       router.refresh();
       onOpenChange(false);
       setConfirmAction(null);
+    });
+  }
+
+  function handleSearchChange(q: string) {
+    setSearchQuery(q);
+    setSelectedCustomer(null);
+    setAddName("");
+    setAddPhone("");
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (q.trim().length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimerRef.current = setTimeout(async () => {
+      const results = await searchBusinessCustomers(businessId, q.trim());
+      setSearchResults(results);
+      setSearchLoading(false);
+    }, 250);
+  }
+
+  function handleSelectCustomer(c: { name: string; phone: string }) {
+    setSelectedCustomer(c);
+    setAddName(c.name);
+    setAddPhone(c.phone);
+    setSearchQuery(c.name);
+    setSearchResults([]);
+  }
+
+  function resetAddForm() {
+    setShowAddForm(false);
+    setAddName("");
+    setAddPhone("");
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedCustomer(null);
+  }
+
+  function handleAddParticipant() {
+    if (!addName.trim() || !addPhone.trim() || !instance) return;
+    startTransition(async () => {
+      const result = await enrollCustomerInClass({
+        businessId,
+        customerName: addName.trim(),
+        customerPhone: addPhone.trim(),
+        classInstanceId: instance.id,
+      });
+      if (result.success) {
+        resetAddForm();
+        await loadParticipants();
+        router.refresh();
+      }
+    });
+  }
+
+  function handleRemoveParticipant(appointmentId: string) {
+    startTransition(async () => {
+      await cancelParticipantBooking(appointmentId, instance!.id, businessId);
+      setParticipants((prev) => prev.filter((p) => p.id !== appointmentId));
+      setRemovingParticipantId(null);
+      router.refresh();
     });
   }
 
@@ -341,33 +423,157 @@ export function ClassInstanceQuickView({
                       <span className="font-medium">
                         {p.customerName || t("common.unknown" as never)}
                       </span>
-                      {p.customerPhone && (
-                        <a
-                          href={`tel:${p.customerPhone}`}
-                          className="text-xs text-muted-foreground hover:text-primary"
-                          dir="ltr"
+                      <div className="flex items-center gap-2">
+                        {p.customerPhone && (
+                          <a
+                            href={`tel:${p.customerPhone}`}
+                            className="text-xs text-muted-foreground hover:text-primary"
+                            dir="ltr"
+                          >
+                            {p.customerPhone}
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setRemovingParticipantId(p.id)}
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+                          title={t("cls.remove_participant" as never)}
                         >
-                          {p.customerPhone}
-                        </a>
-                      )}
+                          <UserMinus className="size-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : null}
             </div>
 
-            {/* Manage participants button */}
-            <Button
-              variant="default"
-              size="lg"
-              className="w-full bg-violet-600 hover:bg-violet-700"
-              onClick={() => setShowParticipants(!showParticipants)}
-            >
-              <Users className="size-4" />
-              {showParticipants
-                ? t("cls.hide_participants" as never)
-                : t("cls.manage_participants" as never)}
-            </Button>
+            {/* Add participant form */}
+            {showAddForm && (
+              <div className="space-y-3 rounded-lg border bg-background p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <p className="text-sm font-medium">{t("cls.add_participant" as never)}</p>
+
+                {/* Customer search */}
+                <div className="relative">
+                  <Input
+                    placeholder={t("cls.search_customer" as never)}
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="h-9"
+                    autoFocus
+                  />
+                  {searchLoading && (
+                    <div className="absolute end-2.5 top-1/2 -translate-y-1/2">
+                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+
+                  {/* Autocomplete dropdown */}
+                  {searchResults.length > 0 && !selectedCustomer && (
+                    <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden">
+                      {searchResults.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleSelectCustomer(c)}
+                          className="flex w-full items-center justify-between px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+                        >
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-xs text-muted-foreground" dir="ltr">{c.phone}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected customer preview */}
+                {selectedCustomer && (
+                  <div className="flex items-center justify-between rounded-md bg-primary/5 border border-primary/20 px-3 py-2 animate-in fade-in duration-150">
+                    <div>
+                      <p className="text-sm font-medium">{selectedCustomer.name}</p>
+                      <p className="text-xs text-muted-foreground" dir="ltr">{selectedCustomer.phone}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setAddName("");
+                        setAddPhone("");
+                        setSearchQuery("");
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Manual entry fallback */}
+                {!selectedCustomer && searchQuery.length > 0 && searchResults.length === 0 && !searchLoading && (
+                  <div className="space-y-2 rounded-md border border-dashed p-3">
+                    <p className="text-xs text-muted-foreground">{t("cls.customer_not_found" as never)}</p>
+                    <Input
+                      placeholder={t("cust.col_name" as never)}
+                      value={addName}
+                      onChange={(e) => setAddName(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      placeholder={t("cust.phone" as never)}
+                      value={addPhone}
+                      onChange={(e) => setAddPhone(e.target.value)}
+                      className="h-8 text-sm"
+                      dir="ltr"
+                      type="tel"
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={isPending || !addName.trim() || !addPhone.trim()}
+                    onClick={handleAddParticipant}
+                  >
+                    {isPending ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+                    {t("cls.enroll_customer" as never)}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={resetAddForm}
+                  >
+                    {t("common.cancel" as never)}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Manage participants + Add participant buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="lg"
+                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                onClick={() => setShowParticipants(!showParticipants)}
+              >
+                <Users className="size-4" />
+                {showParticipants
+                  ? t("cls.hide_participants" as never)
+                  : t("cls.manage_participants" as never)}
+              </Button>
+              {booked < instance.maxParticipants && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  title={t("cls.add_participant" as never)}
+                >
+                  <UserPlus className="size-4" />
+                </Button>
+              )}
+            </div>
 
             {/* Cancel all future */}
             <Button
@@ -460,6 +666,45 @@ export function ClassInstanceQuickView({
               onClick={() => {
                 if (confirmAction === "cancel_single") handleCancelSingle();
                 else handleCancelAll();
+              }}
+            >
+              {isPending
+                ? t("common.loading" as never)
+                : t("common.confirm" as never)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove participant confirmation dialog */}
+      <Dialog
+        open={removingParticipantId !== null}
+        onOpenChange={(o) => {
+          if (!o) setRemovingParticipantId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("cls.confirm_remove_participant" as never)}
+            </DialogTitle>
+            <DialogDescription>
+              {t("cls.confirm_remove_participant_desc" as never)}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => setRemovingParticipantId(null)}
+            >
+              {t("common.cancel" as never)}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => {
+                if (removingParticipantId) handleRemoveParticipant(removingParticipantId);
               }}
             >
               {isPending

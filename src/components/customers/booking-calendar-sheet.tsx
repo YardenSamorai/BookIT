@@ -24,6 +24,8 @@ import {
   getDayAppointments,
   getStaffDaySchedule,
   createManualAppointment,
+  getUpcomingClassInstances,
+  enrollCustomerInClass,
 } from "@/actions/booking";
 import { getDir } from "@/lib/i18n";
 import {
@@ -33,8 +35,10 @@ import {
   Loader2,
   Clock,
   User,
+  Users,
   GripVertical,
   Check,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 
 interface BookingCalendarSheetProps {
@@ -43,7 +47,7 @@ interface BookingCalendarSheetProps {
   businessId: string;
   customer: { name: string; phone: string };
   staff: { id: string; name: string }[];
-  services: { id: string; title: string; durationMinutes: number }[];
+  services: { id: string; title: string; durationMinutes: number; isGroup?: boolean }[];
   serviceStaffLinks?: { serviceId: string; staffId: string }[];
 }
 
@@ -141,8 +145,38 @@ export function BookingCalendarSheet({
     () => services.find((s) => s.id === serviceId),
     [services, serviceId]
   );
+  const isGroupService = selectedService?.isGroup ?? false;
   const baseDuration = selectedService?.durationMinutes ?? 30;
   const duration = customDuration ?? baseDuration;
+
+  type ClassInstanceOption = {
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    maxParticipants: number;
+    staffId: string;
+    bookedCount: number;
+  };
+  const [classInstances, setClassInstances] = useState<ClassInstanceOption[]>([]);
+  const [loadingInstances, setLoadingInstances] = useState(false);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !isGroupService) {
+      setClassInstances([]);
+      setSelectedInstanceId(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingInstances(true);
+    getUpcomingClassInstances(businessId, serviceId).then((data) => {
+      if (cancelled) return;
+      setClassInstances(data);
+      setLoadingInstances(false);
+    });
+    return () => { cancelled = true; };
+  }, [open, isGroupService, businessId, serviceId]);
 
   // Compute the earliest bookable minute for today
   const nowMinutes = useMemo(() => {
@@ -378,6 +412,31 @@ export function BookingCalendarSheet({
     [duration, confirmed, placedStart, bookableRange]
   );
 
+  function handleEnrollInClass() {
+    if (!selectedInstanceId) return;
+    startTransition(async () => {
+      const result = await enrollCustomerInClass({
+        businessId,
+        customerPhone: customer.phone,
+        customerName: customer.name,
+        classInstanceId: selectedInstanceId,
+        notes: notes || undefined,
+      });
+      if (result.success) {
+        setConfirmed(true);
+        setTimeout(() => {
+          onOpenChange(false);
+          router.refresh();
+        }, 1200);
+      } else {
+        const msg = result.error === "ALREADY_REGISTERED"
+          ? t("cls.already_registered" as never)
+          : result.error ?? t("manual.error_generic");
+        setError(msg);
+      }
+    });
+  }
+
   function handleConfirm() {
     if (placedStart === null || hasConflict) return;
 
@@ -503,7 +562,77 @@ export function BookingCalendarSheet({
               />
             </div>
 
-            {placedStart !== null && (
+            {/* Group service: class instance list */}
+            {isGroupService && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">{t("cls.upcoming" as never)}</Label>
+                {loadingInstances ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : classInstances.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3">
+                    {t("cls.no_classes" as never)}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                    {classInstances.map((ci) => {
+                      const start = new Date(ci.startTime);
+                      const end = new Date(ci.endTime);
+                      const isFull = ci.bookedCount >= ci.maxParticipants;
+                      const isSelected = selectedInstanceId === ci.id;
+                      const staffName = staff.find((s) => s.id === ci.staffId)?.name ?? "";
+                      return (
+                        <button
+                          key={ci.id}
+                          type="button"
+                          disabled={isFull || confirmed || isPending}
+                          onClick={() => setSelectedInstanceId(isSelected ? null : ci.id)}
+                          className={`w-full text-start rounded-lg border p-3 transition-colors ${
+                            isSelected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                              : isFull
+                                ? "border-border/50 bg-muted/30 opacity-50 cursor-not-allowed"
+                                : "border-border hover:border-primary/50 hover:bg-muted/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">
+                              {start.toLocaleDateString(locale === "he" ? "he-IL" : "en-US", {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                            <span className={`text-xs font-medium ${isFull ? "text-red-500" : "text-muted-foreground"}`}>
+                              {ci.bookedCount}/{ci.maxParticipants}
+                              {isFull && ` · ${t("cls.full" as never)}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="size-3" />
+                              {start.toLocaleTimeString(locale === "he" ? "he-IL" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                              {" – "}
+                              {end.toLocaleTimeString(locale === "he" ? "he-IL" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            {staffName && (
+                              <span className="flex items-center gap-1">
+                                <User className="size-3" />
+                                {staffName}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Regular service: selected time */}
+            {!isGroupService && placedStart !== null && (
               <div className="rounded-lg border bg-background p-3 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
                 <div className="flex items-center gap-1.5 text-sm font-medium">
                   <Clock className="size-4 text-primary" />
@@ -524,20 +653,38 @@ export function BookingCalendarSheet({
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="space-y-2 pt-2">
-              {placedStart !== null && !confirmed && (
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleConfirm}
-                  disabled={isPending || hasConflict}
-                >
-                  {isPending ? (
-                    <Loader2 className="size-4 me-1.5 animate-spin" />
-                  ) : (
-                    <CalendarPlus className="size-4 me-1.5" />
-                  )}
-                  {t("booking_cal.confirm_booking")}
-                </Button>
+              {isGroupService ? (
+                selectedInstanceId && !confirmed && (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleEnrollInClass}
+                    disabled={isPending}
+                  >
+                    {isPending ? (
+                      <Loader2 className="size-4 me-1.5 animate-spin" />
+                    ) : (
+                      <Users className="size-4 me-1.5" />
+                    )}
+                    {t("cls.enroll_customer" as never)}
+                  </Button>
+                )
+              ) : (
+                placedStart !== null && !confirmed && (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleConfirm}
+                    disabled={isPending || hasConflict}
+                  >
+                    {isPending ? (
+                      <Loader2 className="size-4 me-1.5 animate-spin" />
+                    ) : (
+                      <CalendarPlus className="size-4 me-1.5" />
+                    )}
+                    {t("booking_cal.confirm_booking")}
+                  </Button>
+                )
               )}
               <Button
                 variant="outline"
@@ -549,15 +696,72 @@ export function BookingCalendarSheet({
               </Button>
             </div>
 
-            {!placedStart && !confirmed && (
+            {confirmed && (
+              <div className="flex items-center justify-center gap-2 py-3 text-green-600">
+                <Check className="size-5" />
+                <span className="text-sm font-medium">{t("booking_cal.confirmed")}</span>
+              </div>
+            )}
+
+            {!isGroupService && !placedStart && !confirmed && (
               <p className="text-xs text-muted-foreground text-center animate-pulse pt-2">
                 {t("booking_cal.hint_click")}
               </p>
             )}
           </div>
 
-          {/* Calendar grid */}
+          {/* Calendar grid / Group info */}
           <div className="flex-1 flex flex-col min-w-0">
+            {isGroupService ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+                <div className="rounded-full bg-violet-100 p-4">
+                  <Users className="size-8 text-violet-600" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">{selectedService?.title}</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    {t("cls.select_instance_hint" as never)}
+                  </p>
+                </div>
+                {selectedInstanceId && (() => {
+                  const ci = classInstances.find((c) => c.id === selectedInstanceId);
+                  if (!ci) return null;
+                  const start = new Date(ci.startTime);
+                  const end = new Date(ci.endTime);
+                  const staffName = staff.find((s) => s.id === ci.staffId)?.name ?? "";
+                  return (
+                    <div className="rounded-xl border-2 border-primary bg-primary/5 p-5 w-full max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <div className="flex items-center gap-2 text-base font-semibold">
+                        <CalendarIcon className="size-4 text-primary" />
+                        {start.toLocaleDateString(locale === "he" ? "he-IL" : "en-US", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <Clock className="size-4" />
+                        {start.toLocaleTimeString(locale === "he" ? "he-IL" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                        {" – "}
+                        {end.toLocaleTimeString(locale === "he" ? "he-IL" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                      {staffName && (
+                        <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                          <User className="size-4" />
+                          {staffName}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 text-sm">
+                        <Users className="size-4 text-violet-500" />
+                        <span className="font-medium">{ci.bookedCount}/{ci.maxParticipants}</span>
+                        <span className="text-muted-foreground">{t("cls.registered" as never)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+            <>
             <div className="shrink-0 flex items-center justify-center gap-4 py-2 border-b bg-muted/10">
               <Button
                 variant="ghost"
@@ -845,6 +1049,8 @@ export function BookingCalendarSheet({
                 })()}
               </div>
             </div>
+            </>
+          )}
           </div>
         </div>
 

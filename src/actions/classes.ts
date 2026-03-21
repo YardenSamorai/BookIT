@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, ne } from "drizzle-orm";
+import { and, eq, gte, ne, or, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
@@ -12,6 +12,39 @@ import {
   users,
 } from "@/lib/db/schema";
 import type { ActionResult } from "@/types";
+
+export async function searchBusinessCustomers(
+  businessId: string,
+  query: string
+) {
+  const q = query.trim();
+  if (q.length < 1) return [];
+
+  const rows = await db
+    .select({
+      id: customers.id,
+      name: users.name,
+      phone: users.phone,
+    })
+    .from(customers)
+    .innerJoin(users, eq(customers.userId, users.id))
+    .where(
+      and(
+        eq(customers.businessId, businessId),
+        or(
+          ilike(users.name, `%${q}%`),
+          ilike(users.phone, `%${q}%`)
+        )
+      )
+    )
+    .limit(8);
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name ?? "",
+    phone: r.phone ?? "",
+  }));
+}
 
 function localDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -244,6 +277,34 @@ export async function getClassInstanceParticipants(
       )
     );
   return rows;
+}
+
+export async function cancelParticipantBooking(
+  appointmentId: string,
+  instanceId: string,
+  businessId: string
+): Promise<ActionResult> {
+  const appointment = await db.query.appointments.findFirst({
+    where: and(
+      eq(appointments.id, appointmentId),
+      eq(appointments.classInstanceId, instanceId),
+      eq(appointments.businessId, businessId),
+      ne(appointments.status, "CANCELLED")
+    ),
+  });
+  if (!appointment) {
+    return { success: false, error: "Appointment not found" };
+  }
+
+  await db
+    .update(appointments)
+    .set({ status: "CANCELLED" })
+    .where(eq(appointments.id, appointmentId));
+
+  revalidatePath("/dashboard/classes");
+  revalidatePath("/dashboard/calendar");
+
+  return { success: true, data: undefined };
 }
 
 export async function cancelClassInstance(

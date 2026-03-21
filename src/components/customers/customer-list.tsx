@@ -36,7 +36,7 @@ interface CustomerListProps {
   customers: CustomerRow[];
   businessId: string;
   staff: { id: string; name: string }[];
-  services: { id: string; title: string; durationMinutes: number }[];
+  services: { id: string; title: string; durationMinutes: number; isGroup?: boolean }[];
   serviceStaffLinks?: { serviceId: string; staffId: string }[];
 }
 
