@@ -12,8 +12,7 @@ import { MessagesPageClient } from "@/components/messages/messages-page-client";
 export default async function MessagesPage() {
   const { businessId } = await requireBusinessOwner();
 
-  // Clean up any misattributed synced messages (lightweight, idempotent)
-  cleanupMisattributedLogs(businessId).catch(() => {});
+  await cleanupMisattributedLogs(businessId);
 
   const [business, logs, stats, notifPrefs] = await Promise.all([
     db.query.businesses.findFirst({

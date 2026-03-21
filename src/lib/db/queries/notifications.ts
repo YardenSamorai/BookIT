@@ -1,4 +1,4 @@
-import { eq, desc, sql, count } from "drizzle-orm";
+import { eq, desc, sql, count, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notificationLogs, customers, users, businesses } from "@/lib/db/schema";
 
@@ -89,7 +89,7 @@ export async function cleanupMisattributedLogs(businessId: string) {
     for (let i = 0; i < toDelete.length; i += 50) {
       const batch = toDelete.slice(i, i + 50);
       await db.delete(notificationLogs).where(
-        sql`${notificationLogs.id} = ANY(${batch}::uuid[])`
+        inArray(notificationLogs.id, batch)
       );
     }
   }
