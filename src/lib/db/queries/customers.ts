@@ -1,6 +1,6 @@
 import { eq, and, sql, desc, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, customerNotes, appointments, users, services, staffMembers } from "@/lib/db/schema";
+import { customers, customerNotes, appointments, users, services, staffMembers, customerPackages, servicePackages } from "@/lib/db/schema";
 
 export async function getCustomersForBusiness(businessId: string) {
   const rows = await db
@@ -92,3 +92,43 @@ export async function getCustomerDetail(customerId: string, businessId: string) 
 }
 
 export type CustomerDetail = NonNullable<Awaited<ReturnType<typeof getCustomerDetail>>>;
+
+export async function getCustomerPackages(customerId: string, businessId: string) {
+  const rows = await db
+    .select({
+      id: customerPackages.id,
+      packageId: customerPackages.packageId,
+      sessionsRemaining: customerPackages.sessionsRemaining,
+      sessionsUsed: customerPackages.sessionsUsed,
+      purchasedAt: customerPackages.purchasedAt,
+      expiresAt: customerPackages.expiresAt,
+      paymentStatus: customerPackages.paymentStatus,
+      status: customerPackages.status,
+      packageName: servicePackages.name,
+      serviceName: services.title,
+      serviceId: servicePackages.serviceId,
+      sessionCount: servicePackages.sessionCount,
+      packagePrice: servicePackages.price,
+    })
+    .from(customerPackages)
+    .innerJoin(servicePackages, eq(customerPackages.packageId, servicePackages.id))
+    .innerJoin(services, eq(servicePackages.serviceId, services.id))
+    .where(
+      and(
+        eq(customerPackages.customerId, customerId),
+        eq(customerPackages.businessId, businessId)
+      )
+    )
+    .orderBy(desc(customerPackages.purchasedAt));
+
+  return rows;
+}
+
+export type CustomerPackageRow = Awaited<ReturnType<typeof getCustomerPackages>>[number];
+
+export async function getCustomerByUserId(userId: string, businessId: string) {
+  return db.query.customers.findFirst({
+    where: and(eq(customers.businessId, businessId), eq(customers.userId, userId)),
+    columns: { id: true },
+  });
+}

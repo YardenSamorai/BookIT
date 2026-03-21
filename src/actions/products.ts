@@ -14,6 +14,7 @@ interface ProductInput {
   images?: string[];
   category?: string;
   relatedServiceId?: string;
+  servicePackageId?: string;
   ctaMode: "BOOK_SERVICE" | "EXTERNAL_LINK" | "NONE";
   ctaText?: string;
   externalUrl?: string;
@@ -44,6 +45,7 @@ export async function createProduct(
       images: input.images ?? [],
       category: input.category?.trim() || null,
       relatedServiceId: input.relatedServiceId || null,
+      servicePackageId: input.servicePackageId || null,
       ctaMode: input.ctaMode,
       ctaText: input.ctaText?.trim() || null,
       externalUrl: input.externalUrl?.trim() || null,
@@ -79,6 +81,7 @@ export async function updateProduct(
       images: input.images ?? [],
       category: input.category?.trim() || null,
       relatedServiceId: input.relatedServiceId || null,
+      servicePackageId: input.servicePackageId || null,
       ctaMode: input.ctaMode,
       ctaText: input.ctaText?.trim() || null,
       externalUrl: input.externalUrl?.trim() || null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { createAppointment } from "@/actions/booking";
 import { formatPrice } from "@/lib/utils/currencies";
@@ -56,8 +56,21 @@ export function StepDetails({
   const { data: session, update: updateSession } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [activeCard, setActiveCard] = useState<{ sessionsRemaining: number; packageName: string } | null>(null);
 
   const isLoggedIn = !!session?.user?.id;
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch(`/api/check-package?businessId=${businessId}&serviceId=${service.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.hasPackage) {
+          setActiveCard({ sessionsRemaining: data.sessionsRemaining, packageName: data.packageName });
+        }
+      })
+      .catch(() => {});
+  }, [isLoggedIn, businessId, service.id]);
 
   const startDate = new Date(startTime);
   const endDate = new Date(startDate.getTime() + service.durationMinutes * 60_000);
@@ -192,6 +205,20 @@ export function StepDetails({
           />
         </div>
       </motion.div>
+
+      {/* Active card banner */}
+      {activeCard && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 flex items-center gap-2.5 rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5"
+        >
+          <CreditCard className="size-4 shrink-0 text-green-600" />
+          <p className="text-xs font-medium text-green-800">
+            {t("pkg.has_active_card" as Parameters<typeof t>[0]).replace("{n}", String(activeCard.sessionsRemaining))}
+          </p>
+        </motion.div>
+      )}
 
       {/* Notes */}
       <motion.div

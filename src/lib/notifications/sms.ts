@@ -3,6 +3,7 @@ import twilio from "twilio";
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+const statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL;
 
 function getClient() {
   if (!accountSid || !authToken) {
@@ -11,10 +12,6 @@ function getClient() {
   return twilio(accountSid, authToken);
 }
 
-/**
- * Normalize an Israeli local phone number (e.g. 0526843000) to
- * international E.164 format (+972526843000).
- */
 function normalizePhone(phone: string): string {
   let cleaned = phone.replace(/[\s\-()]/g, "");
 
@@ -29,32 +26,45 @@ function normalizePhone(phone: string): string {
   return cleaned;
 }
 
+export interface SmsResult {
+  success: boolean;
+  messageSid?: string;
+  error?: string;
+}
+
 export async function sendSms(to: string, body: string): Promise<boolean> {
+  const result = await sendSmsWithDetails(to, body);
+  return result.success;
+}
+
+export async function sendSmsWithDetails(to: string, body: string): Promise<SmsResult> {
   const client = getClient();
 
   if (!client || !fromNumber) {
     if (process.env.NODE_ENV === "development") {
       console.log(`[DEV SMS] To: ${to} | Message: ${body}`);
-      return true;
+      return { success: true, messageSid: "dev-mock-sms" };
     }
     console.warn("Twilio not configured. SMS not sent.");
-    return false;
+    return { success: false, error: "Twilio not configured" };
   }
 
   try {
-    await client.messages.create({
+    const message = await client.messages.create({
       body,
       from: fromNumber,
       to: normalizePhone(to),
+      ...(statusCallbackUrl ? { statusCallback: statusCallbackUrl } : {}),
     });
-    return true;
+    return { success: true, messageSid: message.sid };
   } catch (err) {
-    console.error("Failed to send SMS:", err);
-    return false;
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("Failed to send SMS:", errorMsg);
+    return { success: false, error: errorMsg };
   }
 }
 
-export async function sendOtpSms(phone: string, code: string): Promise<boolean> {
+export async function sendOtpSms(phone: string, code: string): Promise<SmsResult> {
   const message = `BookIT - קוד האימות שלך: ${code}`;
-  return sendSms(phone, message);
+  return sendSmsWithDetails(phone, message);
 }

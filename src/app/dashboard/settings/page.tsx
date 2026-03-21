@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, businessHours } from "@/lib/db/schema";
+import { businesses } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessHours } from "@/lib/db/queries/business-hours";
 import { t, type Locale } from "@/lib/i18n";

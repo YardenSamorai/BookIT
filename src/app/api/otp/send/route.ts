@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { otpSendSchema } from "@/validators/auth";
 import { checkRateLimit, createOtp } from "@/lib/auth/otp";
 import { sendOtpSms } from "@/lib/notifications/sms";
+import { db } from "@/lib/db";
+import { notificationLogs } from "@/lib/db/schema";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,9 +29,27 @@ export async function POST(request: NextRequest) {
 
     const code = await createOtp(phone);
 
-    const sent = await sendOtpSms(phone, code);
+    const result = await sendOtpSms(phone, code);
 
-    if (!sent && process.env.NODE_ENV !== "development") {
+    try {
+      const messageBody = `BookIT - קוד האימות שלך: ${code}`;
+      await db.insert(notificationLogs).values({
+        businessId: null,
+        channel: "SMS",
+        type: "OTP",
+        recipient: phone,
+        messageBody,
+        status: result.success ? "SENT" : "FAILED",
+        provider: "twilio",
+        providerMessageId: result.messageSid || null,
+        errorMessage: result.error || null,
+        sentAt: result.success ? new Date() : null,
+      });
+    } catch {
+      // logging failure should not block OTP flow
+    }
+
+    if (!result.success && process.env.NODE_ENV !== "development") {
       return NextResponse.json(
         { error: "Failed to send SMS. Please try again." },
         { status: 500 }

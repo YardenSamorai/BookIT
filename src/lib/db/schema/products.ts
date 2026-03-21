@@ -11,6 +11,7 @@ import {
 import { ctaModeEnum } from "./enums";
 import { businesses } from "./businesses";
 import { services } from "./services";
+import { servicePackages } from "./packages";
 
 export const products = pgTable(
   "product",
@@ -27,6 +28,10 @@ export const products = pgTable(
     relatedServiceId: uuid("related_service_id").references(() => services.id, {
       onDelete: "set null",
     }),
+    servicePackageId: uuid("service_package_id").references(
+      () => servicePackages.id,
+      { onDelete: "set null" }
+    ),
     ctaMode: ctaModeEnum("cta_mode").notNull().default("NONE"),
     ctaText: text("cta_text"),
     externalUrl: text("external_url"),

@@ -153,6 +153,7 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
                 sectionIndex={idx}
                 bookingUrl={bookingUrl}
                 locale={locale}
+                businessId={business.id}
               />
             );
           case "contact":

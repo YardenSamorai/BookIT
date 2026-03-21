@@ -258,19 +258,19 @@ export function WorkoutBookingView({
           <span>{t("common.back" as Parameters<typeof t>[0])}</span>
         </button>
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-6">
           <div
-            className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl"
+            className="mx-auto mb-3 flex size-11 items-center justify-center rounded-xl sm:mb-4 sm:size-14 sm:rounded-2xl"
             style={{ backgroundColor: `${secondaryColor}15` }}
           >
-            <Dumbbell size={28} style={{ color: secondaryColor }} />
+            <Dumbbell className="size-5 sm:size-7" style={{ color: secondaryColor }} />
           </div>
 
-          <h3 className="mb-1 text-center text-lg font-bold text-gray-900">
+          <h3 className="mb-1 text-center text-base font-bold text-gray-900 sm:text-lg">
             {selectedInstance.scheduleTitle || selectedInstance.serviceName}
           </h3>
 
-          <div className="mt-4 space-y-3 text-sm">
+          <div className="mt-3 space-y-2.5 text-sm sm:mt-4 sm:space-y-3">
             <div className="flex items-center gap-3 text-gray-600">
               <Calendar size={16} className="shrink-0 text-gray-400" />
               <span>
@@ -312,7 +312,7 @@ export function WorkoutBookingView({
           <button
             onClick={handleConfirmBooking}
             disabled={booking}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-60"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-60 sm:mt-6 sm:py-3.5"
             style={{ backgroundColor: secondaryColor }}
           >
             {booking ? (
@@ -334,26 +334,26 @@ export function WorkoutBookingView({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-1 flex-col items-center justify-center py-10 text-center"
+        className="flex flex-1 flex-col items-center justify-center py-6 text-center sm:py-10"
       >
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-          className="mb-6 flex size-20 items-center justify-center rounded-full"
+          className="mb-4 flex size-16 items-center justify-center rounded-full sm:mb-6 sm:size-20"
           style={{ backgroundColor: `${secondaryColor}15` }}
         >
-          <Sparkles size={36} style={{ color: secondaryColor }} />
+          <Sparkles className="size-7 sm:size-9" style={{ color: secondaryColor }} />
         </motion.div>
-        <h2 className="mb-2 text-xl font-bold text-gray-900">
+        <h2 className="mb-1.5 text-lg font-bold text-gray-900 sm:mb-2 sm:text-xl">
           {t("book.workout_registered" as Parameters<typeof t>[0])}
         </h2>
-        <p className="mb-6 text-sm text-gray-500">
+        <p className="mb-4 text-xs text-gray-500 sm:mb-6 sm:text-sm">
           {t("book.workout_registered_desc" as Parameters<typeof t>[0])}
         </p>
 
         {selectedInstance && (
-          <div className="w-full max-w-sm rounded-2xl border border-gray-100 bg-white p-5 text-start shadow-sm">
+          <div className="w-full max-w-sm rounded-xl border border-gray-100 bg-white p-4 text-start shadow-sm sm:rounded-2xl sm:p-5">
             <div className="mb-3 text-sm font-semibold text-gray-900">
               {selectedInstance.scheduleTitle || selectedInstance.serviceName}
             </div>
@@ -391,22 +391,22 @@ export function WorkoutBookingView({
   return (
     <div className="flex flex-1 flex-col">
       {/* Week navigation */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <button
           onClick={prevWeek}
           disabled={isPrevDisabled}
-          className="flex size-9 items-center justify-center rounded-xl border border-gray-100 text-gray-500 transition-all hover:bg-gray-50 disabled:opacity-30"
+          className="flex size-8 items-center justify-center rounded-lg border border-gray-100 text-gray-500 transition-all hover:bg-gray-50 disabled:opacity-30 sm:size-9 sm:rounded-xl"
         >
-          {dir === "rtl" ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          {dir === "rtl" ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
-        <div className="text-sm font-semibold text-gray-800">
+        <div className="text-xs font-semibold text-gray-800 sm:text-sm">
           {formatDate(weekStart, locale)} – {formatDate(weekEnd, locale)}
         </div>
         <button
           onClick={nextWeek}
-          className="flex size-9 items-center justify-center rounded-xl border border-gray-100 text-gray-500 transition-all hover:bg-gray-50"
+          className="flex size-8 items-center justify-center rounded-lg border border-gray-100 text-gray-500 transition-all hover:bg-gray-50 sm:size-9 sm:rounded-xl"
         >
-          {dir === "rtl" ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+          {dir === "rtl" ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
       </div>
 
@@ -443,22 +443,21 @@ export function WorkoutBookingView({
             {weekDays.map(({ date, dateStr, dayIdx }) => {
               const dayInstances = instancesByDay[dateStr] ?? [];
               const isToday = dateStr === today;
-              const isPast = dateStr < today;
 
-              if (dayInstances.length === 0 && isPast) return null;
+              if (dayInstances.length === 0) return null;
 
               return (
                 <div key={dateStr}>
                   {/* Day header */}
                   <div
-                    className={`mb-1.5 flex items-center gap-2 rounded-lg px-3 py-2 ${
+                    className={`mb-1 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 sm:mb-1.5 sm:gap-2 sm:rounded-lg sm:px-3 sm:py-2 ${
                       isToday ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-700"
                     }`}
                   >
-                    <span className="text-xs font-bold uppercase">
+                    <span className="text-[11px] font-bold uppercase sm:text-xs">
                       {dayNames[dayIdx]}
                     </span>
-                    <span className={`text-xs ${isToday ? "text-gray-300" : "text-gray-400"}`}>
+                    <span className={`text-[11px] sm:text-xs ${isToday ? "text-gray-300" : "text-gray-400"}`}>
                       {date.toLocaleDateString(locale === "he" ? "he-IL" : "en-US", {
                         month: "short",
                         day: "numeric",
@@ -467,15 +466,12 @@ export function WorkoutBookingView({
                   </div>
 
                   {/* Day instances */}
-                  {dayInstances.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-300">—</div>
-                  ) : (
-                    <div className="space-y-1.5 px-1">
+                  {dayInstances.length > 0 && (
+                    <div className="space-y-1 px-0.5 sm:space-y-1.5 sm:px-1">
                       {dayInstances.map((inst) => {
                         const isFull = inst.bookedCount >= inst.maxParticipants;
                         const isExpired = new Date(inst.startTime) < new Date();
                         const spotsLeft = inst.maxParticipants - inst.bookedCount;
-                        const fillPercent = (inst.bookedCount / inst.maxParticipants) * 100;
                         const canBook = !isFull && !isExpired;
 
                         return (
@@ -484,7 +480,7 @@ export function WorkoutBookingView({
                             whileTap={canBook ? { scale: 0.98 } : undefined}
                             onClick={() => canBook && handleSelectInstance(inst)}
                             disabled={!canBook}
-                            className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-start transition-all ${
+                            className={`group flex w-full items-center gap-2 rounded-lg border p-2 text-start transition-all sm:gap-3 sm:rounded-xl sm:p-3 ${
                               canBook
                                 ? "border-gray-100 bg-white shadow-sm hover:border-gray-200 hover:shadow-md"
                                 : "border-gray-50 bg-gray-50/50 opacity-60"
@@ -492,30 +488,30 @@ export function WorkoutBookingView({
                           >
                             {/* Time badge */}
                             <div
-                              className="flex shrink-0 flex-col items-center rounded-lg px-2.5 py-1.5"
+                              className="flex shrink-0 flex-col items-center rounded-md px-2 py-1 sm:rounded-lg sm:px-2.5 sm:py-1.5"
                               style={{
                                 backgroundColor: canBook ? `${secondaryColor}12` : "#f3f4f6",
                               }}
                             >
                               <span
-                                className="text-xs font-bold"
+                                className="text-[11px] font-bold sm:text-xs"
                                 style={{ color: canBook ? secondaryColor : "#9ca3af" }}
                               >
                                 {formatTime(inst.startTime)}
                               </span>
-                              <span className="text-[10px] text-gray-400">
+                              <span className="text-[9px] text-gray-400 sm:text-[10px]">
                                 {formatTime(inst.endTime)}
                               </span>
                             </div>
 
                             {/* Info */}
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-gray-900 truncate">
+                              <div className="text-xs font-semibold text-gray-900 truncate sm:text-sm">
                                 {inst.scheduleTitle || inst.serviceName}
                               </div>
-                              <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <User size={11} />
+                              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-500 sm:text-xs">
+                                <span className="flex items-center gap-1 truncate">
+                                  <User size={10} className="shrink-0" />
                                   {inst.staffName}
                                 </span>
                               </div>
@@ -524,16 +520,16 @@ export function WorkoutBookingView({
                             {/* Spots indicator - only show when nearly full or full */}
                             <div className="flex shrink-0 flex-col items-end gap-1">
                               {isFull ? (
-                                <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-500">
+                                <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-500 sm:px-2 sm:text-[10px]">
                                   {t("book.workout_full" as Parameters<typeof t>[0])}
                                 </span>
                               ) : isExpired ? (
-                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
+                                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-400 sm:px-2 sm:text-[10px]">
                                   —
                                 </span>
                               ) : spotsLeft <= 3 ? (
                                 <span
-                                  className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                  className="rounded-full px-1.5 py-0.5 text-[9px] font-bold sm:px-2 sm:text-[10px]"
                                   style={{
                                     backgroundColor: spotsLeft === 1 ? "#fef2f2" : "#fff7ed",
                                     color: spotsLeft === 1 ? "#ef4444" : "#ea580c",

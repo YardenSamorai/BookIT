@@ -3,7 +3,8 @@ import { formatPrice } from "@/lib/utils/currencies";
 import type { InferSelectModel } from "drizzle-orm";
 import type { products } from "@/lib/db/schema";
 import type { SiteTheme } from "@/lib/themes/presets";
-import { ExternalLink, ShoppingBag } from "lucide-react";
+import { CreditCard, ExternalLink, ShoppingBag } from "lucide-react";
+import { PackagePurchaseButton } from "./package-purchase-button";
 
 type Product = InferSelectModel<typeof products>;
 
@@ -15,6 +16,7 @@ interface SiteProductsProps {
   sectionIndex: number;
   bookingUrl: string;
   locale: Locale;
+  businessId: string;
 }
 
 export function SiteProducts({
@@ -25,6 +27,7 @@ export function SiteProducts({
   sectionIndex,
   bookingUrl,
   locale,
+  businessId,
 }: SiteProductsProps) {
   const heading =
     (typeof content?.heading === "string" && content.heading) ||
@@ -60,6 +63,7 @@ export function SiteProducts({
               bookingUrl={bookingUrl}
               theme={theme}
               locale={locale}
+              businessId={businessId}
             />
           ))}
         </div>
@@ -74,15 +78,18 @@ function ProductCard({
   bookingUrl,
   theme,
   locale,
+  businessId,
 }: {
   product: Product;
   currency: string;
   bookingUrl: string;
   theme: SiteTheme;
   locale: Locale;
+  businessId: string;
 }) {
   const image = product.images?.[0];
   const price = product.price ? formatPrice(product.price, currency) : null;
+  const isPackageProduct = !!product.servicePackageId;
 
   const ctaUrl =
     product.ctaMode === "EXTERNAL_LINK"
@@ -96,8 +103,8 @@ function ProductCard({
       ? t(locale, "pub.book_now")
       : t(locale, "pub.learn_more"));
 
-  const Wrapper = ctaUrl ? "a" : "div";
-  const linkProps = ctaUrl
+  const Wrapper = !isPackageProduct && ctaUrl ? "a" : "div";
+  const linkProps = !isPackageProduct && ctaUrl
     ? {
         href: ctaUrl,
         target: product.ctaMode === "EXTERNAL_LINK" ? ("_blank" as const) : undefined,
@@ -124,7 +131,17 @@ function ProductCard({
             className="flex size-full items-center justify-center text-3xl font-bold text-white sm:text-4xl"
             style={{ backgroundColor: theme.secondaryColor }}
           >
-            {product.title.charAt(0)}
+            {isPackageProduct ? (
+              <CreditCard className="size-10 sm:size-12" />
+            ) : (
+              product.title.charAt(0)
+            )}
+          </div>
+        )}
+        {isPackageProduct && (
+          <div className="absolute start-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-800 shadow-sm backdrop-blur sm:text-xs">
+            <CreditCard className="size-3" />
+            {t(locale, "pkg.customer_title" as never)}
           </div>
         )}
       </div>
@@ -152,7 +169,15 @@ function ProductCard({
           </div>
         )}
 
-        {ctaUrl && !price && (
+        {isPackageProduct && (
+          <PackagePurchaseButton
+            productId={product.id}
+            businessId={businessId}
+            color={theme.secondaryColor}
+          />
+        )}
+
+        {!isPackageProduct && ctaUrl && !price && (
           <div className="mt-2 sm:mt-3">
             <span
               className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white sm:text-sm"

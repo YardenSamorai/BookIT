@@ -25,9 +25,11 @@ export const notificationPreferences = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     reminderHoursBefore: integer("reminder_hours_before").notNull().default(24),
+    reminderHoursBefore2: integer("reminder_hours_before_2"),
     whatsappEnabled: boolean("whatsapp_enabled").notNull().default(true),
     emailEnabled: boolean("email_enabled").notNull().default(true),
     smsEnabled: boolean("sms_enabled").notNull().default(false),
+    smsBookingEnabled: boolean("sms_booking_enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -41,7 +43,6 @@ export const notificationLogs = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     businessId: uuid("business_id")
-      .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     appointmentId: uuid("appointment_id").references(() => appointments.id, {
       onDelete: "set null",
@@ -52,6 +53,7 @@ export const notificationLogs = pgTable(
     channel: notificationChannelEnum("channel").notNull(),
     type: notificationTypeEnum("type").notNull(),
     recipient: text("recipient").notNull(),
+    messageBody: text("message_body"),
     status: notificationStatusEnum("status").notNull().default("QUEUED"),
     provider: text("provider").notNull(),
     providerMessageId: text("provider_message_id"),
@@ -62,6 +64,27 @@ export const notificationLogs = pgTable(
   (table) => [
     index("notification_log_business_idx").on(table.businessId, table.createdAt),
     index("notification_log_appointment_idx").on(table.appointmentId),
+    index("notification_log_provider_msg_idx").on(table.providerMessageId),
+  ]
+);
+
+export const messageTemplates = pgTable(
+  "message_template",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull(),
+    channel: notificationChannelEnum("channel").notNull(),
+    body: text("body").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("message_template_business_idx").on(table.businessId),
+    uniqueIndex("message_template_unique").on(table.businessId, table.type, table.channel),
   ]
 );
 

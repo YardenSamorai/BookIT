@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
-import { getCustomerDetail } from "@/lib/db/queries/customers";
+import { getCustomerDetail, getCustomerPackages } from "@/lib/db/queries/customers";
+import { getServicePackages } from "@/lib/db/queries/services";
 import { getBusinessLocale } from "@/lib/db/queries/business";
 import { t } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
@@ -13,9 +14,11 @@ export default async function CustomerDetailPage({
 }) {
   const { customerId } = await params;
   const { businessId } = await requireBusinessOwner();
-  const [customer, locale] = await Promise.all([
+  const [customer, locale, customerPkgs, servicePkgs] = await Promise.all([
     getCustomerDetail(customerId, businessId),
     getBusinessLocale(businessId),
+    getCustomerPackages(customerId, businessId),
+    getServicePackages(businessId),
   ]);
 
   if (!customer) notFound();
@@ -26,7 +29,12 @@ export default async function CustomerDetailPage({
         title={customer.name}
         description={t(locale, "cust.detail")}
       />
-      <CustomerDetailView customer={customer} businessId={businessId} />
+      <CustomerDetailView
+        customer={customer}
+        businessId={businessId}
+        customerPackages={customerPkgs}
+        servicePackages={servicePkgs}
+      />
     </div>
   );
 }

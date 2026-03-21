@@ -260,6 +260,35 @@ export async function createAppointment(
     performedBy: "CUSTOMER",
   });
 
+  // Send WhatsApp booking confirmation (fire-and-forget)
+  try {
+    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const [biz, staff, user] = await Promise.all([
+      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true } }),
+      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
+      db.query.users.findFirst({ where: eq(users.id, userId), columns: { phone: true, name: true } }),
+    ]);
+    if (user?.phone) {
+      const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+      const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      sendBookingNotificationSafe({
+        businessId,
+        appointmentId: appointment.id,
+        userId,
+        recipientPhone: user.phone,
+        type: "BOOKING_CONFIRMED",
+        variables: {
+          customerName: user.name || "",
+          businessName: biz?.name || "",
+          date: dateStr,
+          time: timeStr,
+          service: service.title,
+          staff: staff?.name || "",
+        },
+      });
+    }
+  } catch { /* notification failure must not block booking */ }
+
   revalidatePath(`/b`);
   return { success: true, data: { appointmentId: appointment.id } };
 }
@@ -407,35 +436,30 @@ export async function createManualAppointment(input: {
     performedBy: "BUSINESS",
   });
 
-  // Send SMS to customer
+  // Send WhatsApp/SMS notification to customer
   try {
-    const { sendSms } = await import("@/lib/notifications/sms");
-    const [business, staffMember] = await Promise.all([
-      db.query.businesses.findFirst({
-        where: eq(businesses.id, businessId),
-        columns: { name: true },
-      }),
-      db.query.staffMembers.findFirst({
-        where: eq(staffMembers.id, staffId),
-        columns: { name: true },
-      }),
+    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const [biz, staffMember] = await Promise.all([
+      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true } }),
+      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
     ]);
-    const dateStr = startTime.toLocaleDateString("he-IL", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
+    const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+    const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    sendBookingNotificationSafe({
+      businessId,
+      appointmentId: appointment.id,
+      recipientPhone: phone,
+      type: "BOOKING_CONFIRMED",
+      variables: {
+        customerName,
+        businessName: biz?.name || "",
+        date: dateStr,
+        time: timeStr,
+        service: service.title,
+        staff: staffMember?.name || "",
+      },
     });
-    const timeStr = startTime.toLocaleTimeString("he-IL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const staffLine = staffMember ? `\nנותן שירות: ${staffMember.name}` : "";
-    const msg = `שלום ${customerName}, נקבע לך תור ב${business?.name ?? "BookIT"}.\n📅 ${dateStr} בשעה ${timeStr}\n💇 שירות: ${service.title}${staffLine}\nנתראה!`;
-    await sendSms(phone, msg);
-  } catch {
-    // SMS failure should not block appointment creation
-  }
+  } catch { /* notification failure must not block appointment creation */ }
 
   revalidatePath("/dashboard/calendar");
   revalidatePath("/dashboard/appointments");
@@ -568,6 +592,48 @@ export async function cancelAppointment(
       })
       .where(eq(customerPackages.id, appointment.customerPackageId));
   }
+
+  // Send cancellation WhatsApp notification (fire-and-forget)
+  try {
+    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const customer = await db.query.customers.findFirst({
+      where: eq(customers.id, appointment.customerId),
+      columns: { userId: true },
+    });
+    if (customer) {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, customer.userId),
+        columns: { phone: true, name: true },
+      });
+      if (user?.phone) {
+        const svc = await db.query.services.findFirst({
+          where: eq(services.id, appointment.serviceId),
+          columns: { title: true },
+        });
+        const dateStr = new Date(appointment.startTime).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+        const timeStr = new Date(appointment.startTime).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        const cancelBiz = await db.query.businesses.findFirst({
+          where: eq(businesses.id, appointment.businessId),
+          columns: { name: true },
+        });
+        sendBookingNotificationSafe({
+          businessId: appointment.businessId,
+          appointmentId,
+          userId: customer.userId,
+          recipientPhone: user.phone,
+          type: "CANCELLATION",
+          variables: {
+            customerName: user.name || "",
+            businessName: cancelBiz?.name || "",
+            date: dateStr,
+            time: timeStr,
+            service: svc?.title || "",
+            staff: "",
+          },
+        });
+      }
+    }
+  } catch { /* notification failure must not block cancellation */ }
 
   revalidatePath(`/b`);
   revalidatePath(`/dashboard`);

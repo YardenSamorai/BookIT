@@ -3,7 +3,9 @@ import Link from "next/link";
 import { auth } from "@/lib/auth/config";
 import { getPublicBusinessData } from "@/lib/db/queries/public-site";
 import { getCustomerAppointments } from "@/lib/db/queries/appointments";
+import { getCustomerByUserId, getCustomerPackages, type CustomerPackageRow } from "@/lib/db/queries/customers";
 import { MyAppointmentsGate } from "@/components/booking/my-appointments-gate";
+import { ActiveCardsSection } from "@/components/booking/active-cards-section";
 import { t, getDir, type Locale } from "@/lib/i18n";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { ArrowRight } from "lucide-react";
@@ -23,12 +25,19 @@ export default async function MyAppointmentsPage({ params }: Props) {
 
   const isAuthenticated = !!session?.user?.id;
   let businessAppointments: Awaited<ReturnType<typeof getCustomerAppointments>> = [];
+  let customerPkgs: CustomerPackageRow[] = [];
 
   if (isAuthenticated) {
-    const appointments = await getCustomerAppointments(session!.user!.id!);
+    const [appointments, customer] = await Promise.all([
+      getCustomerAppointments(session!.user!.id!),
+      getCustomerByUserId(session!.user!.id!, data.business.id),
+    ]);
     businessAppointments = appointments.filter(
       (a) => a.businessSlug === slug
     );
+    if (customer) {
+      customerPkgs = await getCustomerPackages(customer.id, data.business.id);
+    }
   }
 
   const locale = (data.business.language as Locale) || "he";
@@ -62,6 +71,17 @@ export default async function MyAppointmentsPage({ params }: Props) {
           <p className="mt-1 text-sm text-gray-500">
             {t(locale, "myapt.subtitle")}
           </p>
+
+          {customerPkgs.length > 0 && (
+            <div className="mt-4">
+              <LocaleProvider locale={locale}>
+                <ActiveCardsSection
+                  packages={customerPkgs}
+                  secondaryColor={data.business.secondaryColor}
+                />
+              </LocaleProvider>
+            </div>
+          )}
 
           <div className="mt-6">
             <LocaleProvider locale={locale}>

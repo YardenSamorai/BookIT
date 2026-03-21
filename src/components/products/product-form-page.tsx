@@ -11,11 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { createProduct, updateProduct } from "@/actions/products";
 import { useT } from "@/lib/i18n/locale-context";
-import { Check, Link2, Loader2, Package, Save, ShoppingBag, Star } from "lucide-react";
+import { Check, CreditCard, Link2, Loader2, Package, Save, ShoppingBag, Star } from "lucide-react";
 import type { InferSelectModel } from "drizzle-orm";
-import type { products } from "@/lib/db/schema";
+import type { products, servicePackages } from "@/lib/db/schema";
 
 type Product = InferSelectModel<typeof products>;
+type ServicePackage = InferSelectModel<typeof servicePackages>;
 
 const CTA_MODES = [
   { value: "NONE" as const, icon: "—" },
@@ -26,9 +27,10 @@ const CTA_MODES = [
 interface Props {
   businessId: string;
   product?: Product;
+  servicePackages?: ServicePackage[];
 }
 
-export function ProductFormPage({ businessId, product }: Props) {
+export function ProductFormPage({ businessId, product, servicePackages: svcPkgs = [] }: Props) {
   const t = useT();
   const router = useRouter();
   const isEditing = !!product;
@@ -47,6 +49,8 @@ export function ProductFormPage({ businessId, product }: Props) {
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured ?? false);
   const [isVisible, setIsVisible] = useState(product?.isVisible ?? true);
   const [imageUrl, setImageUrl] = useState(product?.images?.[0] ?? "");
+  const [servicePackageId, setServicePackageId] = useState(product?.servicePackageId ?? "");
+  const activePkgs = svcPkgs.filter((p) => p.isActive);
 
   async function handleSubmit() {
     setLoading(true);
@@ -59,6 +63,7 @@ export function ProductFormPage({ businessId, product }: Props) {
       price: price || undefined,
       images: imageUrl ? [imageUrl] : [],
       category: category || undefined,
+      servicePackageId: servicePackageId || undefined,
       ctaMode,
       ctaText: ctaText || undefined,
       externalUrl: externalUrl || undefined,
@@ -209,6 +214,32 @@ export function ProductFormPage({ businessId, product }: Props) {
           </div>
         </SectionCard>
       </div>
+
+      {/* ROW 1.5: Link to Package */}
+      {activePkgs.length > 0 && (
+        <div className="mt-4">
+          <SectionCard icon={<CreditCard className="size-4" />} title={t("prod.link_package" as Parameters<typeof t>[0])}>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                {t("prod.link_package_desc" as Parameters<typeof t>[0])}
+              </p>
+              <select
+                value={servicePackageId}
+                onChange={(e) => { setServicePackageId(e.target.value); setSaved(false); }}
+                disabled={loading}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">{t("prod.no_package" as Parameters<typeof t>[0])}</option>
+                {activePkgs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} · {p.sessionCount} {t("pkg.sessions" as Parameters<typeof t>[0])} · ₪{p.price}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </SectionCard>
+        </div>
+      )}
 
       {/* ROW 2: Toggles + Actions */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

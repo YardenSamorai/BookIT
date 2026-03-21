@@ -17,6 +17,7 @@ import {
   ExternalLink,
   BarChart3,
   Repeat,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -107,6 +108,7 @@ export function AppSidebar({ businessSlug }: { businessSlug?: string }) {
 
   const systemNav: NavItem[] = [
     { title: t("dash.payments"), href: "/dashboard/payments", icon: CreditCard },
+    { title: t("dash.messages" as Parameters<typeof t>[0]), href: "/dashboard/messages", icon: MessageSquare },
     { title: t("dash.site_editor"), href: "/dashboard/site-editor", icon: PaintBucket },
     { title: t("dash.settings"), href: "/dashboard/settings", icon: Settings },
   ];
