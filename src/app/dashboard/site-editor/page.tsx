@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, siteConfigs, services, staffMembers } from "@/lib/db/schema";
+import { businesses, siteConfigs, services, staffMembers, products } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessHours } from "@/lib/db/queries/business-hours";
 import { t, type Locale } from "@/lib/i18n";
@@ -14,7 +14,7 @@ import type { SiteSection } from "@/lib/db/schema/site-config";
 export default async function SiteEditorPage() {
   const { businessId } = await requireBusinessOwner();
 
-  const [business, siteConfig, serviceList, staffList, hours] = await Promise.all([
+  const [business, siteConfig, serviceList, staffList, hours, productList] = await Promise.all([
     db.query.businesses.findFirst({
       where: eq(businesses.id, businessId),
     }),
@@ -28,6 +28,9 @@ export default async function SiteEditorPage() {
       where: eq(staffMembers.businessId, businessId),
     }),
     getBusinessHours(businessId),
+    db.query.products.findMany({
+      where: eq(products.businessId, businessId),
+    }),
   ]);
 
   if (!business) return null;
@@ -35,6 +38,7 @@ export default async function SiteEditorPage() {
   const locale = (business.language ?? "he") as Locale;
   const activeServices = serviceList.filter((s) => s.isActive);
   const activeStaff = staffList.filter((s) => s.isActive);
+  const activeProducts = productList.filter((p) => p.isVisible);
 
   const theme = buildSiteTheme(
     siteConfig?.themePreset ?? "modern",
@@ -47,6 +51,7 @@ export default async function SiteEditorPage() {
     migrateSectionsToPuck((siteConfig?.sections as SiteSection[]) ?? []);
 
   const businessData = {
+    businessId,
     businessName: business.name,
     slug: business.slug,
     primaryColor: business.primaryColor,
@@ -58,6 +63,7 @@ export default async function SiteEditorPage() {
     services: activeServices as unknown as Array<Record<string, unknown>>,
     staff: activeStaff as unknown as Array<Record<string, unknown>>,
     hours: hours as unknown as Array<Record<string, unknown>>,
+    products: activeProducts as unknown as Array<Record<string, unknown>>,
     theme,
     locale,
   };

@@ -1,31 +1,33 @@
 /* Puck Editor overrides to match the BookIT dashboard indigo theme */
 
 .puck-wrapper {
-  --puck-color-azure-04: theme("colors.indigo.600");
-  --puck-color-azure-05: theme("colors.indigo.500");
-  --puck-color-azure-06: theme("colors.indigo.400");
-  --puck-color-azure-09: theme("colors.indigo.100");
-  --puck-color-azure-12: theme("colors.indigo.50");
-  border-radius: theme("borderRadius.lg");
+  --puck-color-azure-02: #3730a3;
+  --puck-color-azure-03: #4338ca;
+  --puck-color-azure-04: #4f46e5;
+  --puck-color-azure-05: #6366f1;
+  --puck-color-azure-06: #818cf8;
+  --puck-color-azure-09: #e0e7ff;
+  --puck-color-azure-12: #eef2ff;
+  border-radius: 0.5rem;
   overflow: hidden;
-  border: 1px solid theme("colors.gray.200");
+  border: 1px solid #e5e7eb;
 }
 
 /* Make the Puck header blend with the dashboard */
 [class*="Puck-header"] {
   background: white !important;
-  border-bottom: 1px solid theme("colors.gray.200") !important;
+  border-bottom: 1px solid #e5e7eb !important;
 }
 
 /* Smoother sidebar */
 [class*="Puck-leftSideBar"],
 [class*="Puck-rightSideBar"] {
-  background: theme("colors.gray.50") !important;
+  background: #f9fafb !important;
 }
 
 /* Preview area */
 [class*="Puck-frame"] {
-  background: theme("colors.gray.100") !important;
+  background: #f3f4f6 !important;
 }
 
 /* ── RTL support for Hebrew field inputs in the sidebar ── */
@@ -68,4 +70,10 @@
 /* Component list on the right sidebar stays LTR for consistent DnD */
 .puck-rtl [class*="Puck-rightSideBar"] [class*="ComponentList"] {
   direction: ltr;
+}
+
+/* When a section has a custom background, make the inner section transparent */
+.section-custom-bg > div > section {
+  background-color: transparent !important;
+  background-image: none !important;
 }

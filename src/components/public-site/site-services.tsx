@@ -76,6 +76,7 @@ export function SiteServices({
                 currency={currency}
                 showPrices={showPrices}
                 showDuration={showDuration}
+                bookingUrl={`${bookingUrl}?service=${svc.id}`}
                 locale={locale}
               />
             ))}
@@ -358,6 +359,7 @@ function ServiceCompact({
   currency,
   showPrices,
   showDuration,
+  bookingUrl,
   locale,
 }: {
   service: Service;
@@ -365,6 +367,7 @@ function ServiceCompact({
   currency: string;
   showPrices: boolean;
   showDuration: boolean;
+  bookingUrl: string;
   locale: Locale;
 }) {
   const priceDisplay = svc.price
@@ -374,8 +377,9 @@ function ServiceCompact({
       : "";
 
   return (
-    <div
-      className={`flex items-center justify-between gap-3 p-3 ${theme.radius.md} ${theme.card} transition-all`}
+    <a
+      href={bookingUrl}
+      className={`flex items-center justify-between gap-3 p-3 ${theme.radius.md} ${theme.card} ${theme.cardHover} cursor-pointer transition-all`}
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-gray-900">{svc.title}</p>
@@ -391,6 +395,6 @@ function ServiceCompact({
       >
         {t(locale, "pub.book")}
       </div>
-    </div>
+    </a>
   );
 }

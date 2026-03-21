@@ -108,6 +108,7 @@ export const notificationChannelEnum = pgEnum("notification_channel", [
 
 export const notificationTypeEnum = pgEnum("notification_type", [
   "BOOKING_CONFIRMED",
+  "BOOKING_OWNER",
   "REMINDER",
   "CANCELLATION",
   "RESCHEDULE",

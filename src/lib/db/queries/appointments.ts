@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, lt, ne } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, ne, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { appointments, appointmentLogs, services, staffMembers, businesses, customers, users } from "@/lib/db/schema";
 
@@ -164,7 +164,8 @@ export async function getMonthAppointments(businessId: string, rangeStart: Date,
         eq(appointments.businessId, businessId),
         gte(appointments.startTime, rangeStart),
         lt(appointments.startTime, rangeEnd),
-        ne(appointments.status, "CANCELLED")
+        ne(appointments.status, "CANCELLED"),
+        isNull(appointments.classInstanceId)
       )
     )
     .orderBy(appointments.startTime);

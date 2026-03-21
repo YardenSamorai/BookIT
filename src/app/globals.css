@@ -137,3 +137,9 @@
     display: none;
   }
 }
+
+/* Override section bg when custom background wrapper is active */
+.section-custom-bg > div > section {
+  background-color: transparent !important;
+  background-image: none !important;
+}

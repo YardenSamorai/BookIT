@@ -2,15 +2,17 @@
 
 import { useMemo } from "react";
 import { useLocale } from "@/lib/i18n/locale-context";
-import type { Appointment, Staff } from "./calendar-types";
+import type { Appointment, Staff, ClassInstance } from "./calendar-types";
 import { STAFF_COLORS, isSameDay, formatTime } from "./calendar-types";
 
 interface MonthViewProps {
   appointments: Appointment[];
+  classInstances?: ClassInstance[];
   staff: Staff[];
   staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
   currentDate: Date;
   onAptClick: (apt: Appointment) => void;
+  onClassClick?: (ci: ClassInstance) => void;
   onDayClick: (date: Date) => void;
 }
 
@@ -19,10 +21,12 @@ const DAY_HEADERS_HE = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 
 export function MonthView({
   appointments,
+  classInstances = [],
   staff,
   staffColorMap,
   currentDate,
   onAptClick,
+  onClassClick,
   onDayClick,
 }: MonthViewProps) {
   const locale = useLocale();
@@ -66,6 +70,19 @@ export function MonthView({
     return map;
   }, [appointments]);
 
+  const cisByDate = useMemo(() => {
+    const map = new Map<string, ClassInstance[]>();
+    for (const ci of classInstances) {
+      if (ci.status !== "SCHEDULED") continue;
+      const d = new Date(ci.startTime);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const list = map.get(key) ?? [];
+      list.push(ci);
+      map.set(key, list);
+    }
+    return map;
+  }, [classInstances]);
+
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
       {/* Day headers */}
@@ -88,7 +105,10 @@ export function MonthView({
             const isToday = isSameDay(day, today);
             const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
             const dayApts = aptsByDate.get(key) ?? [];
-            const hasApts = dayApts.length > 0;
+            const dayCIs = cisByDate.get(key) ?? [];
+            const hasItems = dayApts.length > 0 || dayCIs.length > 0;
+            const allItems = [...dayApts.map((a) => ({ kind: "apt" as const, item: a })), ...dayCIs.map((c) => ({ kind: "cls" as const, item: c }))];
+            const maxVisible = 2;
 
             return (
               <div
@@ -103,7 +123,7 @@ export function MonthView({
                   onClick={() => onDayClick(day)}
                   className="mb-1 flex items-center gap-1 transition-colors hover:text-primary"
                 >
-                  {hasApts && (
+                  {hasItems && (
                     <span className="size-1.5 rounded-full bg-green-500" />
                   )}
                   <span
@@ -119,38 +139,60 @@ export function MonthView({
                   </span>
                 </button>
 
-                {/* Appointment pills (max 2 visible + overflow) */}
+                {/* Event pills */}
                 <div className="space-y-0.5">
-                  {dayApts.slice(0, 2).map((apt) => {
-                    const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
-                    const start = new Date(apt.startTime);
+                  {allItems.slice(0, maxVisible).map((entry) => {
+                    if (entry.kind === "apt") {
+                      const apt = entry.item as Appointment;
+                      const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
+                      const start = new Date(apt.startTime);
+                      return (
+                        <button
+                          key={apt.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAptClick(apt);
+                          }}
+                          className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-start text-[10px] leading-tight transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: clr.bg, color: clr.text }}
+                        >
+                          <span className="font-semibold tabular-nums">
+                            {formatTime(start, dateLocale)}
+                          </span>
+                          <span className="truncate">
+                            {staff.length > 1 ? apt.staffName.split(" ")[0] : apt.serviceName}
+                          </span>
+                        </button>
+                      );
+                    }
+                    const ci = entry.item as ClassInstance;
+                    const start = new Date(ci.startTime);
                     return (
                       <button
-                        key={apt.id}
+                        key={ci.id}
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onAptClick(apt);
+                          onClassClick?.(ci);
                         }}
                         className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-start text-[10px] leading-tight transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: clr.bg, color: clr.text }}
+                        style={{ backgroundColor: "#EDE9FE", color: "#4C1D95" }}
                       >
                         <span className="font-semibold tabular-nums">
                           {formatTime(start, dateLocale)}
                         </span>
-                        <span className="truncate">
-                          {staff.length > 1 ? apt.staffName.split(" ")[0] : apt.serviceName}
-                        </span>
+                        <span className="truncate">⟳ {ci.serviceName}</span>
                       </button>
                     );
                   })}
-                  {dayApts.length > 2 && (
+                  {allItems.length > maxVisible && (
                     <button
                       type="button"
                       onClick={() => onDayClick(day)}
                       className="w-full rounded px-1 py-0.5 text-center text-[10px] font-medium text-muted-foreground hover:bg-muted/50"
                     >
-                      +{dayApts.length - 2}
+                      +{allItems.length - maxVisible}
                     </button>
                   )}
                 </div>

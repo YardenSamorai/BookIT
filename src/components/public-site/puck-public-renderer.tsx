@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { Render, type Data } from "@puckeditor/core";
-import { puckConfig } from "@/lib/puck/puck-config";
+import { buildPuckConfig } from "@/lib/puck/puck-config";
 import { PuckBusinessProvider } from "@/lib/puck/puck-data-context";
 import { SiteNav } from "./site-nav";
 import { SiteFooter } from "./site-footer";
@@ -28,9 +29,12 @@ export function PuckPublicRenderer({
   bookingUrl,
   socialLinks,
 }: PuckPublicRendererProps) {
-  const { business, services, staff, hours, reviews, ratingStats } = data;
+  const { business, services, staff, hours, products, reviews, ratingStats } = data;
+
+  const config = useMemo(() => buildPuckConfig(locale as "he" | "en"), [locale]);
 
   const businessCtx = {
+    businessId: business.id,
     businessName: business.name,
     slug: business.slug,
     primaryColor: business.primaryColor,
@@ -42,6 +46,7 @@ export function PuckPublicRenderer({
     services: services as unknown as Array<Record<string, unknown>>,
     staff: staff as unknown as Array<Record<string, unknown>>,
     hours: hours as unknown as Array<Record<string, unknown>>,
+    products: (products ?? []) as unknown as Array<Record<string, unknown>>,
     theme,
     locale,
   };
@@ -58,7 +63,7 @@ export function PuckPublicRenderer({
           locale={locale}
         />
 
-        <Render config={puckConfig} data={puckData} />
+        <Render config={config} data={puckData} />
 
         {ratingStats.totalReviews > 0 && (
           <SiteReviews

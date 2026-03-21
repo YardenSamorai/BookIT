@@ -13,6 +13,7 @@ interface DayViewProps {
   staffFilter: string | null;
   currentDate: Date;
   onAptClick: (apt: Appointment) => void;
+  onClassClick?: (ci: ClassInstance) => void;
 }
 
 const HOUR_START = 7;
@@ -28,6 +29,7 @@ export function DayView({
   staffFilter,
   currentDate,
   onAptClick,
+  onClassClick,
 }: DayViewProps) {
   const locale = useLocale();
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
@@ -152,6 +154,7 @@ export function DayView({
                         key={ci.id}
                         instance={ci}
                         dateLocale={dateLocale}
+                        onClassClick={onClassClick}
                       />
                     ))}
                 </div>
@@ -173,6 +176,7 @@ export function DayView({
                   key={ci.id}
                   instance={ci}
                   dateLocale={dateLocale}
+                  onClassClick={onClassClick}
                 />
               ))}
             </div>
@@ -275,9 +279,11 @@ function AptBlock({
 function ClassBlock({
   instance,
   dateLocale,
+  onClassClick,
 }: {
   instance: ClassInstance;
   dateLocale: string;
+  onClassClick?: (ci: ClassInstance) => void;
 }) {
   const start = new Date(instance.startTime);
   const end = new Date(instance.endTime);
@@ -292,8 +298,10 @@ function ClassBlock({
   if (startMins < 0) return null;
 
   return (
-    <div
-      className="absolute inset-x-1 overflow-hidden rounded-lg border-s-[3px] border-dashed text-start shadow-sm"
+    <button
+      type="button"
+      onClick={() => onClassClick?.(instance)}
+      className="absolute inset-x-1 cursor-pointer overflow-hidden rounded-lg border-s-[3px] border-dashed text-start shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-violet-300"
       style={{
         top,
         height: heightPx,
@@ -321,6 +329,6 @@ function ClassBlock({
           <p className="text-[10px] tabular-nums opacity-60 leading-tight">{timeStr}</p>
         </div>
       )}
-    </div>
+    </button>
   );
 }

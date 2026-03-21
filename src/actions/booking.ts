@@ -260,33 +260,47 @@ export async function createAppointment(
     performedBy: "CUSTOMER",
   });
 
-  // Send WhatsApp booking confirmation (fire-and-forget)
+  // Send WhatsApp/SMS notifications
   try {
-    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const { sendBookingNotificationSafe, sendOwnerBookingNotification } = await import("@/lib/notifications/send-notification");
     const [biz, staff, user] = await Promise.all([
-      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true } }),
+      db.query.businesses.findFirst({
+        where: eq(businesses.id, businessId),
+        columns: { name: true, ownerId: true },
+      }),
       db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
       db.query.users.findFirst({ where: eq(users.id, userId), columns: { phone: true, name: true } }),
     ]);
+
+    const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+    const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const variables = {
+      customerName: user?.name || "",
+      businessName: biz?.name || "",
+      date: dateStr,
+      time: timeStr,
+      service: service.title,
+      staff: staff?.name || "",
+    };
+
+    const promises: Promise<void>[] = [];
+
     if (user?.phone) {
-      const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-      const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-      sendBookingNotificationSafe({
+      promises.push(sendBookingNotificationSafe({
         businessId,
         appointmentId: appointment.id,
         userId,
         recipientPhone: user.phone,
         type: "BOOKING_CONFIRMED",
-        variables: {
-          customerName: user.name || "",
-          businessName: biz?.name || "",
-          date: dateStr,
-          time: timeStr,
-          service: service.title,
-          staff: staff?.name || "",
-        },
-      });
+        variables,
+      }));
     }
+
+    if (biz?.ownerId) {
+      promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
+    }
+
+    await Promise.all(promises);
   } catch { /* notification failure must not block booking */ }
 
   revalidatePath(`/b`);
@@ -445,7 +459,7 @@ export async function createManualAppointment(input: {
     ]);
     const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
     const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-    sendBookingNotificationSafe({
+    await sendBookingNotificationSafe({
       businessId,
       appointmentId: appointment.id,
       recipientPhone: phone,

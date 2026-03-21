@@ -8,6 +8,8 @@ import {
   classInstances,
   appointments,
   services,
+  customers,
+  users,
 } from "@/lib/db/schema";
 import type { ActionResult } from "@/types";
 
@@ -148,6 +150,102 @@ export async function deleteClassSchedule(
   return { success: true, data: undefined };
 }
 
+export async function updateClassInstanceTime(
+  instanceId: string,
+  businessId: string,
+  newStartTime: string,
+  newEndTime: string
+): Promise<ActionResult> {
+  const instance = await db.query.classInstances.findFirst({
+    where: and(eq(classInstances.id, instanceId), eq(classInstances.businessId, businessId)),
+  });
+  if (!instance) return { success: false, error: "Instance not found" };
+
+  const startDate = new Date(newStartTime);
+  const endDate = new Date(newEndTime);
+  const dateStr = localDateStr(startDate);
+
+  await db
+    .update(classInstances)
+    .set({ startTime: startDate, endTime: endDate, date: dateStr })
+    .where(eq(classInstances.id, instanceId));
+
+  revalidatePath("/dashboard/classes");
+  revalidatePath("/dashboard/calendar");
+
+  return { success: true, data: undefined };
+}
+
+export async function updateAllFutureInstancesTime(
+  scheduleId: string,
+  businessId: string,
+  newStartHour: string,
+  newEndHour: string
+): Promise<ActionResult> {
+  const today = localDateStr(new Date());
+
+  const futureInstances = await db
+    .select()
+    .from(classInstances)
+    .where(
+      and(
+        eq(classInstances.classScheduleId, scheduleId),
+        eq(classInstances.businessId, businessId),
+        gte(classInstances.date, today),
+        eq(classInstances.status, "SCHEDULED")
+      )
+    );
+
+  const [sh, sm] = newStartHour.split(":").map(Number);
+  const [eh, em] = newEndHour.split(":").map(Number);
+
+  for (const inst of futureInstances) {
+    const newStart = new Date(inst.startTime);
+    newStart.setHours(sh, sm, 0, 0);
+    const newEnd = new Date(inst.startTime);
+    newEnd.setHours(eh, em, 0, 0);
+
+    await db
+      .update(classInstances)
+      .set({ startTime: newStart, endTime: newEnd })
+      .where(eq(classInstances.id, inst.id));
+  }
+
+  await db
+    .update(classSchedules)
+    .set({ startTime: newStartHour, updatedAt: new Date() })
+    .where(eq(classSchedules.id, scheduleId));
+
+  revalidatePath("/dashboard/classes");
+  revalidatePath("/dashboard/calendar");
+
+  return { success: true, data: undefined };
+}
+
+export async function getClassInstanceParticipants(
+  instanceId: string,
+  businessId: string
+) {
+  const rows = await db
+    .select({
+      id: appointments.id,
+      status: appointments.status,
+      customerName: users.name,
+      customerPhone: users.phone,
+    })
+    .from(appointments)
+    .innerJoin(customers, eq(appointments.customerId, customers.id))
+    .innerJoin(users, eq(customers.userId, users.id))
+    .where(
+      and(
+        eq(appointments.classInstanceId, instanceId),
+        eq(appointments.businessId, businessId),
+        ne(appointments.status, "CANCELLED")
+      )
+    );
+  return rows;
+}
+
 export async function cancelClassInstance(
   instanceId: string,
   businessId: string
@@ -167,6 +265,54 @@ export async function cancelClassInstance(
         eq(appointments.classInstanceId, instanceId),
         ne(appointments.status, "CANCELLED")
       )
+    );
+
+  revalidatePath("/dashboard/classes");
+  revalidatePath("/dashboard/calendar");
+
+  return { success: true, data: undefined };
+}
+
+export async function cancelAllFutureInstances(
+  scheduleId: string,
+  businessId: string
+): Promise<ActionResult> {
+  const today = localDateStr(new Date());
+
+  const futureInstances = await db
+    .select({ id: classInstances.id })
+    .from(classInstances)
+    .where(
+      and(
+        eq(classInstances.classScheduleId, scheduleId),
+        eq(classInstances.businessId, businessId),
+        gte(classInstances.date, today),
+        eq(classInstances.status, "SCHEDULED")
+      )
+    );
+
+  for (const inst of futureInstances) {
+    await db
+      .update(classInstances)
+      .set({ status: "CANCELLED" })
+      .where(eq(classInstances.id, inst.id));
+
+    await db
+      .update(appointments)
+      .set({ status: "CANCELLED" })
+      .where(
+        and(
+          eq(appointments.classInstanceId, inst.id),
+          ne(appointments.status, "CANCELLED")
+        )
+      );
+  }
+
+  await db
+    .update(classSchedules)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(
+      and(eq(classSchedules.id, scheduleId), eq(classSchedules.businessId, businessId))
     );
 
   revalidatePath("/dashboard/classes");

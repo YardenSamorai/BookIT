@@ -15,7 +15,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -27,6 +26,7 @@ import {
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { updateNotificationPreferences } from "@/actions/notification-preferences";
 import { updateMessageTemplate, resetMessageTemplate, toggleMessageTemplate } from "@/actions/message-templates";
+import { syncTwilioMessages } from "@/actions/sync-messages";
 import {
   MessageSquare,
   Send,
@@ -74,6 +74,7 @@ interface Props {
   whatsappAllowed: boolean;
   businessPhone: string;
   locale: string;
+  phoneToName?: Record<string, string>;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -91,6 +92,7 @@ const CHANNEL_ICONS: Record<string, typeof MessageCircle> = {
 
 const TYPE_LABELS: Record<string, string> = {
   BOOKING_CONFIRMED: "msg.tmpl_booking",
+  BOOKING_OWNER: "msg.tmpl_booking_owner",
   REMINDER: "msg.tmpl_reminder",
   CANCELLATION: "msg.tmpl_cancellation",
   RESCHEDULE: "msg.tmpl_reschedule",
@@ -115,6 +117,7 @@ export function MessagesPageClient({
   whatsappAllowed,
   businessPhone,
   locale,
+  phoneToName = {},
 }: Props) {
   const t = useT();
   const uiLocale = useLocale();
@@ -153,7 +156,7 @@ export function MessagesPageClient({
         </TabsList>
 
         <TabsContent value="log" className="mt-4">
-          <MessageLogTab logs={logs} dateLocale={dateLocale} />
+          <MessageLogTab logs={logs} dateLocale={dateLocale} phoneToName={phoneToName} />
         </TabsContent>
 
         <TabsContent value="templates" className="mt-4">
@@ -192,7 +195,30 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 
 /* ─── Message Log Tab ───────────────────────────────────────── */
 
-function MessageLogTab({ logs, dateLocale }: { logs: NotificationLog[]; dateLocale: string }) {
+function getFilterLabel(
+  t: ReturnType<typeof useT>,
+  filter: string,
+  type: "channel" | "type" | "status"
+): string {
+  if (filter === "ALL") return t("msg.filter_all" as never);
+  if (type === "channel") return filter;
+  if (type === "type") {
+    const key = `msg.type_${filter.toLowerCase()}` as never;
+    return t(key);
+  }
+  const key = `msg.status_${filter.toLowerCase()}` as never;
+  return t(key);
+}
+
+function MessageLogTab({
+  logs,
+  dateLocale,
+  phoneToName,
+}: {
+  logs: NotificationLog[];
+  dateLocale: string;
+  phoneToName: Record<string, string>;
+}) {
   const t = useT();
   const [channelFilter, setChannelFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
@@ -230,7 +256,7 @@ function MessageLogTab({ logs, dateLocale }: { logs: NotificationLog[]; dateLoca
       <div className="flex flex-wrap gap-2">
         <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v ?? "ALL")}>
           <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder={t("msg.filter_channel" as never)} />
+            <span className="truncate">{getFilterLabel(t, channelFilter, "channel")}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t("msg.filter_all" as never)}</SelectItem>
@@ -241,11 +267,12 @@ function MessageLogTab({ logs, dateLocale }: { logs: NotificationLog[]; dateLoca
 
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "ALL")}>
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder={t("msg.filter_type" as never)} />
+            <span className="truncate">{getFilterLabel(t, typeFilter, "type")}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t("msg.filter_all" as never)}</SelectItem>
             <SelectItem value="BOOKING_CONFIRMED">{t("msg.type_booking" as never)}</SelectItem>
+            <SelectItem value="BOOKING_OWNER">{t("msg.type_booking_owner" as never)}</SelectItem>
             <SelectItem value="REMINDER">{t("msg.type_reminder" as never)}</SelectItem>
             <SelectItem value="CANCELLATION">{t("msg.type_cancellation" as never)}</SelectItem>
             <SelectItem value="RESCHEDULE">{t("msg.type_reschedule" as never)}</SelectItem>
@@ -256,7 +283,7 @@ function MessageLogTab({ logs, dateLocale }: { logs: NotificationLog[]; dateLoca
 
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "ALL")}>
           <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder={t("msg.filter_status" as never)} />
+            <span className="truncate">{getFilterLabel(t, statusFilter, "status")}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t("msg.filter_all" as never)}</SelectItem>
@@ -280,7 +307,7 @@ function MessageLogTab({ logs, dateLocale }: { logs: NotificationLog[]; dateLoca
 
       <div className="space-y-2">
         {visible.map((log) => (
-          <ExpandableLogRow key={log.id} log={log} dateLocale={dateLocale} />
+          <ExpandableLogRow key={log.id} log={log} dateLocale={dateLocale} phoneToName={phoneToName} />
         ))}
       </div>
 
@@ -295,7 +322,23 @@ function MessageLogTab({ logs, dateLocale }: { logs: NotificationLog[]; dateLoca
   );
 }
 
-function ExpandableLogRow({ log, dateLocale }: { log: NotificationLog; dateLocale: string }) {
+function resolveRecipientName(
+  recipient: string,
+  phoneToName: Record<string, string>
+): string | undefined {
+  const clean = recipient.replace(/^whatsapp:/, "");
+  return phoneToName[clean];
+}
+
+function ExpandableLogRow({
+  log,
+  dateLocale,
+  phoneToName,
+}: {
+  log: NotificationLog;
+  dateLocale: string;
+  phoneToName: Record<string, string>;
+}) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
 
@@ -315,6 +358,9 @@ function ExpandableLogRow({ log, dateLocale }: { log: NotificationLog; dateLocal
       ? log.messageBody.substring(0, 60) + "…"
       : log.messageBody
     : "—";
+
+  const customerName = resolveRecipientName(log.recipient, phoneToName);
+  const displayPhone = log.recipient.replace(/^whatsapp:/, "");
 
   return (
     <div
@@ -336,7 +382,12 @@ function ExpandableLogRow({ log, dateLocale }: { log: NotificationLog; dateLocal
         </div>
 
         {/* Recipient */}
-        <div className="text-sm text-muted-foreground" dir="ltr">{log.recipient}</div>
+        <div>
+          <div className="text-sm font-medium" dir="ltr">{displayPhone}</div>
+          {customerName && (
+            <div className="text-xs text-muted-foreground mt-0.5">{customerName}</div>
+          )}
+        </div>
 
         {/* Body preview */}
         <div className="hidden text-xs text-muted-foreground truncate sm:block">{bodyPreview}</div>
@@ -398,7 +449,7 @@ function TemplatesTab({ templates, locale }: { templates: MessageTemplate[]; loc
     return groups;
   }, [templates]);
 
-  const typeOrder = ["BOOKING_CONFIRMED", "REMINDER", "CANCELLATION", "RESCHEDULE"];
+  const typeOrder = ["BOOKING_CONFIRMED", "BOOKING_OWNER", "REMINDER", "CANCELLATION", "RESCHEDULE"];
 
   const handleEdit = useCallback((tmpl: MessageTemplate) => {
     setEditingId(tmpl.id);
@@ -630,14 +681,11 @@ function SettingsTab({
     setSyncPending(true);
     setSyncResult(null);
     try {
-      const res = await fetch("/api/cron/sync-messages");
-      if (res.ok) {
-        const data = await res.json();
-        setSyncResult(`${data.synced ?? 0}`);
-        router.refresh();
-      }
+      const result = await syncTwilioMessages();
+      setSyncResult(`${result.synced}`);
+      router.refresh();
     } catch {
-      // silently ignore
+      setSyncResult("0");
     } finally {
       setSyncPending(false);
     }

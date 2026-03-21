@@ -5,6 +5,7 @@ import type { SiteTheme } from "@/lib/themes/presets";
 import type { Locale } from "@/lib/i18n";
 
 export interface PuckBusinessData {
+  businessId: string;
   businessName: string;
   slug: string;
   primaryColor: string;
@@ -16,6 +17,7 @@ export interface PuckBusinessData {
   services: Array<Record<string, unknown>>;
   staff: Array<Record<string, unknown>>;
   hours: Array<Record<string, unknown>>;
+  products: Array<Record<string, unknown>>;
   theme: SiteTheme;
   locale: Locale;
 }

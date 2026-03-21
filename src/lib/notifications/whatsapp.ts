@@ -27,45 +27,7 @@ export interface WhatsAppResult {
   error?: string;
 }
 
-/**
- * Send a WhatsApp message using a pre-approved Twilio Content Template.
- * Variables are substituted into the template by Twilio.
- */
-export async function sendWhatsAppTemplate(
-  to: string,
-  contentSid: string,
-  variables: Record<string, string>
-): Promise<WhatsAppResult> {
-  const client = getClient();
 
-  if (!client || !waNumber) {
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[DEV WhatsApp] To: ${to} | Template: ${contentSid} | Vars:`, variables);
-      return { success: true, messageSid: "dev-mock" };
-    }
-    return { success: false, error: "Twilio WhatsApp not configured" };
-  }
-
-  try {
-    const message = await client.messages.create({
-      from: waNumber,
-      to: normalizeWhatsAppPhone(to),
-      contentSid,
-      contentVariables: JSON.stringify(variables),
-      ...(statusCallbackUrl ? { statusCallback: statusCallbackUrl } : {}),
-    });
-    return { success: true, messageSid: message.sid };
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "Unknown error";
-    console.error("Failed to send WhatsApp template:", errorMsg);
-    return { success: false, error: errorMsg };
-  }
-}
-
-/**
- * Send a free-form WhatsApp text message.
- * Only works within the 24-hour customer service window.
- */
 export async function sendWhatsAppText(
   to: string,
   body: string

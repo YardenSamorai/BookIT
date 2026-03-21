@@ -9,6 +9,7 @@ import {
   AppointmentQuickView,
   type QuickViewAppointment,
 } from "./appointment-quick-view";
+import { ClassInstanceQuickView } from "./class-instance-quick-view";
 import { ManualBookingDialog } from "./manual-booking-dialog";
 import { WeekView } from "./week-view";
 import { DayView } from "./day-view";
@@ -51,10 +52,15 @@ export function CalendarShell({
   const [selectedApt, setSelectedApt] = useState<QuickViewAppointment | null>(
     null
   );
+  const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
 
   const handleAptClick = useCallback((apt: Appointment) => {
     setSelectedApt(apt as QuickViewAppointment);
+  }, []);
+
+  const handleClassClick = useCallback((ci: ClassInstance) => {
+    setSelectedClass(ci);
   }, []);
 
   const filteredAppointments = useMemo(() => {
@@ -172,20 +178,20 @@ export function CalendarShell({
         </div>
 
         {/* Navigation + Add button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" dir="ltr">
           <Button
             variant="outline"
             size="icon-sm"
             onClick={() => navigate(1)}
           >
-            <ChevronRight className="size-4" />
+            <ChevronLeft className="size-4" />
           </Button>
           <Button
             variant="outline"
             size="icon-sm"
             onClick={() => navigate(-1)}
           >
-            <ChevronLeft className="size-4" />
+            <ChevronRight className="size-4" />
           </Button>
           <Button
             size="sm"
@@ -259,6 +265,7 @@ export function CalendarShell({
           staffFilter={staffFilter}
           currentDate={currentDate}
           onAptClick={handleAptClick}
+          onClassClick={handleClassClick}
           onDayClick={goToDay}
         />
       )}
@@ -271,15 +278,18 @@ export function CalendarShell({
           staffFilter={staffFilter}
           currentDate={currentDate}
           onAptClick={handleAptClick}
+          onClassClick={handleClassClick}
         />
       )}
       {view === "month" && (
         <MonthView
           appointments={filteredAppointments}
+          classInstances={classInstances}
           staff={staff}
           staffColorMap={staffColorMap}
           currentDate={currentDate}
           onAptClick={handleAptClick}
+          onClassClick={handleClassClick}
           onDayClick={goToDay}
         />
       )}
@@ -289,6 +299,15 @@ export function CalendarShell({
         open={!!selectedApt}
         onOpenChange={(open) => {
           if (!open) setSelectedApt(null);
+        }}
+      />
+
+      <ClassInstanceQuickView
+        instance={selectedClass}
+        businessId={businessId}
+        open={!!selectedClass}
+        onOpenChange={(open) => {
+          if (!open) setSelectedClass(null);
         }}
       />
 

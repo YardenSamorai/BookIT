@@ -14,6 +14,7 @@ interface WeekViewProps {
   staffFilter: string | null;
   currentDate: Date;
   onAptClick: (apt: Appointment) => void;
+  onClassClick?: (ci: ClassInstance) => void;
   onDayClick: (date: Date) => void;
 }
 
@@ -29,6 +30,7 @@ export function WeekView({
   staffFilter,
   currentDate,
   onAptClick,
+  onClassClick,
   onDayClick,
 }: WeekViewProps) {
   const locale = useLocale();
@@ -147,7 +149,7 @@ export function WeekView({
               )}
 
               {dayCIs.map((ci) => (
-                <ClassCard key={ci.id} instance={ci} dateLocale={dateLocale} />
+                <ClassCard key={ci.id} instance={ci} dateLocale={dateLocale} onClassClick={onClassClick} />
               ))}
             </div>
           );
@@ -229,11 +231,17 @@ export function WeekView({
                       return (
                         <div
                           key={ci.id}
-                          className="flex items-center gap-1.5 rounded-lg border-s-2 border-dashed px-2 py-1 text-[12px] leading-tight shadow-sm"
+                          role="button"
+                          tabIndex={0}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border-s-2 border-dashed px-2 py-1 text-[12px] leading-tight shadow-sm transition-shadow hover:shadow-md"
                           style={{
                             backgroundColor: "#EDE9FE",
                             borderColor: "#8B5CF6",
                             color: "#4C1D95",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClassClick?.(ci);
                           }}
                         >
                           <span className="font-semibold tabular-nums whitespace-nowrap">
@@ -379,16 +387,20 @@ function AptCard({
 function ClassCard({
   instance,
   dateLocale,
+  onClassClick,
 }: {
   instance: ClassInstance;
   dateLocale: string;
+  onClassClick?: (ci: ClassInstance) => void;
 }) {
   const start = new Date(instance.startTime);
   const booked = instance.bookedCount ?? 0;
 
   return (
-    <div
-      className="mt-1 w-full rounded-lg border-s-2 border-dashed px-2 py-1.5 text-start text-[11px] leading-tight shadow-sm"
+    <button
+      type="button"
+      onClick={() => onClassClick?.(instance)}
+      className="mt-1 w-full cursor-pointer rounded-lg border-s-2 border-dashed px-2 py-1.5 text-start text-[11px] leading-tight shadow-sm transition-shadow hover:shadow-md"
       style={{
         backgroundColor: "#EDE9FE",
         borderColor: "#8B5CF6",
@@ -401,6 +413,6 @@ function ClassCard({
       <p className="truncate opacity-75">
         {booked}/{instance.maxParticipants}
       </p>
-    </div>
+    </button>
   );
 }

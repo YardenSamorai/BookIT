@@ -2,7 +2,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messageTemplates } from "@/lib/db/schema";
 
-type TemplateType = "BOOKING_CONFIRMED" | "REMINDER" | "CANCELLATION" | "RESCHEDULE";
+type TemplateType = "BOOKING_CONFIRMED" | "BOOKING_OWNER" | "REMINDER" | "CANCELLATION" | "RESCHEDULE";
 type TemplateChannel = "WHATSAPP" | "SMS";
 
 interface DefaultTemplate {
@@ -28,6 +28,22 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
       "Hi {customerName}! Your appointment at {businessName} is confirmed for {date} at {time}. Service: {service}.",
     body_he:
       "היי {customerName}! התור שלך ב-{businessName} אושר ל-{date} בשעה {time}. שירות: {service}.",
+  },
+  {
+    type: "BOOKING_OWNER",
+    channel: "WHATSAPP",
+    body_en:
+      "📢 New booking at {businessName}!\n\n👤 Customer: {customerName}\n📅 {date} at {time}\n💇 {service}\n👤 Staff: {staff}",
+    body_he:
+      "📢 תור חדש ב-{businessName}!\n\n👤 לקוח/ה: {customerName}\n📅 {date} בשעה {time}\n💇 {service}\n👤 צוות: {staff}",
+  },
+  {
+    type: "BOOKING_OWNER",
+    channel: "SMS",
+    body_en:
+      "New booking: {customerName} at {businessName} on {date} at {time}. Service: {service}.",
+    body_he:
+      "תור חדש: {customerName} ב-{businessName} ב-{date} בשעה {time}. שירות: {service}.",
   },
   {
     type: "REMINDER",

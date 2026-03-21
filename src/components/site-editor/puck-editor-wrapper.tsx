@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo, type ReactNode } from "react
 import { Puck, type Data } from "@puckeditor/core";
 import "@puckeditor/core/puck.css";
 import "./puck-overrides.css";
-import { puckConfig } from "@/lib/puck/puck-config";
+import { buildPuckConfig } from "@/lib/puck/puck-config";
 import {
   PuckBusinessProvider,
   type PuckBusinessData,
@@ -58,6 +58,10 @@ export function PuckEditorWrapper({
 
   const dir = getDir(businessData.locale);
   const isRtl = dir === "rtl";
+  const config = useMemo(
+    () => buildPuckConfig(businessData.locale as "he" | "en"),
+    [businessData.locale]
+  );
 
   const overrides = useMemo(
     () => ({
@@ -80,7 +84,7 @@ export function PuckEditorWrapper({
     <PuckBusinessProvider value={businessData}>
       <div className={`puck-wrapper -mx-6 -mt-2 h-[calc(100vh-80px)] ${isRtl ? "puck-rtl" : ""}`} dir={dir}>
         <Puck
-          config={puckConfig}
+          config={config}
           data={initialData}
           onPublish={handlePublish}
           overrides={overrides}

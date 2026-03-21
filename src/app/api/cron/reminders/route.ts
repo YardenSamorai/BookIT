@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, lt, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   appointments,
@@ -73,27 +73,17 @@ export async function GET(request: NextRequest) {
         );
 
       for (const apt of upcomingAppointments) {
-        const alreadySent = await db.query.notificationLogs.findFirst({
+        const sentStatuses = ["SENT", "DELIVERED", "QUEUED"] as const;
+        const existingReminders = await db.query.notificationLogs.findMany({
           where: and(
             eq(notificationLogs.appointmentId, apt.id),
             eq(notificationLogs.type, "REMINDER"),
-            eq(notificationLogs.status, "SENT")
+            inArray(notificationLogs.status, [...sentStatuses])
           ),
           columns: { id: true },
         });
 
-        if (alreadySent && reminderWindows.length === 1) continue;
-
-        if (alreadySent && reminderWindows.length > 1) {
-          const allReminders = await db.query.notificationLogs.findMany({
-            where: and(
-              eq(notificationLogs.appointmentId, apt.id),
-              eq(notificationLogs.type, "REMINDER")
-            ),
-            columns: { id: true },
-          });
-          if (allReminders.length >= reminderWindows.length) continue;
-        }
+        if (existingReminders.length >= reminderWindows.length) continue;
 
         const customer = await db.query.customers.findFirst({
           where: eq(customers.id, apt.customerId),

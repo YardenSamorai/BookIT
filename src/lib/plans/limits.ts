@@ -18,7 +18,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxBookingsPerMonth: 50,
     maxProducts: 5,
     maxSessionPackages: 2,
-    whatsappNotifications: false,
+    whatsappNotifications: true,
     allThemePresets: false,
     removeBranding: false,
   },
