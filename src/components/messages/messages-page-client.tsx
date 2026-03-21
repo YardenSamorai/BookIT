@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -623,16 +624,17 @@ function SettingsTab({
     }
   }
 
+  const router = useRouter();
+
   async function handleSyncMessages() {
     setSyncPending(true);
     setSyncResult(null);
     try {
-      const res = await fetch("/api/cron/sync-messages", {
-        headers: { Authorization: `Bearer ${window.location.origin}` },
-      });
+      const res = await fetch("/api/cron/sync-messages");
       if (res.ok) {
         const data = await res.json();
         setSyncResult(`${data.synced ?? 0}`);
+        router.refresh();
       }
     } catch {
       // silently ignore
