@@ -995,6 +995,7 @@ export const translations = {
     "portal.quick_actions": "Quick Actions",
 
     // ── Public Site ──
+    "pub.login": "Log In",
     "pub.book_now": "Book Now",
     "pub.book": "Book",
     "pub.book_appointment": "Book an Appointment",
@@ -2399,6 +2400,7 @@ export const translations = {
     "portal.quick_actions": "פעולות מהירות",
 
     // ── Public Site ──
+    "pub.login": "התחברות",
     "pub.book_now": "הזמינו עכשיו",
     "pub.book": "הזמנה",
     "pub.book_appointment": "הזמינו תור",
