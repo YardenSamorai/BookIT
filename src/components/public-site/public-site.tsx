@@ -62,6 +62,7 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
         bookingUrl={bookingUrl}
         theme={theme}
         locale={locale}
+        enabledSections={enabledSections.map((s) => s.type)}
       />
 
       {enabledSections.map((section) => {
