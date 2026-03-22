@@ -50,12 +50,13 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="text-center">
           <h2
-            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight text-gray-900`}
+            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
+            style={{ color: "var(--section-heading, #111827)" }}
           >
             {title}
           </h2>
           {subtitle && (
-            <p className="mx-auto mt-3 max-w-md text-gray-500">{subtitle}</p>
+            <p className="mx-auto mt-3 max-w-md" style={{ color: "var(--section-body, #6b7280)" }}>{subtitle}</p>
           )}
         </div>
 

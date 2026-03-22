@@ -10,6 +10,7 @@ import { SiteReviews } from "./site-reviews";
 import { WhatsAppButton } from "./whatsapp-button";
 import { getDir, type Locale } from "@/lib/i18n";
 import type { SiteTheme } from "@/lib/themes/presets";
+import { COLOR_PALETTES } from "@/lib/themes/presets";
 import type { PublicBusinessData } from "@/lib/db/queries/public-site";
 
 interface PuckPublicRendererProps {
@@ -41,6 +42,9 @@ export function PuckPublicRenderer({
     secondaryColor: business.secondaryColor,
     logoUrl: business.logoUrl,
     coverImageUrl: business.coverImageUrl,
+    phone: business.phone,
+    email: business.email,
+    address: business.address,
     currency: business.currency,
     bookingUrl,
     services: services as unknown as Array<Record<string, unknown>>,
@@ -51,9 +55,29 @@ export function PuckPublicRenderer({
     locale,
   };
 
+  const paletteId = (puckData.root?.props as Record<string, unknown>)?.color_palette as string | undefined;
+  const palette = paletteId ? COLOR_PALETTES.find((p) => p.id === paletteId) : undefined;
+
+  const rootStyle: React.CSSProperties & Record<string, string> = {};
+  if (palette) {
+    rootStyle.backgroundColor = palette.colors.background;
+    rootStyle["--section-heading"] = palette.colors.heading;
+    rootStyle["--section-body"] = palette.colors.textMuted;
+    rootStyle["--palette-primary"] = palette.colors.primary;
+    rootStyle["--palette-secondary"] = palette.colors.secondary;
+    rootStyle["--palette-accent"] = palette.colors.accent;
+    rootStyle["--palette-surface"] = palette.colors.surface;
+    rootStyle["--palette-text"] = palette.colors.text;
+    rootStyle["--palette-bg"] = palette.colors.background;
+  }
+
   return (
     <PuckBusinessProvider value={businessCtx}>
-      <div className={`min-h-screen bg-white ${theme.font}`} dir={getDir(locale)}>
+      <div
+        className={`min-h-screen ${palette ? "" : "bg-white"} ${theme.font}`}
+        dir={getDir(locale)}
+        style={palette ? rootStyle : undefined}
+      >
         <SiteNav
           businessName={business.name}
           slug={business.slug}

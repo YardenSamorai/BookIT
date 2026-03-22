@@ -591,6 +591,126 @@ const LIGHT_CSS: HeroBackground[] = [
 ];
 
 // ────────────────────────────────────────────
+// Solid Color Backgrounds
+// ────────────────────────────────────────────
+
+function solidBg(id: string, name: string, hex: string, textCol: "white" | "dark", cat: "dark" | "light" | "colorful"): HeroBackground {
+  return {
+    id, name, category: cat, textColor: textCol, type: "css",
+    preview: hex,
+    css: { background: hex },
+  };
+}
+
+function gradientBg(id: string, name: string, grad: string, preview: string, textCol: "white" | "dark", cat: "dark" | "light" | "colorful"): HeroBackground {
+  return {
+    id, name, category: cat, textColor: textCol, type: "css",
+    preview,
+    css: { background: grad },
+  };
+}
+
+const SOLID_COLORS: HeroBackground[] = [
+  // Whites & Creams
+  solidBg("solid-white",        "לבן",        "#ffffff", "dark",  "light"),
+  solidBg("solid-snow",         "שלג",        "#fafafa", "dark",  "light"),
+  solidBg("solid-ivory",        "שנהב",       "#fffff0", "dark",  "light"),
+  solidBg("solid-pearl",        "פנינה",      "#f5f5f0", "dark",  "light"),
+  solidBg("solid-cream",        "קרם",        "#fdf8f0", "dark",  "light"),
+  solidBg("solid-linen",        "פשתן",       "#faf0e6", "dark",  "light"),
+  solidBg("solid-seashell",     "צדף",        "#fff5ee", "dark",  "light"),
+  solidBg("solid-floral-white", "לבן פרחוני", "#fffaf0", "dark",  "light"),
+  solidBg("solid-ghost-white",  "לבן רפאים",  "#f8f8ff", "dark",  "light"),
+  solidBg("solid-honeydew",     "טל דבש",     "#f0fff0", "dark",  "light"),
+  solidBg("solid-alice-blue",   "כחול אליס",  "#f0f8ff", "dark",  "light"),
+  solidBg("solid-lavender-blush","סגול ורוד",  "#fff0f5", "dark",  "light"),
+
+  // Light Pastels
+  solidBg("solid-light-blue",   "תכלת בהיר",  "#e0f2fe", "dark",  "light"),
+  solidBg("solid-light-green",  "ירוק בהיר",  "#dcfce7", "dark",  "light"),
+  solidBg("solid-light-pink",   "ורוד בהיר",  "#fce7f3", "dark",  "light"),
+  solidBg("solid-light-purple", "סגול בהיר",  "#f3e8ff", "dark",  "light"),
+  solidBg("solid-light-yellow", "צהוב בהיר",  "#fef9c3", "dark",  "light"),
+  solidBg("solid-light-orange", "כתום בהיר",  "#ffedd5", "dark",  "light"),
+  solidBg("solid-light-teal",   "טורקיז בהיר","#ccfbf1", "dark",  "light"),
+  solidBg("solid-light-cyan",   "ציאן בהיר",  "#cffafe", "dark",  "light"),
+  solidBg("solid-light-rose",   "ורד בהיר",   "#ffe4e6", "dark",  "light"),
+  solidBg("solid-light-indigo", "אינדיגו בהיר","#e0e7ff","dark",  "light"),
+
+  // Medium Colors
+  solidBg("solid-sky",          "שמיים",      "#38bdf8", "white", "colorful"),
+  solidBg("solid-blue",         "כחול",       "#3b82f6", "white", "colorful"),
+  solidBg("solid-indigo",       "אינדיגו",    "#6366f1", "white", "colorful"),
+  solidBg("solid-violet",       "סגול",       "#8b5cf6", "white", "colorful"),
+  solidBg("solid-purple",       "סגול עמוק",  "#a855f7", "white", "colorful"),
+  solidBg("solid-fuchsia",      "פוקסיה",     "#d946ef", "white", "colorful"),
+  solidBg("solid-pink",         "ורוד",       "#ec4899", "white", "colorful"),
+  solidBg("solid-rose",         "ורד",        "#f43f5e", "white", "colorful"),
+  solidBg("solid-red",          "אדום",       "#ef4444", "white", "colorful"),
+  solidBg("solid-orange",       "כתום",       "#f97316", "white", "colorful"),
+  solidBg("solid-amber",        "ענבר",       "#f59e0b", "dark",  "colorful"),
+  solidBg("solid-yellow",       "צהוב",       "#eab308", "dark",  "colorful"),
+  solidBg("solid-lime",         "ליים",       "#84cc16", "dark",  "colorful"),
+  solidBg("solid-green",        "ירוק",       "#22c55e", "white", "colorful"),
+  solidBg("solid-emerald",      "אמרלד",      "#10b981", "white", "colorful"),
+  solidBg("solid-teal",         "טורקיז",     "#14b8a6", "white", "colorful"),
+  solidBg("solid-cyan",         "ציאן",       "#06b6d4", "white", "colorful"),
+
+  // Dark Colors
+  solidBg("solid-black",        "שחור",       "#000000", "white", "dark"),
+  solidBg("solid-charcoal",     "פחם",        "#1f2937", "white", "dark"),
+  solidBg("solid-slate",        "צפחה",       "#1e293b", "white", "dark"),
+  solidBg("solid-zinc",         "אבץ",        "#27272a", "white", "dark"),
+  solidBg("solid-neutral",      "ניטרלי",     "#262626", "white", "dark"),
+  solidBg("solid-stone",        "אבן",        "#292524", "white", "dark"),
+  solidBg("solid-navy",         "כחול כהה",   "#1e3a5f", "white", "dark"),
+  solidBg("solid-dark-green",   "ירוק כהה",   "#14532d", "white", "dark"),
+  solidBg("solid-dark-red",     "אדום כהה",   "#7f1d1d", "white", "dark"),
+  solidBg("solid-dark-purple",  "סגול כהה",   "#3b0764", "white", "dark"),
+  solidBg("solid-dark-brown",   "חום כהה",    "#3b1f0b", "white", "dark"),
+
+  // Grays
+  solidBg("solid-gray-50",      "אפור 50",    "#f9fafb", "dark",  "light"),
+  solidBg("solid-gray-100",     "אפור 100",   "#f3f4f6", "dark",  "light"),
+  solidBg("solid-gray-200",     "אפור 200",   "#e5e7eb", "dark",  "light"),
+  solidBg("solid-gray-300",     "אפור 300",   "#d1d5db", "dark",  "light"),
+  solidBg("solid-gray-400",     "אפור 400",   "#9ca3af", "white", "colorful"),
+  solidBg("solid-gray-500",     "אפור 500",   "#6b7280", "white", "dark"),
+  solidBg("solid-gray-600",     "אפור 600",   "#4b5563", "white", "dark"),
+  solidBg("solid-gray-700",     "אפור 700",   "#374151", "white", "dark"),
+  solidBg("solid-gray-800",     "אפור 800",   "#1f2937", "white", "dark"),
+  solidBg("solid-gray-900",     "אפור 900",   "#111827", "white", "dark"),
+];
+
+const GRADIENT_EXTRAS: HeroBackground[] = [
+  gradientBg("grad-ocean-blue",    "אוקיינוס כחול",  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",            "linear-gradient(135deg, #667eea, #764ba2)", "white", "colorful"),
+  gradientBg("grad-warm-flame",    "להבה חמה",       "linear-gradient(45deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)","linear-gradient(45deg, #ff9a9e, #fecfef)", "dark", "colorful"),
+  gradientBg("grad-spring-warmth", "אביב חם",        "linear-gradient(to top, #fad0c4 0%, #ffd1ff 100%)",           "linear-gradient(to top, #fad0c4, #ffd1ff)", "dark", "colorful"),
+  gradientBg("grad-juicy-peach",   "אפרסק עסיסי",   "linear-gradient(to right, #ffecd2 0%, #fcb69f 100%)",         "linear-gradient(to right, #ffecd2, #fcb69f)", "dark", "colorful"),
+  gradientBg("grad-fresh-air",     "אוויר צח",       "linear-gradient(to top, #d4fc79 0%, #96e6a1 100%)",           "linear-gradient(to top, #d4fc79, #96e6a1)", "dark", "colorful"),
+  gradientBg("grad-premium-dark",  "פרימיום כהה",    "linear-gradient(to right, #434343 0%, black 100%)",           "linear-gradient(to right, #434343, #000)", "white", "dark"),
+  gradientBg("grad-night-sky",     "שמי לילה",       "linear-gradient(to top, #1e3c72 0%, #2a5298 100%)",           "linear-gradient(to top, #1e3c72, #2a5298)", "white", "dark"),
+  gradientBg("grad-purple-haze",   "ערפל סגול",      "linear-gradient(to right, #4a00e0, #8e2de2)",                 "linear-gradient(to right, #4a00e0, #8e2de2)", "white", "colorful"),
+  gradientBg("grad-mango",         "מנגו",           "linear-gradient(to right, #ffe259, #ffa751)",                 "linear-gradient(to right, #ffe259, #ffa751)", "dark", "colorful"),
+  gradientBg("grad-christmas",     "חגיגי",          "linear-gradient(to right, #2b5876, #4e4376)",                 "linear-gradient(to right, #2b5876, #4e4376)", "white", "dark"),
+  gradientBg("grad-dusty-grass",   "דשא",            "linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)",           "linear-gradient(120deg, #d4fc79, #96e6a1)", "dark", "colorful"),
+  gradientBg("grad-sunny-morning", "בוקר שמשי",      "linear-gradient(120deg, #f6d365 0%, #fda085 100%)",           "linear-gradient(120deg, #f6d365, #fda085)", "dark", "colorful"),
+  gradientBg("grad-rainy-ashville","אשוויל גשום",    "linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%)",           "linear-gradient(to top, #fbc2eb, #a6c1ee)", "dark", "colorful"),
+  gradientBg("grad-frozen-dreams", "חלומות קפואים",  "linear-gradient(to top, #fdcbf1 0%, #e6dee9 100%)",           "linear-gradient(to top, #fdcbf1, #e6dee9)", "dark", "light"),
+  gradientBg("grad-winter-neva",   "חורף נבה",       "linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)",           "linear-gradient(120deg, #a1c4fd, #c2e9fb)", "dark", "light"),
+  gradientBg("grad-saint-pete",    "סנט פיטרסבורג",  "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",           "linear-gradient(135deg, #f5f7fa, #c3cfe2)", "dark", "light"),
+  gradientBg("grad-plum-plate",    "צלחת שזיף",      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",           "linear-gradient(135deg, #667eea, #764ba2)", "white", "colorful"),
+  gradientBg("grad-everlasting",   "נצחי",           "linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%)",           "linear-gradient(135deg, #fdfcfb, #e2d1c3)", "dark", "light"),
+  gradientBg("grad-heavy-rain",    "גשם כבד",        "linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%)",           "linear-gradient(to top, #cfd9df, #e2ebf0)", "dark", "light"),
+  gradientBg("grad-deep-blue",     "כחול עמוק",      "linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%)",           "linear-gradient(120deg, #e0c3fc, #8ec5fc)", "dark", "light"),
+  gradientBg("grad-ripe-malinka",  "מלינקה בשלה",    "linear-gradient(120deg, #f093fb 0%, #f5576c 100%)",           "linear-gradient(120deg, #f093fb, #f5576c)", "white", "colorful"),
+  gradientBg("grad-near-moon",     "קרוב לירח",      "linear-gradient(to top, #5ee7df 0%, #b490ca 100%)",           "linear-gradient(to top, #5ee7df, #b490ca)", "dark", "colorful"),
+  gradientBg("grad-morpheus-den",  "מערת מורפיאוס",  "linear-gradient(to top, #30cfd0 0%, #330867 100%)",           "linear-gradient(to top, #30cfd0, #330867)", "white", "colorful"),
+  gradientBg("grad-rare-wind",     "רוח נדירה",      "linear-gradient(to top, #a8edea 0%, #fed6e3 100%)",           "linear-gradient(to top, #a8edea, #fed6e3)", "dark", "light"),
+  gradientBg("grad-glass-water",   "מי זכוכית",      "linear-gradient(to top, #dfe6e9 0%, #b8c6db 50%, #f5f7fa 100%)", "linear-gradient(to top, #dfe6e9, #f5f7fa)", "dark", "light"),
+];
+
+// ────────────────────────────────────────────
 // Combined export
 // ────────────────────────────────────────────
 
@@ -604,6 +724,8 @@ export const HERO_BACKGROUNDS: HeroBackground[] = [
   ...TEXTURE_CSS,
   ...COLORFUL_CSS,
   ...LIGHT_CSS,
+  ...SOLID_COLORS,
+  ...GRADIENT_EXTRAS,
 ];
 
 export function getHeroBackground(id: string): HeroBackground | undefined {

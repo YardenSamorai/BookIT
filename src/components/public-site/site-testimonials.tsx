@@ -45,12 +45,13 @@ export function SiteTestimonials({ theme, content = {}, sectionIndex, locale }: 
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center">
           <h2
-            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight text-gray-900`}
+            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
+            style={{ color: "var(--section-heading, #111827)" }}
           >
             {title}
           </h2>
           {subtitle && (
-            <p className="mx-auto mt-3 max-w-md text-gray-500">{subtitle}</p>
+            <p className="mx-auto mt-3 max-w-md" style={{ color: "var(--section-body, #6b7280)" }}>{subtitle}</p>
           )}
         </div>
 
@@ -76,7 +77,7 @@ function TestimonialCard({ testimonial: t, theme }: { testimonial: Testimonial; 
   return (
     <div className={`flex flex-col p-6 ${theme.radius.lg} ${theme.card} ${theme.cardHover} transition-all`}>
       <StarRating rating={t.rating} color={theme.secondaryColor} />
-      <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-gray-600">
+      <blockquote className="mt-4 flex-1 text-sm leading-relaxed" style={{ color: "var(--section-body, #4b5563)" }}>
         &ldquo;{t.text}&rdquo;
       </blockquote>
       <div className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
@@ -87,9 +88,9 @@ function TestimonialCard({ testimonial: t, theme }: { testimonial: Testimonial; 
           {t.name.charAt(0).toUpperCase()}
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--section-heading, #111827)" }}>{t.name}</p>
           {t.role && (
-            <p className="text-xs text-gray-500">{t.role}</p>
+            <p className="text-xs" style={{ color: "var(--section-body, #6b7280)" }}>{t.role}</p>
           )}
         </div>
       </div>
@@ -101,12 +102,12 @@ function MinimalTestimonial({ testimonial: t, theme }: { testimonial: Testimonia
   return (
     <div className="border-l-4 pl-6" style={{ borderColor: theme.secondaryColor }}>
       <StarRating rating={t.rating} color={theme.secondaryColor} />
-      <blockquote className="mt-3 text-lg leading-relaxed text-gray-700 italic">
+      <blockquote className="mt-3 text-lg leading-relaxed italic" style={{ color: "var(--section-body, #374151)" }}>
         &ldquo;{t.text}&rdquo;
       </blockquote>
       <div className="mt-3">
-        <span className="font-semibold text-gray-900">{t.name}</span>
-        {t.role && <span className="text-gray-500"> &mdash; {t.role}</span>}
+        <span className="font-semibold" style={{ color: "var(--section-heading, #111827)" }}>{t.name}</span>
+        {t.role && <span style={{ color: "var(--section-body, #6b7280)" }}> &mdash; {t.role}</span>}
       </div>
     </div>
   );

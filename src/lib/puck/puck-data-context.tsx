@@ -12,6 +12,9 @@ export interface PuckBusinessData {
   secondaryColor: string;
   logoUrl: string | null;
   coverImageUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
   currency: string;
   bookingUrl: string;
   services: Array<Record<string, unknown>>;

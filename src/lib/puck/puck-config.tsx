@@ -18,12 +18,30 @@ import {
   HERO_TEXT_SIZES,
   getHeroBackground,
 } from "@/lib/themes/hero-backgrounds";
+import { COLOR_PALETTES, type ColorPalette } from "@/lib/themes/presets";
 
-function RootRenderer({ children }: { children: ReactNode }) {
+function RootRenderer({ children, color_palette }: { children: ReactNode; color_palette?: string }) {
   const biz = usePuckBusiness();
   const dir = getDir(biz.locale);
+  const palette = COLOR_PALETTES.find((p) => p.id === color_palette);
+
+  const rootStyle: React.CSSProperties & Record<string, string> = {};
+  if (palette) {
+    rootStyle.backgroundColor = palette.colors.background;
+    rootStyle["--section-heading"] = palette.colors.heading;
+    rootStyle["--section-body"] = palette.colors.textMuted;
+    rootStyle["--palette-primary"] = palette.colors.primary;
+    rootStyle["--palette-secondary"] = palette.colors.secondary;
+    rootStyle["--palette-accent"] = palette.colors.accent;
+    rootStyle["--palette-surface"] = palette.colors.surface;
+    rootStyle["--palette-text"] = palette.colors.text;
+    rootStyle["--palette-bg"] = palette.colors.background;
+  } else {
+    rootStyle.backgroundColor = "#ffffff";
+  }
+
   return (
-    <div dir={dir} className={`min-h-full bg-white ${biz.theme.font}`}>
+    <div dir={dir} className={`min-h-full ${biz.theme.font}`} style={rootStyle}>
       {children}
     </div>
   );
@@ -73,12 +91,23 @@ function SectionBgWrapper({
 function withSectionBg(props: Record<string, unknown>, node: ReactNode) {
   const bgPresetId = props.section_bg as string | undefined;
   const bgOverlay = parseFloat((props.section_bg_overlay as string) ?? "0");
-  if (!bgPresetId) return node;
-  return (
+  const headingColor = (props.section_heading_color as string) || undefined;
+  const bodyColor = (props.section_body_color as string) || undefined;
+
+  const styleVars: React.CSSProperties & Record<string, string> = {};
+  if (headingColor) styleVars["--section-heading"] = headingColor;
+  if (bodyColor) styleVars["--section-body"] = bodyColor;
+  const hasVars = headingColor || bodyColor;
+
+  const wrapped = bgPresetId ? (
     <SectionBgWrapper bgPresetId={bgPresetId} bgOverlay={bgOverlay}>
       {node}
     </SectionBgWrapper>
-  );
+  ) : node;
+
+  if (!hasVars) return wrapped;
+
+  return <div style={styleVars}>{wrapped}</div>;
 }
 
 function HeroBlock(props: Record<string, unknown>) {
@@ -174,7 +203,15 @@ function ContactBlock(props: Record<string, unknown> & { _sectionIndex?: number 
   const biz = usePuckBusiness();
   return withSectionBg(props,
     <SiteContact
-      business={{ name: biz.businessName, slug: biz.slug, primaryColor: biz.primaryColor, secondaryColor: biz.secondaryColor } as any}
+      business={{
+        name: biz.businessName,
+        slug: biz.slug,
+        primaryColor: biz.primaryColor,
+        secondaryColor: biz.secondaryColor,
+        phone: biz.phone,
+        email: biz.email,
+        address: biz.address,
+      } as any}
       hours={biz.hours as any}
       content={props}
       theme={biz.theme}
@@ -235,12 +272,72 @@ function sectionBgFields(locale: L) {
         { label: l("heavy", locale),         value: "0.7" },
       ],
     },
+    section_heading_color: {
+      type: "custom" as const,
+      label: l("heading_color", locale),
+      render: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={value || "#111827"}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-8 w-10 cursor-pointer rounded border border-gray-300 p-0.5"
+          />
+          <input
+            type="text"
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="#111827"
+            className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono"
+          />
+          {value && (
+            <button
+              onClick={() => onChange("")}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ),
+    },
+    section_body_color: {
+      type: "custom" as const,
+      label: l("body_color", locale),
+      render: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={value || "#4b5563"}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-8 w-10 cursor-pointer rounded border border-gray-300 p-0.5"
+          />
+          <input
+            type="text"
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="#4b5563"
+            className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-mono"
+          />
+          {value && (
+            <button
+              onClick={() => onChange("")}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ),
+    },
   };
 }
 
 const sectionBgDefaults = {
   section_bg: "",
   section_bg_overlay: "0",
+  section_heading_color: "",
+  section_body_color: "",
 };
 
 const fontStyleOptions = HERO_FONT_STYLES.map((f) => ({
@@ -303,6 +400,9 @@ const labels = {
   bg_image:        i("תמונת רקע", "Background Image"),
   section_bg:      i("רקע סקשן", "Section Background"),
   section_overlay: i("כיסוי סקשן", "Section Overlay"),
+  heading_color:   i("צבע כותרת", "Heading Color"),
+  body_color:      i("צבע טקסט", "Body Text Color"),
+  color_palette:   i("פלטת צבעים", "Color Palette"),
   no_bg:           i("ללא רקע", "No Background"),
   map_url:         i("קישור מפת גוגל", "Google Maps Embed URL"),
 
@@ -343,11 +443,60 @@ const labels = {
 
 const l = (key: keyof typeof labels, locale: L) => labels[key][locale];
 
+function PalettePicker({ value, onChange, locale }: { value: string; onChange: (v: string) => void; locale: L }) {
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={() => onChange("")}
+        className={`flex w-full items-center gap-2 rounded-lg border-2 p-2 text-xs transition-all ${
+          !value ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+        }`}
+      >
+        <div className="flex gap-0.5">
+          <div className="size-5 rounded bg-white border border-gray-200" />
+          <div className="size-5 rounded bg-gray-50" />
+          <div className="size-5 rounded bg-gray-100" />
+          <div className="size-5 rounded bg-gray-200" />
+        </div>
+        <span className="font-medium">{locale === "he" ? "ברירת מחדל" : "Default"}</span>
+      </button>
+      {COLOR_PALETTES.map((p) => (
+        <button
+          key={p.id}
+          onClick={() => onChange(p.id)}
+          className={`flex w-full items-center gap-2 rounded-lg border-2 p-2 text-xs transition-all ${
+            value === p.id ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+          }`}
+        >
+          <div className="flex gap-0.5">
+            {p.preview.map((c, i) => (
+              <div key={i} className="size-5 rounded" style={{ backgroundColor: c }} />
+            ))}
+          </div>
+          <span className="font-medium">{p.name[locale]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function buildPuckConfig(locale: L): Config {
   return {
     root: {
-      render: ({ children }: { children: ReactNode }) => (
-        <RootRenderer>{children}</RootRenderer>
+      fields: {
+        color_palette: {
+          type: "custom" as const,
+          label: l("color_palette", locale),
+          render: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+            <PalettePicker value={value ?? ""} onChange={onChange} locale={locale} />
+          ),
+        },
+      },
+      defaultProps: {
+        color_palette: "",
+      },
+      render: ({ children, color_palette }: { children: ReactNode; color_palette?: string }) => (
+        <RootRenderer color_palette={color_palette}>{children}</RootRenderer>
       ),
     },
     categories: {
@@ -690,8 +839,7 @@ export function buildPuckConfig(locale: L): Config {
       Contact: {
         label: l("contact", locale),
         fields: {
-          title:         { type: "text",     label: l("title", locale) },
-          map_embed_url: { type: "textarea", label: l("map_url", locale) },
+          title:  { type: "text", label: l("title", locale) },
           layout: {
             type: "radio",
             label: l("layout", locale),
@@ -705,7 +853,6 @@ export function buildPuckConfig(locale: L): Config {
         },
         defaultProps: {
           title: "",
-          map_embed_url: "",
           layout: "split",
           ...sectionBgDefaults,
         },

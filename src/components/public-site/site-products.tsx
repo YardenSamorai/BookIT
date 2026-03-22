@@ -43,12 +43,13 @@ export function SiteProducts({
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mb-6 text-center sm:mb-12">
           <h2
-            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight text-gray-900`}
+            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
+            style={{ color: "var(--section-heading, #111827)" }}
           >
             {heading}
           </h2>
           {subtitle && (
-            <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-600 sm:mt-4 sm:text-base">
+            <p className="mx-auto mt-2 max-w-2xl text-sm sm:mt-4 sm:text-base" style={{ color: "var(--section-body, #4b5563)" }}>
               {subtitle}
             </p>
           )}
@@ -148,12 +149,12 @@ function ProductCard({
 
       {/* Info */}
       <div className="flex flex-1 flex-col p-3 sm:p-4">
-        <h3 className="text-sm font-semibold text-gray-900 sm:text-base">
+        <h3 className="text-sm font-semibold sm:text-base" style={{ color: "var(--section-heading, #111827)" }}>
           {product.title}
         </h3>
 
         {product.description && (
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-500 sm:text-xs">
+          <p className="mt-0.5 line-clamp-1 text-[11px] sm:text-xs" style={{ color: "var(--section-body, #6b7280)" }}>
             {product.description}
           </p>
         )}

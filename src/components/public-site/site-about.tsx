@@ -34,7 +34,8 @@ export function SiteAbout({ content = {}, theme, sectionIndex, locale }: SiteAbo
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <h2
-          className={`${ALIGN_CLASS[textAlign] ?? "text-center"} ${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight text-gray-900`}
+          className={`${ALIGN_CLASS[textAlign] ?? "text-center"} ${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
+          style={{ color: "var(--section-heading, #111827)" }}
         >
           {title}
         </h2>
@@ -54,7 +55,10 @@ export function SiteAbout({ content = {}, theme, sectionIndex, locale }: SiteAbo
 
           <div className="space-y-4 sm:space-y-6">
             {description && (
-              <p className={`text-base leading-relaxed text-gray-600 whitespace-pre-line sm:text-lg ${ALIGN_CLASS[textAlign] ?? ""}`}>
+              <p
+                className={`text-base leading-relaxed whitespace-pre-line sm:text-lg ${ALIGN_CLASS[textAlign] ?? ""}`}
+                style={{ color: "var(--section-body, #4b5563)" }}
+              >
                 {description}
               </p>
             )}

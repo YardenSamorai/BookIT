@@ -31,11 +31,12 @@ export function SiteTeam({ staff, content = {}, theme, sectionIndex, locale }: S
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center">
           <h2
-            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight text-gray-900`}
+            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
+            style={{ color: "var(--section-heading, #111827)" }}
           >
             {title}
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-gray-500">{subtitle}</p>
+          <p className="mx-auto mt-3 max-w-md" style={{ color: "var(--section-body, #6b7280)" }}>{subtitle}</p>
         </div>
 
         <div
@@ -100,7 +101,7 @@ function PhotoCard({
       </div>
 
       <div className="p-6 text-center">
-        <h3 className={`text-lg font-semibold text-gray-900 ${theme.font}`}>
+        <h3 className={`text-lg font-semibold ${theme.font}`} style={{ color: "var(--section-heading, #111827)" }}>
           {member.name}
         </h3>
         {member.roleTitle && (
@@ -112,7 +113,7 @@ function PhotoCard({
           </p>
         )}
         {showBio && member.bio && (
-          <p className="mt-3 text-sm leading-relaxed text-gray-500">{member.bio}</p>
+          <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--section-body, #6b7280)" }}>{member.bio}</p>
         )}
       </div>
     </div>
@@ -147,7 +148,7 @@ function AvatarCard({
         </div>
       )}
 
-      <h3 className={`mt-5 text-lg font-semibold text-gray-900 ${theme.font}`}>
+      <h3 className={`mt-5 text-lg font-semibold ${theme.font}`} style={{ color: "var(--section-heading, #111827)" }}>
         {member.name}
       </h3>
       {member.roleTitle && (
@@ -159,7 +160,7 @@ function AvatarCard({
         </p>
       )}
       {showBio && member.bio && (
-        <p className="mt-3 text-sm leading-relaxed text-gray-500">{member.bio}</p>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--section-body, #6b7280)" }}>{member.bio}</p>
       )}
     </div>
   );
@@ -191,16 +192,16 @@ function MinimalCard({
         </div>
       )}
 
-      <h3 className={`mt-3 text-base font-semibold text-gray-900 ${theme.font}`}>
+      <h3 className={`mt-3 text-base font-semibold ${theme.font}`} style={{ color: "var(--section-heading, #111827)" }}>
         {member.name}
       </h3>
       {member.roleTitle && (
-        <p className="mt-0.5 text-xs text-gray-400">
+        <p className="mt-0.5 text-xs" style={{ color: "var(--section-body, #9ca3af)" }}>
           {member.roleTitle}
         </p>
       )}
       {showBio && member.bio && (
-        <p className="mt-2 text-xs leading-relaxed text-gray-500 line-clamp-2">{member.bio}</p>
+        <p className="mt-2 text-xs leading-relaxed line-clamp-2" style={{ color: "var(--section-body, #6b7280)" }}>{member.bio}</p>
       )}
     </div>
   );

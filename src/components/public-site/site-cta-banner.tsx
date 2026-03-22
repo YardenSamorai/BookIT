@@ -54,12 +54,13 @@ export function SiteCtaBanner({ theme, content = {}, bookingUrl, locale }: SiteC
           className={`relative z-10 mx-auto max-w-4xl ${alignClass}`}
         >
           <h2
-            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} leading-tight text-white`}
+            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} leading-tight`}
+            style={{ color: "var(--section-heading, #ffffff)" }}
           >
             {headline}
           </h2>
           {subtitle && (
-            <p className="mt-4 text-lg text-white/70">{subtitle}</p>
+            <p className="mt-4 text-lg" style={{ color: "var(--section-body, rgba(255,255,255,0.7))" }}>{subtitle}</p>
           )}
           <div className={`mt-8 ${isCentered ? "flex justify-center" : ""}`}>
             <a

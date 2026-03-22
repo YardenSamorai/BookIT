@@ -17,6 +17,10 @@ interface SiteServicesProps {
   locale: Locale;
 }
 
+const H = "var(--section-heading, #111827)";
+const B = "var(--section-body, #6b7280)";
+const M = "var(--section-body, #9ca3af)";
+
 export function SiteServices({
   services: serviceList,
   currency,
@@ -44,11 +48,12 @@ export function SiteServices({
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="text-center">
           <h2
-            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight text-gray-900`}
+            className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
+            style={{ color: H }}
           >
             {title}
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-gray-500">{subtitle}</p>
+          <p className="mx-auto mt-3 max-w-md" style={{ color: B }}>{subtitle}</p>
         </div>
 
         {cardLayout === "list" ? (
@@ -83,7 +88,6 @@ export function SiteServices({
           </div>
         ) : (
           <>
-            {/* Mobile: compact horizontal cards */}
             <div className="mt-8 space-y-3 sm:hidden">
               {serviceList.map((svc) => (
                 <ServiceMobileCard
@@ -98,7 +102,6 @@ export function SiteServices({
                 />
               ))}
             </div>
-            {/* Desktop: full grid cards */}
             <div className="mt-12 hidden gap-6 sm:grid sm:grid-cols-2 lg:grid-cols-3">
               {serviceList.map((svc) => (
                 <ServiceCard
@@ -169,7 +172,7 @@ function ServiceCard({
 
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-start justify-between">
-          <h3 className={`text-lg font-semibold text-gray-900 ${theme.font}`}>{svc.title}</h3>
+          <h3 className={`text-lg font-semibold ${theme.font}`} style={{ color: H }}>{svc.title}</h3>
           {showPrices && !svc.imageUrl && (
             <span
               className={`whitespace-nowrap ${theme.radius.full} px-3 py-1 text-sm font-semibold text-white`}
@@ -181,12 +184,12 @@ function ServiceCard({
         </div>
 
         {svc.description && (
-          <p className="mt-2 text-sm leading-relaxed text-gray-500">
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: B }}>
             {svc.description}
           </p>
         )}
 
-        <div className="mt-auto flex items-center gap-4 pt-5 text-sm text-gray-400">
+        <div className="mt-auto flex items-center gap-4 pt-5 text-sm" style={{ color: M }}>
           {showDuration && (
             <span className="flex items-center gap-1.5">
               <Clock className="size-4" />
@@ -254,18 +257,18 @@ function ServiceListItem({
         />
       )}
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-base font-semibold text-gray-900">{svc.title}</h3>
+        <h3 className="truncate text-base font-semibold" style={{ color: H }}>{svc.title}</h3>
         {svc.description && (
-          <p className="mt-0.5 truncate text-sm text-gray-500">{svc.description}</p>
+          <p className="mt-0.5 truncate text-sm" style={{ color: B }}>{svc.description}</p>
         )}
-        <div className="mt-1 flex items-center gap-3 text-sm text-gray-400">
+        <div className="mt-1 flex items-center gap-3 text-sm" style={{ color: M }}>
           {showDuration && (
             <span className="flex items-center gap-1">
               <Clock className="size-3.5" />
               {svc.durationMinutes} {t(locale, "common.min")}
             </span>
           )}
-          {showPrices && <span className="font-medium text-gray-700">{priceDisplay}</span>}
+          {showPrices && <span className="font-medium" style={{ color: H }}>{priceDisplay}</span>}
         </div>
       </div>
       <a
@@ -329,7 +332,7 @@ function ServiceMobileCard({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold text-gray-900">{svc.title}</h3>
+          <h3 className="text-sm font-semibold" style={{ color: H }}>{svc.title}</h3>
           {showPrices && (
             <span
               className="shrink-0 rounded-md px-2 py-0.5 text-xs font-bold text-white"
@@ -340,10 +343,10 @@ function ServiceMobileCard({
           )}
         </div>
         {svc.description && (
-          <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">{svc.description}</p>
+          <p className="mt-0.5 line-clamp-1 text-xs" style={{ color: B }}>{svc.description}</p>
         )}
         {showDuration && (
-          <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+          <div className="mt-1 flex items-center gap-1 text-xs" style={{ color: M }}>
             <Clock className="size-3" />
             {svc.durationMinutes} {t(locale, "common.min")}
           </div>
@@ -382,8 +385,8 @@ function ServiceCompact({
       className={`flex items-center justify-between gap-3 p-3 ${theme.radius.md} ${theme.card} ${theme.cardHover} cursor-pointer transition-all`}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-gray-900">{svc.title}</p>
-        <p className="text-xs text-gray-400">
+        <p className="truncate text-sm font-semibold" style={{ color: H }}>{svc.title}</p>
+        <p className="text-xs" style={{ color: M }}>
           {showDuration && `${svc.durationMinutes} ${t(locale, "common.min")}`}
           {showDuration && showPrices && priceDisplay && " · "}
           {showPrices && priceDisplay}

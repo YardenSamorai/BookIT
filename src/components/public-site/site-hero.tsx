@@ -31,12 +31,10 @@ export function SiteHero({
   const layout = (content.layout as string) || "center";
   const showBadge = (content.show_badge as boolean) ?? true;
 
-  // Typography
   const fontStyle = getHeroFontStyle((content.font_style as string) ?? "clean-sans");
   const textSize = getHeroTextSize((content.text_size as string) ?? "lg");
   const textAlign = (content.text_align as string) || "left";
 
-  // Background
   const bgMode = (content.bg_mode as string) || "upload";
   const bgPresetId = content.bg_preset_id as string | undefined;
   const bgImage = (content.background_image as string) || coverImageUrl;
@@ -54,17 +52,23 @@ export function SiteHero({
       : undefined;
   const usesDarkText = hasPreset && presetBg.textColor === "dark";
 
-  // Color scheme
-  const textWhite = usesDarkText ? "text-gray-900" : "text-white";
-  const textMuted = usesDarkText ? "text-gray-600" : "text-white/80";
-  const textSubtle = usesDarkText ? "text-gray-500" : "text-white/70";
+  const defaultHeading = usesDarkText ? "#111827" : "#ffffff";
+  const defaultBody = usesDarkText ? "#4b5563" : "rgba(255,255,255,0.8)";
+  const defaultSubtle = usesDarkText ? "#6b7280" : "rgba(255,255,255,0.7)";
+
+  const headingColorStyle: React.CSSProperties = { color: `var(--section-heading, ${defaultHeading})` };
+  const subtitleColorStyle: React.CSSProperties = { color: `var(--section-body, ${defaultSubtle})` };
+  const bodyColorStyle: React.CSSProperties = { color: `var(--section-body, ${defaultBody})` };
+
   const pillBg = usesDarkText
     ? { backgroundColor: `${theme.secondaryColor}15` }
     : { backgroundColor: `${theme.secondaryColor}33` };
-  const pillText = usesDarkText ? "text-gray-700" : "text-white/90";
+  const pillTextStyle: React.CSSProperties = {
+    color: `var(--section-body, ${usesDarkText ? "#374151" : "rgba(255,255,255,0.9)"})`,
+  };
   const ghostBorder = usesDarkText
-    ? "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"
-    : "border-white/20 bg-white/5 text-white backdrop-blur-sm hover:bg-white/10";
+    ? "border-gray-300 bg-gray-100 hover:bg-gray-200"
+    : "border-white/20 bg-white/5 backdrop-blur-sm hover:bg-white/10";
 
   const bgStyle: React.CSSProperties =
     isPresetCss && presetBg.css
@@ -84,7 +88,6 @@ export function SiteHero({
           }
         : { backgroundColor: theme.secondaryColor };
 
-  // Text alignment classes
   const alignClass =
     textAlign === "right"
       ? "text-right"
@@ -100,13 +103,12 @@ export function SiteHero({
   const subtitleMargin =
     textAlign === "center" ? "mx-auto" : textAlign === "right" ? "ml-auto" : "";
 
-  // Font style inline
-  const headlineStyle: React.CSSProperties = {
+  const headlineInlineStyle: React.CSSProperties = {
     fontFamily: fontStyle.fontFamily,
     textTransform: fontStyle.textTransform,
+    ...headingColorStyle,
   };
 
-  // ── Split Layout ──
   if (layout === "split" && (hasImage || hasPreset)) {
     return (
       <section className="relative grid min-h-[60vh] md:min-h-[70vh] md:grid-cols-2">
@@ -117,19 +119,22 @@ export function SiteHero({
           <div className="max-w-lg">
             {showBadge && (
               <div
-                className={`mb-4 inline-block ${theme.radius.full} px-4 py-1.5 text-xs font-medium tracking-wide uppercase sm:mb-6 ${pillText}`}
-                style={pillBg}
+                className={`mb-4 inline-block ${theme.radius.full} px-4 py-1.5 text-xs font-medium tracking-wide uppercase sm:mb-6`}
+                style={{ ...pillBg, ...pillTextStyle }}
               >
                 {t(locale, "pub.welcome")}
               </div>
             )}
             <h1
-              className={`${textSize.classes} ${fontStyle.fontWeight} ${fontStyle.letterSpacing} leading-tight ${textWhite}`}
-              style={headlineStyle}
+              className={`${textSize.classes} ${fontStyle.fontWeight} ${fontStyle.letterSpacing} leading-tight`}
+              style={headlineInlineStyle}
             >
               {headline}
             </h1>
-            <p className={`mt-4 text-base sm:mt-6 sm:text-lg ${textSubtle}`}>
+            <p
+              className="mt-4 text-base sm:mt-6 sm:text-lg"
+              style={subtitleColorStyle}
+            >
               {subtitle}
             </p>
             <div
@@ -146,6 +151,7 @@ export function SiteHero({
                 <a
                   href="#contact"
                   className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${ghostBorder}`}
+                  style={bodyColorStyle}
                 >
                   {ctaSecondary}
                 </a>
@@ -168,7 +174,6 @@ export function SiteHero({
     );
   }
 
-  // ── Full-width overlay layout ──
   return (
     <section
       className="relative flex min-h-[60vh] items-center overflow-hidden sm:min-h-[70vh]"
@@ -201,22 +206,23 @@ export function SiteHero({
       >
         {showBadge && (
           <div
-            className={`mb-4 inline-block ${theme.radius.full} px-4 py-1.5 text-xs font-medium tracking-wide uppercase sm:mb-6 ${pillText}`}
-            style={pillBg}
+            className={`mb-4 inline-block ${theme.radius.full} px-4 py-1.5 text-xs font-medium tracking-wide uppercase sm:mb-6`}
+            style={{ ...pillBg, ...pillTextStyle }}
           >
             {t(locale, "pub.welcome")}
           </div>
         )}
 
         <h1
-          className={`${textSize.classes} ${fontStyle.fontWeight} ${fontStyle.letterSpacing} leading-[1.1] ${textWhite}`}
-          style={headlineStyle}
+          className={`${textSize.classes} ${fontStyle.fontWeight} ${fontStyle.letterSpacing} leading-[1.1]`}
+          style={headlineInlineStyle}
         >
           {headline}
         </h1>
 
         <p
-          className={`mt-4 max-w-xl text-base sm:mt-6 sm:text-lg md:text-xl ${subtitleMargin} ${textMuted}`}
+          className={`mt-4 max-w-xl text-base sm:mt-6 sm:text-lg md:text-xl ${subtitleMargin}`}
+          style={bodyColorStyle}
         >
           {subtitle}
         </p>
@@ -235,6 +241,7 @@ export function SiteHero({
             <a
               href="#contact"
               className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${ghostBorder}`}
+              style={bodyColorStyle}
             >
               {ctaSecondary}
             </a>
@@ -242,7 +249,10 @@ export function SiteHero({
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent" />
+      <div
+        className="absolute bottom-0 left-0 right-0 h-24"
+        style={{ background: "linear-gradient(to top, var(--palette-bg, white), transparent)" }}
+      />
     </section>
   );
 }
