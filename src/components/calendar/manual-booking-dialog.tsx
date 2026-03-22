@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { createManualAppointment } from "@/actions/booking";
-import { CalendarPlus, Loader2 } from "lucide-react";
+import { CalendarPlus, Loader2, Wallet, CreditCard } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface ManualBookingDialogProps {
   open: boolean;
@@ -43,6 +44,10 @@ export function ManualBookingDialog({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [activeCards, setActiveCards] = useState<
+    Array<{ id: string; name: string; sessionsRemaining: number; sessionsTotal: number }>
+  >([]);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -81,6 +86,31 @@ export function ManualBookingDialog({
     }
   }, [availableStaff, form.staffId]);
 
+  useEffect(() => {
+    const phone = form.customerPhone.trim();
+    if (!phone || phone.length < 8 || !form.serviceId) {
+      setActiveCards([]);
+      setSelectedCardId(null);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({
+          businessId,
+          serviceId: form.serviceId,
+          phone,
+        });
+        const res = await fetch(`/api/cards/check?${params}`);
+        const data = await res.json();
+        setActiveCards(data.cards ?? []);
+        setSelectedCardId(data.cards?.[0]?.id ?? null);
+      } catch {
+        setActiveCards([]);
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [form.customerPhone, form.serviceId, businessId]);
+
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setError(null);
@@ -116,6 +146,7 @@ export function ManualBookingDialog({
         staffId: form.staffId,
         startTime: startTime.toISOString(),
         notes: form.notes || undefined,
+        customerCardId: selectedCardId || undefined,
       });
 
       if (result.success) {
@@ -231,6 +262,47 @@ export function ManualBookingDialog({
               />
             </div>
           </div>
+
+          {/* Card indicator */}
+          {activeCards.length > 0 && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Wallet className="size-4 text-primary" />
+                {t("card.has_active_card", {
+                  name: activeCards[0].name,
+                  n: String(activeCards[0].sessionsRemaining),
+                })}
+              </div>
+              {activeCards.length > 1 && (
+                <div className="mt-2 space-y-1">
+                  {activeCards.map((card) => (
+                    <label key={card.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cardId"
+                        checked={selectedCardId === card.id}
+                        onChange={() => setSelectedCardId(card.id)}
+                        className="size-3.5"
+                      />
+                      <span>
+                        {card.name} — {card.sessionsRemaining}/{card.sessionsTotal}
+                      </span>
+                    </label>
+                  ))}
+                  <label className="flex items-center gap-2 text-xs cursor-pointer text-muted-foreground">
+                    <input
+                      type="radio"
+                      name="cardId"
+                      checked={selectedCardId === null}
+                      onChange={() => setSelectedCardId(null)}
+                      className="size-3.5"
+                    />
+                    {t("card.pay_full_price")}
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-1.5">

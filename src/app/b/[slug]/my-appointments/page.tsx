@@ -4,8 +4,10 @@ import { auth } from "@/lib/auth/config";
 import { getPublicBusinessData } from "@/lib/db/queries/public-site";
 import { getCustomerAppointments } from "@/lib/db/queries/appointments";
 import { getCustomerByUserId, getCustomerPackages, type CustomerPackageRow } from "@/lib/db/queries/customers";
+import { getCustomerCards, type CustomerCardRow } from "@/lib/db/queries/cards";
 import { MyAppointmentsGate } from "@/components/booking/my-appointments-gate";
 import { ActiveCardsSection } from "@/components/booking/active-cards-section";
+import { MyCardsSection } from "@/components/booking/my-cards-section";
 import { t, getDir, type Locale } from "@/lib/i18n";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { ArrowRight } from "lucide-react";
@@ -26,6 +28,7 @@ export default async function MyAppointmentsPage({ params }: Props) {
   const isAuthenticated = !!session?.user?.id;
   let businessAppointments: Awaited<ReturnType<typeof getCustomerAppointments>> = [];
   let customerPkgs: CustomerPackageRow[] = [];
+  let customerCardsList: CustomerCardRow[] = [];
 
   if (isAuthenticated) {
     const [appointments, customer] = await Promise.all([
@@ -36,7 +39,10 @@ export default async function MyAppointmentsPage({ params }: Props) {
       (a) => a.businessSlug === slug
     );
     if (customer) {
-      customerPkgs = await getCustomerPackages(customer.id, data.business.id);
+      [customerPkgs, customerCardsList] = await Promise.all([
+        getCustomerPackages(customer.id, data.business.id),
+        getCustomerCards(customer.id, data.business.id),
+      ]);
     }
   }
 
@@ -71,6 +77,17 @@ export default async function MyAppointmentsPage({ params }: Props) {
           <p className="mt-1 text-sm text-gray-500">
             {t(locale, "myapt.subtitle")}
           </p>
+
+          {customerCardsList.length > 0 && (
+            <div className="mt-4">
+              <LocaleProvider locale={locale}>
+                <MyCardsSection
+                  cards={customerCardsList}
+                  secondaryColor={data.business.secondaryColor}
+                />
+              </LocaleProvider>
+            </div>
+          )}
 
           {customerPkgs.length > 0 && (
             <div className="mt-4">

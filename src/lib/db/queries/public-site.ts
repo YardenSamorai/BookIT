@@ -1,4 +1,4 @@
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   businesses,
@@ -11,6 +11,8 @@ import {
   reviews,
   users,
   classSchedules,
+  cardTemplates,
+  cardTemplateServices,
 } from "@/lib/db/schema";
 import { getBusinessRatingStats } from "./reviews";
 
@@ -21,7 +23,7 @@ export async function getPublicBusinessData(slug: string) {
 
   if (!business || !business.published) return null;
 
-  const [hours, serviceList, staff, siteConfig, staffServiceRows, productList, publishedReviews, ratingStats, activeClassSchedule] = await Promise.all([
+  const [hours, serviceList, staff, siteConfig, staffServiceRows, productList, publishedReviews, ratingStats, activeClassSchedule, purchasableCards] = await Promise.all([
     db.query.businessHours.findMany({
       where: eq(businessHours.businessId, business.id),
       orderBy: [asc(businessHours.dayOfWeek)],
@@ -65,6 +67,26 @@ export async function getPublicBusinessData(slug: string) {
       ),
       columns: { id: true },
     }),
+    db
+      .select({
+        id: cardTemplates.id,
+        name: cardTemplates.name,
+        description: cardTemplates.description,
+        sessionCount: cardTemplates.sessionCount,
+        price: cardTemplates.price,
+        expirationDays: cardTemplates.expirationDays,
+        displayOrder: cardTemplates.displayOrder,
+      })
+      .from(cardTemplates)
+      .where(
+        and(
+          eq(cardTemplates.businessId, business.id),
+          eq(cardTemplates.isActive, true),
+          eq(cardTemplates.isPurchasable, true),
+          eq(cardTemplates.isArchived, false)
+        )
+      )
+      .orderBy(asc(cardTemplates.displayOrder), asc(cardTemplates.createdAt)),
   ]);
 
   const visibleProducts = productList.filter((p) => p.isVisible);
@@ -87,6 +109,31 @@ export async function getPublicBusinessData(slug: string) {
     serviceStaffMap[row.serviceId].push(row.staffId);
   }
 
+  // Load service links for purchasable card templates
+  let cardTemplatesWithServices: Array<typeof purchasableCards[number] & { services: Array<{ serviceId: string; serviceName: string }> }> = [];
+  if (purchasableCards.length > 0) {
+    const templateIds = purchasableCards.map((c) => c.id);
+    const serviceLinks = await db
+      .select({
+        cardTemplateId: cardTemplateServices.cardTemplateId,
+        serviceId: cardTemplateServices.serviceId,
+        serviceName: services.title,
+      })
+      .from(cardTemplateServices)
+      .innerJoin(services, eq(cardTemplateServices.serviceId, services.id))
+      .where(
+        sql`${cardTemplateServices.cardTemplateId} IN (${sql.join(
+          templateIds.map((id) => sql`${id}::uuid`),
+          sql`, `
+        )})`
+      );
+
+    cardTemplatesWithServices = purchasableCards.map((c) => ({
+      ...c,
+      services: serviceLinks.filter((s) => s.cardTemplateId === c.id),
+    }));
+  }
+
   return {
     business,
     hours,
@@ -99,6 +146,7 @@ export async function getPublicBusinessData(slug: string) {
     reviews: publishedReviews,
     ratingStats,
     hasWorkouts: !!activeClassSchedule,
+    cardTemplates: cardTemplatesWithServices,
   };
 }
 

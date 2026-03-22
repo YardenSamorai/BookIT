@@ -233,6 +233,7 @@ function ProductsBlock(props: Record<string, unknown> & { _sectionIndex?: number
       bookingUrl={biz.bookingUrl}
       locale={biz.locale}
       businessId={biz.businessId}
+      cardTemplates={biz.cardTemplates as any}
     />
   );
 }
@@ -873,6 +874,7 @@ export function buildPuckConfig(locale: L): Config {
         },
         render: (props: any) => <ProductsBlock {...props} />,
       },
+
     },
   };
 }

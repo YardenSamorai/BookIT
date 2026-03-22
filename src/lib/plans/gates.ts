@@ -5,7 +5,7 @@ interface GateContext {
   currentCount: number;
 }
 
-function checkLimit(context: GateContext, limitKey: "maxStaff" | "maxServices" | "maxBookingsPerMonth" | "maxProducts" | "maxSessionPackages"): { allowed: boolean; limit: number; current: number } {
+function checkLimit(context: GateContext, limitKey: "maxStaff" | "maxServices" | "maxBookingsPerMonth" | "maxProducts" | "maxSessionPackages" | "maxCardTemplates"): { allowed: boolean; limit: number; current: number } {
   const limits = getLimitsForPlan(context.plan);
   const limit = limits[limitKey];
 
@@ -34,6 +34,10 @@ export function canAddProduct(plan: PlanType, currentProductCount: number) {
 
 export function canAddPackage(plan: PlanType, currentPackageCount: number) {
   return checkLimit({ plan, currentCount: currentPackageCount }, "maxSessionPackages");
+}
+
+export function canAddCardTemplate(plan: PlanType, currentCount: number) {
+  return checkLimit({ plan, currentCount }, "maxCardTemplates");
 }
 
 export function isFeatureEnabled(

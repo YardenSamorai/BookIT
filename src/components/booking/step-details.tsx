@@ -56,17 +56,42 @@ export function StepDetails({
   const { data: session, update: updateSession } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [activeCard, setActiveCard] = useState<{ sessionsRemaining: number; packageName: string } | null>(null);
+  const [activeCard, setActiveCard] = useState<{
+    sessionsRemaining: number;
+    sessionsTotal: number;
+    name: string;
+  } | null>(null);
 
   const isLoggedIn = !!session?.user?.id;
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    fetch(`/api/check-package?businessId=${businessId}&serviceId=${service.id}`)
+
+    // Check new card system first
+    fetch(`/api/cards/check?businessId=${businessId}&serviceId=${service.id}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.hasPackage) {
-          setActiveCard({ sessionsRemaining: data.sessionsRemaining, packageName: data.packageName });
+        if (data.cards?.length > 0) {
+          const card = data.cards[0];
+          setActiveCard({
+            sessionsRemaining: card.sessionsRemaining,
+            sessionsTotal: card.sessionsTotal,
+            name: card.name,
+          });
+        } else {
+          // Fall back to old package system
+          fetch(`/api/check-package?businessId=${businessId}&serviceId=${service.id}`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.hasPackage) {
+                setActiveCard({
+                  sessionsRemaining: data.sessionsRemaining,
+                  sessionsTotal: data.sessionsRemaining,
+                  name: data.packageName,
+                });
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});
@@ -211,11 +236,19 @@ export function StepDetails({
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-3 flex items-center gap-2.5 rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5"
+          className="mt-3 space-y-1.5 rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5"
         >
-          <CreditCard className="size-4 shrink-0 text-green-600" />
-          <p className="text-xs font-medium text-green-800">
-            {t("pkg.has_active_card" as Parameters<typeof t>[0]).replace("{n}", String(activeCard.sessionsRemaining))}
+          <div className="flex items-center gap-2.5">
+            <CreditCard className="size-4 shrink-0 text-green-600" />
+            <p className="text-xs font-medium text-green-800">
+              {t("card.will_deduct", { name: activeCard.name })}
+            </p>
+          </div>
+          <p className="text-[11px] text-green-700 ps-6.5">
+            {t("card.remaining_after", {
+              n: String(activeCard.sessionsRemaining - 1),
+              total: String(activeCard.sessionsTotal),
+            })}
           </p>
         </motion.div>
       )}

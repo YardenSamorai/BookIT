@@ -22,7 +22,7 @@ interface PublicSiteProps {
 }
 
 export function PublicSite({ data, locale }: PublicSiteProps) {
-  const { business, services, staff, hours, siteConfig, products, reviews, ratingStats } = data;
+  const { business, services, staff, hours, siteConfig, products, reviews, ratingStats, cardTemplates } = data;
   const sections = siteConfig?.sections ?? [];
   const bookingUrl = `/b/${business.slug}/book`;
   const socialLinks = siteConfig?.socialLinks ?? {};
@@ -154,6 +154,7 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
                 bookingUrl={bookingUrl}
                 locale={locale}
                 businessId={business.id}
+                cardTemplates={cardTemplates}
               />
             );
           case "contact":

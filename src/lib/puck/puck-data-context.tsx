@@ -21,6 +21,7 @@ export interface PuckBusinessData {
   staff: Array<Record<string, unknown>>;
   hours: Array<Record<string, unknown>>;
   products: Array<Record<string, unknown>>;
+  cardTemplates: Array<Record<string, unknown>>;
   theme: SiteTheme;
   locale: Locale;
 }

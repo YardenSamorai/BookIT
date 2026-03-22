@@ -6,6 +6,7 @@ export interface PlanLimits {
   maxBookingsPerMonth: number;
   maxProducts: number;
   maxSessionPackages: number;
+  maxCardTemplates: number;
   whatsappNotifications: boolean;
   allThemePresets: boolean;
   removeBranding: boolean;
@@ -18,6 +19,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxBookingsPerMonth: 50,
     maxProducts: 5,
     maxSessionPackages: 2,
+    maxCardTemplates: 2,
     whatsappNotifications: true,
     allThemePresets: false,
     removeBranding: false,
@@ -28,6 +30,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxBookingsPerMonth: 500,
     maxProducts: 20,
     maxSessionPackages: 10,
+    maxCardTemplates: 10,
     whatsappNotifications: true,
     allThemePresets: true,
     removeBranding: false,
@@ -38,6 +41,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxBookingsPerMonth: Infinity,
     maxProducts: Infinity,
     maxSessionPackages: Infinity,
+    maxCardTemplates: Infinity,
     whatsappNotifications: true,
     allThemePresets: true,
     removeBranding: true,

@@ -30,7 +30,7 @@ export function PuckPublicRenderer({
   bookingUrl,
   socialLinks,
 }: PuckPublicRendererProps) {
-  const { business, services, staff, hours, products, reviews, ratingStats } = data;
+  const { business, services, staff, hours, products, reviews, ratingStats, cardTemplates } = data;
 
   const config = useMemo(() => buildPuckConfig(locale as "he" | "en"), [locale]);
 
@@ -51,6 +51,7 @@ export function PuckPublicRenderer({
     staff: staff as unknown as Array<Record<string, unknown>>,
     hours: hours as unknown as Array<Record<string, unknown>>,
     products: (products ?? []) as unknown as Array<Record<string, unknown>>,
+    cardTemplates: (cardTemplates ?? []) as unknown as Array<Record<string, unknown>>,
     theme,
     locale,
   };

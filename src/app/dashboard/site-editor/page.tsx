@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, siteConfigs, services, staffMembers, products } from "@/lib/db/schema";
+import { getCardTemplates } from "@/lib/db/queries/cards";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessHours } from "@/lib/db/queries/business-hours";
 import { t, type Locale } from "@/lib/i18n";
@@ -14,7 +15,7 @@ import type { SiteSection } from "@/lib/db/schema/site-config";
 export default async function SiteEditorPage() {
   const { businessId } = await requireBusinessOwner();
 
-  const [business, siteConfig, serviceList, staffList, hours, productList] = await Promise.all([
+  const [business, siteConfig, serviceList, staffList, hours, productList, cardTemplateList] = await Promise.all([
     db.query.businesses.findFirst({
       where: eq(businesses.id, businessId),
     }),
@@ -31,6 +32,7 @@ export default async function SiteEditorPage() {
     db.query.products.findMany({
       where: eq(products.businessId, businessId),
     }),
+    getCardTemplates(businessId),
   ]);
 
   if (!business) return null;
@@ -67,6 +69,15 @@ export default async function SiteEditorPage() {
     staff: activeStaff as unknown as Array<Record<string, unknown>>,
     hours: hours as unknown as Array<Record<string, unknown>>,
     products: activeProducts as unknown as Array<Record<string, unknown>>,
+    cardTemplates: cardTemplateList.filter((c) => c.isActive && !c.isArchived && c.isPurchasable).map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      sessionCount: c.sessionCount,
+      price: c.price,
+      expirationDays: c.expirationDays,
+      services: c.services.map((s) => ({ serviceId: s.serviceId, serviceName: s.serviceName })),
+    })) as unknown as Array<Record<string, unknown>>,
     theme,
     locale,
   };

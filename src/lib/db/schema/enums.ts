@@ -127,3 +127,87 @@ export const classInstanceStatusEnum = pgEnum("class_instance_status", [
   "SCHEDULED",
   "CANCELLED",
 ]);
+
+// ── New Card System enums ──
+
+export const cardStatusEnum = pgEnum("card_status", [
+  "PENDING_PAYMENT",
+  "ACTIVE",
+  "EXPIRED",
+  "FULLY_USED",
+  "CANCELLED",
+  "REFUNDED",
+]);
+
+export const cardPaymentStatusEnum = pgEnum("card_payment_status", [
+  "PAID",
+  "PENDING",
+  "FAILED",
+  "REFUNDED",
+]);
+
+export const cardPaymentMethodEnum = pgEnum("card_payment_method", [
+  "CASH",
+  "TRANSFER",
+  "STRIPE",
+  "ON_SITE",
+  "OTHER",
+]);
+
+export const cardUsageActionEnum = pgEnum("card_usage_action", [
+  "ACTIVATED",
+  "USED",
+  "RESTORED",
+  "MANUAL_ADD",
+  "MANUAL_DEDUCT",
+  "EXPIRED",
+  "CANCELLED",
+]);
+
+export const cardSourceEnum = pgEnum("card_source", [
+  "PUBLIC_SITE",
+  "DASHBOARD",
+  "MANUAL_GRANT",
+  "IMPORT",
+]);
+
+export const cardActorTypeEnum = pgEnum("card_actor_type", [
+  "SYSTEM",
+  "STAFF",
+  "CUSTOMER",
+  "CRON",
+]);
+
+// ── Customer Profile V2 enums ──
+
+export const customerLifecycleStatusEnum = pgEnum("customer_lifecycle_status", [
+  "LEAD",
+  "ACTIVE",
+  "INACTIVE",
+  "BLOCKED",
+  "ARCHIVED",
+]);
+
+export const customerActivityTypeEnum = pgEnum("customer_activity_type", [
+  "CREATED",
+  "PROFILE_UPDATED",
+  "STATUS_CHANGED",
+  "APPOINTMENT_BOOKED",
+  "APPOINTMENT_CANCELLED",
+  "APPOINTMENT_COMPLETED",
+  "APPOINTMENT_NO_SHOW",
+  "CARD_PURCHASED",
+  "CARD_ACTIVATED",
+  "CARD_USED",
+  "CARD_RESTORED",
+  "CARD_CANCELLED",
+  "PAYMENT_UPDATED",
+  "NOTE_ADDED",
+  "TAG_UPDATED",
+]);
+
+export const activityActorTypeEnum = pgEnum("activity_actor_type", [
+  "SYSTEM",
+  "STAFF",
+  "CUSTOMER",
+]);

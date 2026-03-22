@@ -11,10 +11,13 @@ import {
   businesses,
   customerPackages,
   servicePackages,
+  customerCards,
   staffMembers,
   users,
 } from "@/lib/db/schema";
 import { bookingSchema, type BookingInput } from "@/validators/booking";
+import { findActiveCardsForService } from "@/lib/db/queries/cards";
+import { mutateCardSessions } from "@/lib/cards/ledger";
 import type { ActionResult } from "@/types";
 
 async function findActivePackage(customerId: string, serviceId: string) {
@@ -41,6 +44,11 @@ async function findActivePackage(customerId: string, serviceId: string) {
     if (p.sessionsRemaining <= 0) return false;
     return true;
   }) ?? null;
+}
+
+async function findActiveCard(customerId: string, serviceId: string) {
+  const cards = await findActiveCardsForService(customerId, serviceId);
+  return cards[0] ?? null;
 }
 
 async function findOrCreateCustomer(businessId: string, userId: string): Promise<string> {
@@ -202,13 +210,18 @@ export async function createAppointment(
     };
   }
 
-  // Check for active session package
-  const activePackage = await findActivePackage(customerId, serviceId);
+  // Check for active card (new system first, then fall back to old packages)
+  const activeCard = await findActiveCard(customerId, serviceId);
+  const activePackage = !activeCard ? await findActivePackage(customerId, serviceId) : null;
 
   let paymentStatus: "FREE" | "ON_SITE" | "UNPAID" | "PACKAGE" | "PAID";
   let customerPackageId: string | null = null;
+  let customerCardIdVal: string | null = null;
 
-  if (activePackage) {
+  if (activeCard) {
+    paymentStatus = "PACKAGE";
+    customerCardIdVal = activeCard.id;
+  } else if (activePackage) {
     paymentStatus = "PACKAGE";
     customerPackageId = activePackage.id;
   } else if (service.paymentMode === "FREE") {
@@ -232,15 +245,30 @@ export async function createAppointment(
       endTime,
       status,
       paymentStatus,
-      paymentAmount: activePackage ? null : (service.price || null),
+      paymentAmount: (activeCard || activePackage) ? null : (service.price || null),
       customerPackageId,
+      customerCardId: customerCardIdVal,
       notes: notes || null,
       source: "ONLINE",
       classInstanceId: classInstanceId || null,
     })
     .returning({ id: appointments.id });
 
-  // Decrement package sessions
+  // Deduct session via new card ledger
+  if (activeCard) {
+    await db.transaction(async (tx) => {
+      await mutateCardSessions(tx as unknown as typeof db, {
+        customerCardId: activeCard.id,
+        delta: -1,
+        action: "USED",
+        appointmentId: appointment.id,
+        actorType: "SYSTEM",
+        notes: `Auto-deducted for booking`,
+      });
+    });
+  }
+
+  // Decrement old package sessions (backward compatibility)
   if (activePackage) {
     const newRemaining = activePackage.sessionsRemaining - 1;
     await db
@@ -274,7 +302,7 @@ export async function createAppointment(
 
     const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
     const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-    const variables = {
+    const variables: Record<string, string> = {
       customerName: user?.name || "",
       businessName: biz?.name || "",
       date: dateStr,
@@ -282,6 +310,11 @@ export async function createAppointment(
       service: service.title,
       staff: staff?.name || "",
     };
+
+    if (activeCard) {
+      variables.cardName = activeCard.templateSnapshotName;
+      variables.sessionsRemaining = String(activeCard.sessionsRemaining - 1);
+    }
 
     const promises: Promise<void>[] = [];
 
@@ -316,11 +349,12 @@ export async function createManualAppointment(input: {
   startTime: string;
   notes?: string;
   durationMinutes?: number;
+  customerCardId?: string;
 }): Promise<ActionResult<{ appointmentId: string }>> {
   const { requireBusinessOwner } = await import("@/lib/auth/guards");
   await requireBusinessOwner();
 
-  const { businessId, customerPhone, customerName, serviceId, staffId, startTime: startTimeStr, notes, durationMinutes: customDurationMin } = input;
+  const { businessId, customerPhone, customerName, serviceId, staffId, startTime: startTimeStr, notes, durationMinutes: customDurationMin, customerCardId: inputCardId } = input;
 
   if (!customerPhone?.trim() || !customerName?.trim()) {
     return { success: false, error: "Customer name and phone are required" };
@@ -426,6 +460,19 @@ export async function createManualAppointment(input: {
     return { success: false, error: "Time slot blocked by another service" };
   }
 
+  // Check if a card was explicitly selected or auto-detect one
+  let useCardId = inputCardId || null;
+  if (!useCardId) {
+    const autoCard = await findActiveCard(customerId, serviceId);
+    if (autoCard) useCardId = autoCard.id;
+  }
+
+  const manualPaymentStatus = useCardId
+    ? "PACKAGE" as const
+    : service.paymentMode === "FREE"
+      ? "FREE" as const
+      : "ON_SITE" as const;
+
   const [appointment] = await db
     .insert(appointments)
     .values({
@@ -436,12 +483,26 @@ export async function createManualAppointment(input: {
       startTime,
       endTime,
       status: "CONFIRMED",
-      paymentStatus: service.paymentMode === "FREE" ? "FREE" : "ON_SITE",
-      paymentAmount: service.price || null,
+      paymentStatus: manualPaymentStatus,
+      paymentAmount: useCardId ? null : (service.price || null),
+      customerCardId: useCardId,
       notes: notes || null,
       source: "DASHBOARD",
     })
     .returning({ id: appointments.id });
+
+  if (useCardId) {
+    await db.transaction(async (tx) => {
+      await mutateCardSessions(tx as unknown as typeof db, {
+        customerCardId: useCardId!,
+        delta: -1,
+        action: "USED",
+        appointmentId: appointment.id,
+        actorType: "STAFF",
+        notes: "Manual booking",
+      });
+    });
+  }
 
   await db.insert(appointmentLogs).values({
     appointmentId: appointment.id,
@@ -541,11 +602,12 @@ export async function enrollCustomerInClass(input: {
   customerName: string;
   classInstanceId: string;
   notes?: string;
+  customerCardId?: string;
 }): Promise<ActionResult<{ appointmentId: string }>> {
   const { requireBusinessOwner } = await import("@/lib/auth/guards");
   await requireBusinessOwner();
 
-  const { businessId, customerPhone, customerName, classInstanceId, notes } = input;
+  const { businessId, customerPhone, customerName, classInstanceId, notes, customerCardId: inputClassCardId } = input;
 
   if (!customerPhone?.trim() || !customerName?.trim()) {
     return { success: false, error: "Customer name and phone are required" };
@@ -613,6 +675,19 @@ export async function enrollCustomerInClass(input: {
     columns: { title: true, paymentMode: true, price: true },
   });
 
+  // Check for active card for this class's service
+  let classCardId = inputClassCardId || null;
+  if (!classCardId) {
+    const autoCard = await findActiveCard(customerId, instance.serviceId);
+    if (autoCard) classCardId = autoCard.id;
+  }
+
+  const enrollPaymentStatus = classCardId
+    ? "PACKAGE" as const
+    : service?.paymentMode === "FREE"
+      ? "FREE" as const
+      : "ON_SITE" as const;
+
   const [appointment] = await db
     .insert(appointments)
     .values({
@@ -623,13 +698,27 @@ export async function enrollCustomerInClass(input: {
       startTime: instance.startTime,
       endTime: instance.endTime,
       status: "CONFIRMED",
-      paymentStatus: service?.paymentMode === "FREE" ? "FREE" : "ON_SITE",
-      paymentAmount: service?.price || null,
+      paymentStatus: enrollPaymentStatus,
+      paymentAmount: classCardId ? null : (service?.price || null),
+      customerCardId: classCardId,
       notes: notes || null,
       source: "DASHBOARD",
       classInstanceId,
     })
     .returning({ id: appointments.id });
+
+  if (classCardId) {
+    await db.transaction(async (tx) => {
+      await mutateCardSessions(tx as unknown as typeof db, {
+        customerCardId: classCardId!,
+        delta: -1,
+        action: "USED",
+        appointmentId: appointment.id,
+        actorType: "STAFF",
+        notes: "Class enrollment",
+      });
+    });
+  }
 
   await db.insert(appointmentLogs).values({
     appointmentId: appointment.id,
@@ -782,8 +871,31 @@ export async function cancelAppointment(
       .where(eq(customers.id, appointment.customerId));
   }
 
-  // Restore package session if it was a package booking
-  if (appointment.paymentStatus === "PACKAGE" && appointment.customerPackageId) {
+  // Restore card session if it was a card booking (new system)
+  if (appointment.paymentStatus === "PACKAGE" && appointment.customerCardId) {
+    const card = await db.query.customerCards.findFirst({
+      where: eq(customerCards.id, appointment.customerCardId),
+    });
+    if (card) {
+      const shouldRestore =
+        card.snapshotRestoreOnLateCancel || cancelledBy === "BUSINESS";
+      if (shouldRestore) {
+        await db.transaction(async (tx) => {
+          await mutateCardSessions(tx as unknown as typeof db, {
+            customerCardId: appointment.customerCardId!,
+            delta: 1,
+            action: "RESTORED",
+            appointmentId,
+            actorType: cancelledBy === "CUSTOMER" ? "CUSTOMER" : "STAFF",
+            notes: `Restored on cancellation`,
+          });
+        });
+      }
+    }
+  }
+
+  // Restore old package session if it was a package booking (legacy)
+  if (appointment.paymentStatus === "PACKAGE" && appointment.customerPackageId && !appointment.customerCardId) {
     await db
       .update(customerPackages)
       .set({

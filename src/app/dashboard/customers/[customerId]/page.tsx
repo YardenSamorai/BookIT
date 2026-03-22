@@ -1,11 +1,16 @@
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
-import { getCustomerDetail, getCustomerPackages } from "@/lib/db/queries/customers";
+import {
+  getCustomerProfile,
+  getCustomerPackages,
+  getCustomerActivities,
+  getCustomerFinancialActivity,
+} from "@/lib/db/queries/customers";
 import { getServicePackages } from "@/lib/db/queries/services";
-import { getBusinessLocale } from "@/lib/db/queries/business";
-import { t } from "@/lib/i18n";
-import { PageHeader } from "@/components/shared/page-header";
-import { CustomerDetailView } from "@/components/customers/customer-detail";
+import { getCustomerCards, getCardTemplates } from "@/lib/db/queries/cards";
+import { CustomerProfileView } from "@/components/customers/customer-profile";
 
 export default async function CustomerDetailPage({
   params,
@@ -14,27 +19,37 @@ export default async function CustomerDetailPage({
 }) {
   const { customerId } = await params;
   const { businessId } = await requireBusinessOwner();
-  const [customer, locale, customerPkgs, servicePkgs] = await Promise.all([
-    getCustomerDetail(customerId, businessId),
-    getBusinessLocale(businessId),
+
+  const [
+    customer,
+    customerPkgs,
+    servicePkgs,
+    customerCardsList,
+    cardTemplatesList,
+    activities,
+    financialActivity,
+  ] = await Promise.all([
+    getCustomerProfile(customerId, businessId),
     getCustomerPackages(customerId, businessId),
     getServicePackages(businessId),
+    getCustomerCards(customerId, businessId),
+    getCardTemplates(businessId),
+    getCustomerActivities(customerId, businessId, 20, 0),
+    getCustomerFinancialActivity(customerId, businessId),
   ]);
 
   if (!customer) notFound();
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={customer.name}
-        description={t(locale, "cust.detail")}
-      />
-      <CustomerDetailView
-        customer={customer}
-        businessId={businessId}
-        customerPackages={customerPkgs}
-        servicePackages={servicePkgs}
-      />
-    </div>
+    <CustomerProfileView
+      customer={customer}
+      businessId={businessId}
+      activities={activities}
+      financialActivity={financialActivity}
+      customerCards={customerCardsList}
+      cardTemplates={cardTemplatesList}
+      customerPackages={customerPkgs}
+      servicePackages={servicePkgs}
+    />
   );
 }
