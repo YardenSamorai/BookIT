@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { customers, customerNotes, customerActivities, users } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
+import { auth } from "@/lib/auth/config";
 import type { ActionResult } from "@/types";
 
 export async function addCustomerNote(
@@ -471,5 +472,92 @@ export async function updateGeneralNotes(
   });
 
   revalidatePath(`/dashboard/customers/${customerId}`);
+  return { success: true, data: undefined };
+}
+
+// ─── Customer Self-Service actions ─────────────────────────────────────────────
+
+export async function updateCustomerSelfProfile(data: {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Not authenticated." };
+  }
+
+  const firstName = data.firstName.trim();
+  const lastName = data.lastName.trim();
+  if (!firstName || firstName.length < 2) {
+    return { success: false, error: "First name must be at least 2 characters.", field: "firstName" };
+  }
+  if (!lastName || lastName.length < 1) {
+    return { success: false, error: "Last name is required.", field: "lastName" };
+  }
+
+  const email = data.email?.trim() || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { success: false, error: "Invalid email address.", field: "email" };
+  }
+
+  try {
+    if (email) {
+      const emailConflict = await db.query.users.findFirst({
+        where: and(eq(users.email, email), ne(users.id, session.user.id)),
+        columns: { id: true },
+      });
+      if (emailConflict) {
+        return { success: false, error: "This email is already in use.", field: "email" };
+      }
+    }
+
+    const fullName = `${firstName} ${lastName}`;
+    await db
+      .update(users)
+      .set({
+        firstName,
+        lastName,
+        name: fullName,
+        email: email,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, session.user.id));
+  } catch (err: unknown) {
+    const cause = (err as { cause?: Record<string, unknown> })?.cause;
+    const code = (cause?.code as string) ?? (err as { code?: string })?.code;
+    if (code === "23505") {
+      return { success: false, error: "This email is already in use.", field: "email" };
+    }
+    return { success: false, error: "Failed to update profile." };
+  }
+
+  return { success: true, data: undefined };
+}
+
+export async function completeCustomerOnboarding(data: {
+  firstName: string;
+  lastName: string;
+}): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Not authenticated." };
+  }
+
+  const firstName = data.firstName.trim();
+  const lastName = data.lastName.trim();
+  if (!firstName || firstName.length < 2) {
+    return { success: false, error: "First name must be at least 2 characters." };
+  }
+  if (!lastName || lastName.length < 1) {
+    return { success: false, error: "Last name is required." };
+  }
+
+  const fullName = `${firstName} ${lastName}`;
+  await db
+    .update(users)
+    .set({ firstName, lastName, name: fullName, updatedAt: new Date() })
+    .where(eq(users.id, session.user.id));
+
   return { success: true, data: undefined };
 }

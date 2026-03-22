@@ -95,6 +95,12 @@ export function WorkoutBookingView({
   const [error, setError] = useState("");
   const [weekDir, setWeekDir] = useState(0);
   const [appointmentId, setAppointmentId] = useState("");
+  const [activeCard, setActiveCard] = useState<{
+    sessionsRemaining: number;
+    sessionsTotal: number;
+    name: string;
+  } | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
 
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
 
@@ -165,6 +171,25 @@ export function WorkoutBookingView({
 
   const isPrevDisabled = addDays(weekStart, -7) < getWeekStart(new Date());
 
+  function checkForActiveCards(serviceId: string) {
+    setCardLoading(true);
+    setActiveCard(null);
+    fetch(`/api/cards/check?businessId=${businessId}&serviceId=${serviceId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.cards?.length > 0) {
+          const card = data.cards[0];
+          setActiveCard({
+            sessionsRemaining: card.sessionsRemaining,
+            sessionsTotal: card.sessionsTotal,
+            name: card.name,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCardLoading(false));
+  }
+
   function handleSelectInstance(inst: WorkoutInstance) {
     if (inst.bookedCount >= inst.maxParticipants) return;
     if (new Date(inst.startTime) < new Date()) return;
@@ -174,11 +199,15 @@ export function WorkoutBookingView({
     if (!session?.user?.id) {
       setViewState("auth");
     } else {
+      checkForActiveCards(inst.serviceId);
       setViewState("confirm");
     }
   }
 
   function handleAuthComplete() {
+    if (selectedInstance) {
+      checkForActiveCards(selectedInstance.serviceId);
+    }
     setViewState("confirm");
   }
 
@@ -305,6 +334,24 @@ export function WorkoutBookingView({
             })()}
           </div>
 
+          {/* Active card banner */}
+          {activeCard && !cardLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 space-y-1.5 rounded-xl border border-green-200 bg-green-50 p-3"
+            >
+              <p className="text-sm font-medium text-green-800">
+                {t("card.will_deduct" as Parameters<typeof t>[0]).replace("{name}", activeCard.name)}
+              </p>
+              <p className="text-xs text-green-600">
+                {t("card.remaining_after" as Parameters<typeof t>[0])
+                  .replace("{n}", String(activeCard.sessionsRemaining - 1))
+                  .replace("{total}", String(activeCard.sessionsTotal))}
+              </p>
+            </motion.div>
+          )}
+
           {error && (
             <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
           )}
@@ -374,6 +421,19 @@ export function WorkoutBookingView({
                 {selectedInstance.staffName}
               </div>
             </div>
+          </div>
+        )}
+
+        {activeCard && (
+          <div className="mt-3 w-full max-w-sm rounded-xl border border-green-200 bg-green-50 p-3 text-start">
+            <p className="text-xs font-medium text-green-800">
+              {t("card.will_deduct" as Parameters<typeof t>[0]).replace("{name}", activeCard.name)}
+            </p>
+            <p className="text-[11px] text-green-600">
+              {t("card.remaining_after" as Parameters<typeof t>[0])
+                .replace("{n}", String(activeCard.sessionsRemaining - 1))
+                .replace("{total}", String(activeCard.sessionsTotal))}
+            </p>
           </div>
         )}
 

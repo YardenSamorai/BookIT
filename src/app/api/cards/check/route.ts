@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { customers, users } from "@/lib/db/schema";
 import { findActiveCardsForService } from "@/lib/db/queries/cards";
+import { auth } from "@/lib/auth/config";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -28,6 +29,20 @@ export async function GET(req: NextRequest) {
         where: and(
           eq(customers.businessId, businessId),
           eq(customers.userId, user.id)
+        ),
+        columns: { id: true },
+      });
+      resolvedCustomerId = customer?.id ?? null;
+    }
+  }
+
+  if (!resolvedCustomerId) {
+    const session = await auth();
+    if (session?.user?.id) {
+      const customer = await db.query.customers.findFirst({
+        where: and(
+          eq(customers.businessId, businessId),
+          eq(customers.userId, session.user.id)
         ),
         columns: { id: true },
       });

@@ -467,8 +467,13 @@ export function ClassScheduleForm({
 
       {/* Actions */}
       <div className="space-y-2 pt-2">
-        {placedStart !== null && daysOfWeek.length > 0 && !success && (
-          <Button className="w-full" size="lg" onClick={handleSubmit} disabled={isPending}>
+        {!success && (
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleSubmit}
+            disabled={isPending || placedStart === null || daysOfWeek.length === 0}
+          >
             {isPending ? (
               <Loader2 className="size-4 me-1.5 animate-spin" />
             ) : (

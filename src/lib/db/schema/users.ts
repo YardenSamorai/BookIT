@@ -9,6 +9,8 @@ export const users = pgTable(
     email: text("email").unique(),
     phone: text("phone").unique(),
     name: text("name").notNull(),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
     passwordHash: text("password_hash"),
     avatarUrl: text("avatar_url"),
     role: userRoleEnum("role").notNull().default("CUSTOMER"),

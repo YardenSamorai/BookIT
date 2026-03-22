@@ -862,14 +862,14 @@ function MobileCustomerCard({
         <div className="flex items-center gap-1 mt-2.5 pt-2.5 border-t">
           {c.phone && (
             <>
-              <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs" render={<a href={telLink(c.phone)} />}>
-                <Phone className="size-3.5 me-1" />
+              <a href={telLink(c.phone)} className="inline-flex items-center justify-center gap-1 rounded-lg h-8 flex-1 px-2.5 text-xs font-medium hover:bg-muted transition-colors">
+                <Phone className="size-3.5" />
                 {t("cust.quick_call")}
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs" render={<a href={whatsappLink(c.phone)} target="_blank" rel="noopener noreferrer" />}>
-                <MessageCircle className="size-3.5 me-1" />
+              </a>
+              <a href={whatsappLink(c.phone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 rounded-lg h-8 flex-1 px-2.5 text-xs font-medium hover:bg-muted transition-colors">
+                <MessageCircle className="size-3.5" />
                 WhatsApp
-              </Button>
+              </a>
             </>
           )}
           <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs" onClick={onBook}>

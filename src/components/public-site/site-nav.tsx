@@ -29,7 +29,7 @@ export function SiteNav({
     { href: "#contact", label: t(locale, "pub.contact_us") },
   ];
   const myAppointmentsUrl = `/b/${slug}/my-appointments`;
-  const myAppointmentsLabel = t(locale, "myapt.title");
+  const myAppointmentsLabel = t(locale, "portal.login_title");
   const [mobileOpen, setMobileOpen] = useState(false);
   const isWhite = theme.preset.navStyle === "white";
   const isTransparent = theme.preset.navStyle === "transparent";

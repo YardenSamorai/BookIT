@@ -1,13 +1,18 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth/config";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { getPublicBusinessData } from "@/lib/db/queries/public-site";
 import { getCustomerAppointments } from "@/lib/db/queries/appointments";
-import { getCustomerByUserId, getCustomerPackages, type CustomerPackageRow } from "@/lib/db/queries/customers";
+import {
+  getCustomerByUserId,
+  getCustomerPackages,
+  type CustomerPackageRow,
+} from "@/lib/db/queries/customers";
 import { getCustomerCards, type CustomerCardRow } from "@/lib/db/queries/cards";
-import { MyAppointmentsGate } from "@/components/booking/my-appointments-gate";
-import { ActiveCardsSection } from "@/components/booking/active-cards-section";
-import { MyCardsSection } from "@/components/booking/my-cards-section";
+import { CustomerPortal } from "@/components/booking/customer-portal";
 import { t, getDir, type Locale } from "@/lib/i18n";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { ArrowRight } from "lucide-react";
@@ -29,15 +34,46 @@ export default async function MyAppointmentsPage({ params }: Props) {
   let businessAppointments: Awaited<ReturnType<typeof getCustomerAppointments>> = [];
   let customerPkgs: CustomerPackageRow[] = [];
   let customerCardsList: CustomerCardRow[] = [];
+  let userProfile: {
+    id: string;
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null = null;
 
   if (isAuthenticated) {
-    const [appointments, customer] = await Promise.all([
-      getCustomerAppointments(session!.user!.id!),
-      getCustomerByUserId(session!.user!.id!, data.business.id),
+    const userId = session!.user!.id!;
+    const [appointments, customer, user] = await Promise.all([
+      getCustomerAppointments(userId),
+      getCustomerByUserId(userId, data.business.id),
+      db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: {
+          id: true,
+          name: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+        },
+      }),
     ]);
-    businessAppointments = appointments.filter(
-      (a) => a.businessSlug === slug
-    );
+
+    businessAppointments = appointments.filter((a) => a.businessSlug === slug);
+
+    if (user) {
+      userProfile = {
+        id: user.id,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+      };
+    }
+
     if (customer) {
       [customerPkgs, customerCardsList] = await Promise.all([
         getCustomerPackages(customer.id, data.business.id),
@@ -71,44 +107,19 @@ export default async function MyAppointmentsPage({ params }: Props) {
 
       <main className="flex-1 px-4 py-6 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-2xl">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-            {t(locale, "myapt.title")}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {t(locale, "myapt.subtitle")}
-          </p>
-
-          {customerCardsList.length > 0 && (
-            <div className="mt-4">
-              <LocaleProvider locale={locale}>
-                <MyCardsSection
-                  cards={customerCardsList}
-                  secondaryColor={data.business.secondaryColor}
-                />
-              </LocaleProvider>
-            </div>
-          )}
-
-          {customerPkgs.length > 0 && (
-            <div className="mt-4">
-              <LocaleProvider locale={locale}>
-                <ActiveCardsSection
-                  packages={customerPkgs}
-                  secondaryColor={data.business.secondaryColor}
-                />
-              </LocaleProvider>
-            </div>
-          )}
-
-          <div className="mt-6">
-            <LocaleProvider locale={locale}>
-              <MyAppointmentsGate
-                isAuthenticated={isAuthenticated}
-                appointments={businessAppointments}
-                secondaryColor={data.business.secondaryColor}
-              />
-            </LocaleProvider>
-          </div>
+          <LocaleProvider locale={locale}>
+            <CustomerPortal
+              isAuthenticated={isAuthenticated}
+              user={userProfile}
+              appointments={businessAppointments}
+              packages={customerPkgs}
+              cards={customerCardsList}
+              slug={slug}
+              businessName={data.business.name}
+              secondaryColor={data.business.secondaryColor}
+              primaryColor={data.business.primaryColor}
+            />
+          </LocaleProvider>
         </div>
       </main>
     </div>
