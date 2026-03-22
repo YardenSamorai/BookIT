@@ -25,6 +25,7 @@ export async function getCustomersForBusiness(businessId: string) {
       email: users.email,
       tags: customers.tags,
       status: customers.status,
+      source: customers.source,
       cancellationCount: customers.cancellationCount,
       noShowCount: customers.noShowCount,
       createdAt: customers.createdAt,
@@ -35,6 +36,37 @@ export async function getCustomersForBusiness(businessId: string) {
       lastAppointmentDate: sql<string | null>`
         (SELECT max(appointment.start_time)::text FROM appointment
          WHERE appointment.customer_id = ${customers.id})
+      `,
+      activeCards: sql<number>`
+        (SELECT count(*)::int FROM customer_card
+         WHERE customer_card.customer_id = ${customers.id}
+           AND customer_card.status = 'ACTIVE')
+      `,
+      pendingCards: sql<number>`
+        (SELECT count(*)::int FROM customer_card
+         WHERE customer_card.customer_id = ${customers.id}
+           AND customer_card.status = 'PENDING_PAYMENT')
+      `,
+      unpaidBalance: sql<string>`
+        coalesce((SELECT sum(appointment.payment_amount::numeric)
+         FROM appointment
+         WHERE appointment.customer_id = ${customers.id}
+           AND appointment.payment_status = 'UNPAID'
+           AND appointment.status IN ('CONFIRMED', 'COMPLETED')
+           AND appointment.payment_amount IS NOT NULL
+           AND appointment.payment_amount::numeric > 0
+        ), 0)::text
+      `,
+      nextAppointmentDate: sql<string | null>`
+        (SELECT min(appointment.start_time)::text FROM appointment
+         WHERE appointment.customer_id = ${customers.id}
+           AND appointment.start_time > now()
+           AND appointment.status NOT IN ('CANCELLED'))
+      `,
+      lastVisitDate: sql<string | null>`
+        (SELECT max(appointment.start_time)::text FROM appointment
+         WHERE appointment.customer_id = ${customers.id}
+           AND appointment.status = 'COMPLETED')
       `,
     })
     .from(customers)

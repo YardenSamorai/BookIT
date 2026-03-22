@@ -25,7 +25,7 @@ export default async function CustomersPage() {
     <div className="space-y-6">
       <PageHeader
         title={t(locale, "cust.title")}
-        description={t(locale, "cust.subtitle")}
+        description={t(locale, "cust.list_subtitle")}
       />
       <CustomerList
         customers={customers}

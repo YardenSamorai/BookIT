@@ -147,21 +147,32 @@ export async function addCustomer(data: {
     return { success: false, error: "Name and phone are required." };
   }
 
-  const existing = await db.query.users.findFirst({
+  const email = data.email?.trim() || null;
+
+  const byPhone = await db.query.users.findFirst({
     where: eq(users.phone, phone),
     columns: { id: true },
   });
 
+  const byEmail = email
+    ? await db.query.users.findFirst({
+        where: eq(users.email, email),
+        columns: { id: true },
+      })
+    : undefined;
+
   let userId: string;
-  if (existing) {
-    userId = existing.id;
+  if (byPhone) {
+    userId = byPhone.id;
+  } else if (byEmail) {
+    userId = byEmail.id;
   } else {
     const [newUser] = await db
       .insert(users)
       .values({
         name: data.name.trim(),
         phone,
-        email: data.email?.trim() || null,
+        email,
         role: "CUSTOMER",
       })
       .returning({ id: users.id });
@@ -252,6 +263,8 @@ export async function updateCustomerProfile(
   if (!customer) return { success: false, error: "Customer not found." };
 
   try {
+    let targetUserId = customer.userId;
+
     if (data.name !== undefined || data.phone !== undefined || data.email !== undefined) {
       if (data.name !== undefined) {
         const trimmed = data.name.trim();
@@ -259,50 +272,84 @@ export async function updateCustomerProfile(
           return { success: false, error: "Name must be at least 2 characters." };
       }
 
-      if (data.phone !== undefined) {
-        const phone = data.phone.replace(/[^+\d]/g, "");
-        if (!phone || phone.length < 9)
-          return { success: false, error: "Invalid phone number." };
-        const existing = await db.query.users.findFirst({
-          where: and(eq(users.phone, phone), ne(users.id, customer.userId)),
-          columns: { id: true },
-        });
-        if (existing) {
-          return {
-            success: false,
-            error: "This phone number is already registered to another account in the system. The same phone cannot be used for multiple accounts.",
-          };
-        }
+      const cleanPhone = data.phone !== undefined
+        ? data.phone.replace(/[^+\d]/g, "")
+        : undefined;
+      if (cleanPhone !== undefined && (!cleanPhone || cleanPhone.length < 9))
+        return { success: false, error: "Invalid phone number." };
+
+      if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
+        return { success: false, error: "Invalid email address." };
+
+      let phoneConflict: { id: string } | undefined;
+      let emailConflict: { id: string } | undefined;
+
+      if (cleanPhone) {
+        phoneConflict =
+          (await db.query.users.findFirst({
+            where: and(eq(users.phone, cleanPhone), ne(users.id, targetUserId)),
+            columns: { id: true },
+          })) ?? undefined;
       }
 
-      if (data.email !== undefined && data.email) {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
-          return { success: false, error: "Invalid email address." };
-        const existing = await db.query.users.findFirst({
-          where: and(eq(users.email, data.email), ne(users.id, customer.userId)),
-          columns: { id: true },
-        });
-        if (existing) {
-          return {
-            success: false,
-            error: "This email is already registered to another account in the system.",
-          };
-        }
+      if (data.email) {
+        emailConflict =
+          (await db.query.users.findFirst({
+            where: and(
+              eq(users.email, data.email),
+              ne(users.id, targetUserId),
+              ...(phoneConflict ? [ne(users.id, phoneConflict.id)] : []),
+            ),
+            columns: { id: true },
+          })) ?? undefined;
       }
 
-      await db
-        .update(users)
-        .set({
-          ...(data.name !== undefined ? { name: data.name.trim() } : {}),
-          ...(data.phone !== undefined
-            ? { phone: data.phone.replace(/[^+\d]/g, "") }
-            : {}),
-          ...(data.email !== undefined
-            ? { email: data.email || null }
-            : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, customer.userId));
+      if (phoneConflict && emailConflict && phoneConflict.id !== emailConflict.id) {
+        return {
+          success: false,
+          error: "Phone and email belong to different existing accounts.",
+        };
+      }
+
+      const relink = phoneConflict || emailConflict;
+
+      if (relink) {
+        const dupeInBiz = await db.query.customers.findFirst({
+          where: and(
+            eq(customers.businessId, businessId),
+            eq(customers.userId, relink.id),
+          ),
+          columns: { id: true },
+        });
+        if (dupeInBiz) {
+          return {
+            success: false,
+            error: phoneConflict
+              ? "This phone number belongs to another customer in your business."
+              : "This email belongs to another customer in your business.",
+          };
+        }
+
+        targetUserId = relink.id;
+        await db
+          .update(customers)
+          .set({ userId: relink.id, updatedAt: new Date() })
+          .where(eq(customers.id, customerId));
+      }
+
+      const userSet: Record<string, unknown> = {};
+      if (data.name !== undefined) userSet.name = data.name.trim();
+      if (!relink) {
+        if (cleanPhone !== undefined) userSet.phone = cleanPhone;
+        if (data.email !== undefined) userSet.email = data.email || null;
+      }
+
+      if (Object.keys(userSet).length > 0) {
+        await db
+          .update(users)
+          .set({ ...userSet, updatedAt: new Date() })
+          .where(eq(users.id, targetUserId));
+      }
     }
 
     await db
