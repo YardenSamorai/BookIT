@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans antialiased", geist.variable)}>
+    <html lang="he" dir="rtl" className={cn("font-sans antialiased", geist.variable)}>
       <body className="bg-background text-foreground">
         <TooltipProvider>{children}</TooltipProvider>
       </body>

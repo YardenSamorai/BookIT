@@ -10,8 +10,14 @@ export const staffMemberSchema = z.object({
 
 export const staffScheduleEntrySchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),
+  startTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Invalid time")
+    .transform((v) => v.slice(0, 5)),
+  endTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Invalid time")
+    .transform((v) => v.slice(0, 5)),
   isActive: z.boolean(),
 });
 

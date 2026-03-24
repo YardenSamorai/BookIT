@@ -32,8 +32,8 @@ function toEntries(rows: ScheduleRow[]): ScheduleEntry[] {
     const row = rows.find((r) => r.dayOfWeek === i);
     return {
       dayOfWeek: i,
-      startTime: row?.startTime ?? "09:00",
-      endTime: row?.endTime ?? "18:00",
+      startTime: row?.startTime?.slice(0, 5) ?? "09:00",
+      endTime: row?.endTime?.slice(0, 5) ?? "18:00",
       isActive: row?.isActive ?? false,
     };
   });
