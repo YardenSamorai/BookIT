@@ -34,6 +34,7 @@ import {
 } from "@/actions/customers";
 import type { CustomerPackageRow } from "@/lib/db/queries/customers";
 import type { CustomerCardRow } from "@/lib/db/queries/cards";
+import { BUSINESS_TZ } from "@/lib/tz";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -420,11 +421,14 @@ function OverviewTab({
                       weekday: "short",
                       month: "short",
                       day: "numeric",
+                      timeZone: BUSINESS_TZ,
                     })}{" "}
                     ·{" "}
                     {new Date(apt.startTime).toLocaleTimeString(dateLocale, {
                       hour: "2-digit",
                       minute: "2-digit",
+                      hour12: dateLocale === "en-US",
+                      timeZone: BUSINESS_TZ,
                     })}
                   </p>
                 </div>
@@ -509,6 +513,7 @@ function OverviewTab({
                     {new Date(apt.startTime).toLocaleDateString(dateLocale, {
                       month: "short",
                       day: "numeric",
+                      timeZone: BUSINESS_TZ,
                     })}
                   </p>
                 </div>
@@ -656,11 +661,13 @@ function PortalAppointmentCard({
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: BUSINESS_TZ,
   });
   const timeDisplay = startDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: dateLocale === "en-US",
+    timeZone: BUSINESS_TZ,
   });
 
   async function handleCancel() {

@@ -930,6 +930,15 @@ export const translations = {
     "book.workout_participants": "{n}/{max} participants",
     "book.workout_last_spots": "{n} spots left!",
     "book.workout_already_registered": "You're already registered for this workout",
+    "book.cap_last_spot": "Last spot!",
+    "book.cap_n_left": "{n} spots left",
+    "book.cap_full": "Full",
+    "book.cap_available": "{n} spots available",
+    "book.duration_min": "{n} min",
+    "book.reserve_spot": "Reserve My Spot",
+    "book.back_to_classes": "Back to Classes",
+    "book.sessions_left": "{n} sessions left",
+    "book.card_auto_deduct": "One entry will be deducted automatically",
 
     // ── My Appointments ──
     "myapt.title": "My Appointments",
@@ -2335,6 +2344,15 @@ export const translations = {
     "book.workout_participants": "{n}/{max} משתתפים",
     "book.workout_last_spots": "נשארו {n} מקומות אחרונים!",
     "book.workout_already_registered": "את/ה כבר רשומ/ה לאימון הזה",
+    "book.cap_last_spot": "מקום אחרון!",
+    "book.cap_n_left": "נשארו {n} מקומות",
+    "book.cap_full": "מלא",
+    "book.cap_available": "{n} מקומות פנויים",
+    "book.duration_min": "{n} דק׳",
+    "book.reserve_spot": "שריון מקום",
+    "book.back_to_classes": "חזרה לשיעורים",
+    "book.sessions_left": "נשארו {n} כניסות",
+    "book.card_auto_deduct": "כניסה אחת תנוכה באופן אוטומטי",
 
     // ── My Appointments ──
     "myapt.title": "התורים שלי",

@@ -13,6 +13,7 @@ import {
 import { rescheduleAppointment } from "@/actions/booking";
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
+import { BUSINESS_TZ } from "@/lib/tz";
 import type { DayAvailability } from "@/lib/scheduling/types";
 
 interface RescheduleDialogProps {
@@ -259,6 +260,7 @@ export function RescheduleDialog({
                         hour: "2-digit",
                         minute: "2-digit",
                         hour12: dateLocale === "en-US",
+                        timeZone: BUSINESS_TZ,
                       })}
                     </button>
                   );

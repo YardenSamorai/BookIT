@@ -19,6 +19,7 @@ import {
 import { motion } from "framer-motion";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { BookingAuth } from "./booking-auth";
+import { BUSINESS_TZ } from "@/lib/tz";
 
 type Service = InferSelectModel<typeof services>;
 type StaffMember = InferSelectModel<typeof staffMembers>;
@@ -67,7 +68,6 @@ export function StepDetails({
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // Check new card system first
     fetch(`/api/cards/check?businessId=${businessId}&serviceId=${service.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -79,8 +79,9 @@ export function StepDetails({
             name: card.name,
           });
         } else {
-          // Fall back to old package system
-          fetch(`/api/check-package?businessId=${businessId}&serviceId=${service.id}`)
+          fetch(
+            `/api/check-package?businessId=${businessId}&serviceId=${service.id}`
+          )
             .then((r) => r.json())
             .then((data) => {
               if (data.hasPackage) {
@@ -98,16 +99,20 @@ export function StepDetails({
   }, [isLoggedIn, businessId, service.id]);
 
   const startDate = new Date(startTime);
-  const endDate = new Date(startDate.getTime() + service.durationMinutes * 60_000);
+  const endDate = new Date(
+    startDate.getTime() + service.durationMinutes * 60_000
+  );
   const dateDisplay = startDate.toLocaleDateString(dateLocale, {
     weekday: "long",
     month: "long",
     day: "numeric",
+    timeZone: BUSINESS_TZ,
   });
   const timeFmt: Intl.DateTimeFormatOptions = {
     hour: "2-digit",
     minute: "2-digit",
     hour12: dateLocale === "en-US",
+    timeZone: BUSINESS_TZ,
   };
   const timeDisplay = `${startDate.toLocaleTimeString(dateLocale, timeFmt)} – ${endDate.toLocaleTimeString(dateLocale, timeFmt)}`;
   const priceDisplay = service.price
@@ -160,17 +165,23 @@ export function StepDetails({
       <h2 className="text-xl font-bold tracking-tight text-gray-900">
         {t("book.review_confirm")}
       </h2>
-      <p className="mt-1 text-sm text-gray-400">
-        {t("book.review_subtitle")}
-      </p>
+      <p className="mt-1 text-sm text-gray-400">{t("book.review_subtitle")}</p>
 
       {/* Summary card */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="mt-5 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+        className="mt-5 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
       >
+        {/* Branded accent */}
+        <div
+          className="h-0.5"
+          style={{
+            background: `linear-gradient(90deg, ${secondaryColor}, ${secondaryColor}80)`,
+          }}
+        />
+
         {/* Service header */}
         <div className="flex items-center gap-3.5 p-4">
           {service.imageUrl ? (
@@ -183,7 +194,7 @@ export function StepDetails({
             <div
               className="flex size-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold"
               style={{
-                background: `linear-gradient(135deg, ${secondaryColor}15, ${secondaryColor}30)`,
+                background: `linear-gradient(135deg, ${secondaryColor}12, ${secondaryColor}25)`,
                 color: secondaryColor,
               }}
             >
@@ -191,7 +202,7 @@ export function StepDetails({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-gray-900">
+            <p className="text-[15px] font-bold text-gray-900">
               {service.title}
             </p>
             <p className="mt-0.5 flex items-center gap-1 text-[13px] text-gray-400">
@@ -209,7 +220,7 @@ export function StepDetails({
 
         <div className="mx-4 border-t border-gray-50" />
 
-        {/* Details rows */}
+        {/* Detail rows */}
         <div className="space-y-0 px-4">
           <DetailRow
             icon={<User className="size-4" />}
@@ -236,6 +247,7 @@ export function StepDetails({
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           className="mt-3 space-y-1.5 rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5"
         >
           <div className="flex items-center gap-2.5">
@@ -265,7 +277,7 @@ export function StepDetails({
           {t("book.notes_optional")}
         </label>
         <textarea
-          className="w-full rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all placeholder:text-gray-300 focus:border-gray-200 focus:shadow-[0_2px_8px_rgba(0,0,0,0.06)] focus:outline-none"
+          className="w-full rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm shadow-sm transition-all placeholder:text-gray-300 focus:border-gray-200 focus:shadow-[0_2px_8px_rgba(0,0,0,0.06)] focus:outline-none"
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
           placeholder={t("book.notes_ph")}
@@ -305,14 +317,14 @@ export function StepDetails({
       {/* Confirm button */}
       {isLoggedIn && (
         <motion.button
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.3 }}
           type="button"
-          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl px-6 py-4 text-[15px] font-bold text-white shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
+          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
           style={{
-            background: `linear-gradient(135deg, ${secondaryColor}, ${secondaryColor}dd)`,
-            boxShadow: `0 4px 20px ${secondaryColor}35`,
+            backgroundColor: secondaryColor,
+            boxShadow: `0 4px 14px ${secondaryColor}30`,
           }}
           onClick={handleConfirm}
           disabled={loading}
@@ -345,7 +357,7 @@ function DetailRow({
   return (
     <div className="flex items-center gap-3 py-3">
       <div
-        className="flex size-9 shrink-0 items-center justify-center rounded-xl"
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg"
         style={{
           backgroundColor: `${color}10`,
           color: color,
@@ -354,10 +366,10 @@ function DetailRow({
         {icon}
       </div>
       <div>
-        <p className="text-sm font-medium text-gray-800" dir={dir}>{label}</p>
-        {sublabel && (
-          <p className="text-[11px] text-gray-400">{sublabel}</p>
-        )}
+        <p className="text-sm font-medium text-gray-800" dir={dir}>
+          {label}
+        </p>
+        {sublabel && <p className="text-[11px] text-gray-400">{sublabel}</p>}
       </div>
     </div>
   );

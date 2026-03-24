@@ -26,37 +26,48 @@ import {
 } from "lucide-react";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { updateAppointmentStatus, cancelAppointment } from "@/actions/booking";
+import { BUSINESS_TZ } from "./calendar-types";
 
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "NO_SHOW";
 
 const STATUS_CONFIG: Record<
   AppointmentStatus,
-  { bg: string; text: string; dot: string; labelKey: string }
+  { bg: string; text: string; dot: string; border: string; labelKey: string }
 > = {
   PENDING: {
     bg: "bg-amber-50",
     text: "text-amber-700",
     dot: "bg-amber-500",
+    border: "border-amber-300",
     labelKey: "dash.status_pending",
   },
   CONFIRMED: {
-    bg: "bg-blue-50",
-    text: "text-blue-700",
-    dot: "bg-blue-500",
-    labelKey: "dash.status_confirmed",
-  },
-  COMPLETED: {
     bg: "bg-emerald-50",
     text: "text-emerald-700",
     dot: "bg-emerald-500",
+    border: "border-emerald-300",
+    labelKey: "dash.status_confirmed",
+  },
+  COMPLETED: {
+    bg: "bg-slate-50",
+    text: "text-slate-600",
+    dot: "bg-slate-400",
+    border: "border-slate-300",
     labelKey: "dash.status_completed",
   },
   NO_SHOW: {
-    bg: "bg-gray-100",
-    text: "text-gray-600",
-    dot: "bg-gray-400",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    dot: "bg-red-500",
+    border: "border-red-300",
     labelKey: "dash.status_no_show",
   },
+};
+
+const SOURCE_LABELS: Record<string, { label: string; labelHe: string }> = {
+  ONLINE: { label: "Online", labelHe: "אונליין" },
+  DASHBOARD: { label: "Dashboard", labelHe: "פאנל ניהול" },
+  WALK_IN: { label: "Walk-in", labelHe: "כניסה ישירה" },
 };
 
 export interface QuickViewAppointment {
@@ -65,11 +76,15 @@ export interface QuickViewAppointment {
   startTime: Date;
   endTime: Date;
   serviceName: string;
+  serviceId?: string;
+  durationMinutes?: number;
   staffId: string;
   staffName: string;
-  customerName: string;
+  customerName: string | null;
   customerPhone: string | null;
   notes: string | null;
+  source?: string;
+  classInstanceId?: string | null;
 }
 
 interface AppointmentQuickViewProps {
@@ -105,13 +120,16 @@ export function AppointmentQuickView({
     weekday: "long",
     month: "long",
     day: "numeric",
+    timeZone: BUSINESS_TZ,
   });
   const timeStr = `${startDate.toLocaleTimeString(dtLocale, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: BUSINESS_TZ,
   })} – ${endDate.toLocaleTimeString(dtLocale, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: BUSINESS_TZ,
   })}`;
 
   function handleStatus(newStatus: "CONFIRMED" | "COMPLETED" | "NO_SHOW") {
@@ -141,12 +159,21 @@ export function AppointmentQuickView({
         </SheetHeader>
 
         <div className="space-y-5 px-1">
-          {/* Status badge */}
-          <div
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${config.bg} ${config.text}`}
-          >
-            <span className={`size-2 rounded-full ${config.dot}`} />
-            {t(config.labelKey as any)}
+          {/* Status badge + source */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium ${config.bg} ${config.text} ${config.border}`}
+            >
+              <span className={`size-2 rounded-full ${config.dot}`} />
+              {t(config.labelKey as any)}
+            </div>
+            {appointment.source && SOURCE_LABELS[appointment.source] && (
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                {locale === "he"
+                  ? SOURCE_LABELS[appointment.source].labelHe
+                  : SOURCE_LABELS[appointment.source].label}
+              </span>
+            )}
           </div>
 
           {/* Date & Time */}

@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+process.env.TZ = "Asia/Jerusalem";
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [

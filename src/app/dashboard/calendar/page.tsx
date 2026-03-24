@@ -2,8 +2,7 @@ import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessLocale } from "@/lib/db/queries/business";
 import { getStaffMembers } from "@/lib/db/queries/staff";
 import { getServices, getServiceStaffLinks } from "@/lib/db/queries/services";
-import { getMonthAppointments } from "@/lib/db/queries/appointments";
-import { getClassInstancesForRange, getInstanceBookingCount } from "@/lib/db/queries/classes";
+import { getCalendarData } from "@/lib/db/queries/calendar-data";
 import { t } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
 import { CalendarShell } from "@/components/calendar/calendar-shell";
@@ -40,24 +39,14 @@ export default async function CalendarPage({
   const month = baseDate.getMonth();
   const { rangeStart, rangeEnd } = getMonthRange(year, month);
 
-  const rangeStartStr = rangeStart.toISOString().slice(0, 10);
-  const rangeEndStr = rangeEnd.toISOString().slice(0, 10);
-
-  const [staff, servicesList, serviceStaffLinks, appointments, classInstanceRows, locale] = await Promise.all([
-    getStaffMembers(businessId),
-    getServices(businessId),
-    getServiceStaffLinks(businessId),
-    getMonthAppointments(businessId, rangeStart, rangeEnd),
-    getClassInstancesForRange(businessId, rangeStartStr, rangeEndStr),
-    getBusinessLocale(businessId),
-  ]);
-
-  const classInstances = await Promise.all(
-    classInstanceRows.map(async (ci) => ({
-      ...ci,
-      bookedCount: await getInstanceBookingCount(ci.id),
-    }))
-  );
+  const [staff, servicesList, serviceStaffLinks, calendarData, locale] =
+    await Promise.all([
+      getStaffMembers(businessId),
+      getServices(businessId),
+      getServiceStaffLinks(businessId),
+      getCalendarData(businessId, rangeStart, rangeEnd),
+      getBusinessLocale(businessId),
+    ]);
 
   const activeServices = servicesList
     .filter((s) => s.isActive)
@@ -74,8 +63,12 @@ export default async function CalendarPage({
         services={activeServices}
         serviceStaffLinks={serviceStaffLinks}
         businessId={businessId}
-        appointments={appointments}
-        classInstances={classInstances}
+        appointments={calendarData.appointments}
+        classInstances={calendarData.classInstances}
+        staffSchedules={calendarData.staffSchedules}
+        staffBlockedSlots={calendarData.staffBlockedSlots}
+        staffTimeOff={calendarData.staffTimeOff}
+        businessHours={calendarData.businessHours}
         initialView={view}
         initialDate={baseDate.toISOString()}
       />

@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import type { DayAvailability } from "@/lib/scheduling/types";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
+import { BUSINESS_TZ, getHoursInTz } from "@/lib/tz";
 
 interface StepDateTimeProps {
   businessId: string;
@@ -36,6 +37,7 @@ function fmtSlotTime(iso: string, dateLocale: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: dateLocale === "en-US",
+    timeZone: BUSINESS_TZ,
   });
 }
 
@@ -186,7 +188,7 @@ export function StepDateTime({
 
   function getSlotHour(s: { start: Date }) {
     const d = s.start instanceof Date ? s.start : new Date(s.start as unknown as string);
-    return d.getHours();
+    return getHoursInTz(d);
   }
 
   const morningSlots = uniqueTimes.filter((s) => getSlotHour(s) < 12);
@@ -227,6 +229,7 @@ export function StepDateTime({
         weekday: "long",
         day: "numeric",
         month: "long",
+        timeZone: BUSINESS_TZ,
       })
     : "";
 
@@ -493,11 +496,28 @@ export function StepDateTime({
                 className="space-y-3"
               >
                 {activeDateCIs.map((ci, i) => {
-                  const startDate = new Date(ci.startTime);
-                  const endDate = new Date(ci.endTime);
                   const spotsLeft = ci.maxParticipants - ci.bookedCount;
                   const isFull = spotsLeft <= 0;
                   const isSelected = pickedTime === ci.startTime;
+
+                  let capLabel: string;
+                  let capStyle: string;
+                  if (isFull) {
+                    capLabel = t("book.cap_full" as Parameters<typeof t>[0]);
+                    capStyle = "text-red-500";
+                  } else if (spotsLeft === 1) {
+                    capLabel = t("book.cap_last_spot" as Parameters<typeof t>[0]);
+                    capStyle = "text-red-500";
+                  } else if (spotsLeft <= 3) {
+                    capLabel = t("book.cap_n_left" as Parameters<typeof t>[0]).replace("{n}", String(spotsLeft));
+                    capStyle = "text-amber-600";
+                  } else if (spotsLeft <= 5) {
+                    capLabel = t("book.cap_n_left" as Parameters<typeof t>[0]).replace("{n}", String(spotsLeft));
+                    capStyle = "text-gray-500";
+                  } else {
+                    capLabel = t("book.cap_available" as Parameters<typeof t>[0]).replace("{n}", String(spotsLeft));
+                    capStyle = "text-green-600";
+                  }
 
                   return (
                     <motion.button
@@ -532,11 +552,11 @@ export function StepDateTime({
                       <div className="text-end">
                         {isFull ? (
                           <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-500">
-                            {t("cls.full")}
+                            {capLabel}
                           </span>
                         ) : (
-                          <span className={`text-sm font-semibold ${isSelected ? "text-white/90" : spotsLeft <= 3 ? "text-orange-500" : "text-green-600"}`}>
-                            {spotsLeft} {t("cls.spots_left")}
+                          <span className={`text-sm font-semibold ${isSelected ? "text-white/90" : capStyle}`}>
+                            {capLabel}
                           </span>
                         )}
                       </div>
@@ -701,6 +721,7 @@ function TimeGroup({
   isGroup: boolean;
   onTimeClick: (iso: string) => void;
 }) {
+  const t = useT();
   if (slots.length === 0) return null;
 
   return (
@@ -762,12 +783,20 @@ function TimeGroup({
                   className={`mt-1 text-[9px] font-medium ${
                     isSelected
                       ? "text-white/80"
-                      : spotsLeft <= 3
-                        ? "text-orange-500"
-                        : "text-gray-400"
+                      : spotsLeft <= 1
+                        ? "text-red-500"
+                        : spotsLeft <= 3
+                          ? "text-amber-600"
+                          : "text-gray-400"
                   }`}
                 >
-                  {slot.bookedCount}/{slot.maxParticipants}
+                  {spotsLeft <= 0
+                    ? t("book.cap_full" as Parameters<typeof t>[0])
+                    : spotsLeft === 1
+                      ? t("book.cap_last_spot" as Parameters<typeof t>[0])
+                      : spotsLeft <= 5
+                        ? t("book.cap_n_left" as Parameters<typeof t>[0]).replace("{n}", String(spotsLeft))
+                        : `${slot.bookedCount}/${slot.maxParticipants}`}
                 </span>
               )}
             </motion.button>

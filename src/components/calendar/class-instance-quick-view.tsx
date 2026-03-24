@@ -37,6 +37,7 @@ import {
 } from "@/actions/classes";
 import { enrollCustomerInClass } from "@/actions/booking";
 import type { ClassInstance } from "./calendar-types";
+import { getHoursInTz, getMinutesInTz, wallClockToDate, BUSINESS_TZ } from "./calendar-types";
 
 interface Props {
   instance: ClassInstance | null;
@@ -102,10 +103,10 @@ export function ClassInstanceQuickView({
       const start = new Date(instance.startTime);
       const end = new Date(instance.endTime);
       setEditStart(
-        `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`
+        `${String(getHoursInTz(start)).padStart(2, "0")}:${String(getMinutesInTz(start)).padStart(2, "0")}`
       );
       setEditEnd(
-        `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`
+        `${String(getHoursInTz(end)).padStart(2, "0")}:${String(getMinutesInTz(end)).padStart(2, "0")}`
       );
       setIsEditing(false);
       setEditScope(null);
@@ -151,13 +152,16 @@ export function ClassInstanceQuickView({
     weekday: "short",
     day: "numeric",
     month: "long",
+    timeZone: BUSINESS_TZ,
   });
   const timeStr = `${startDate.toLocaleTimeString(dtLocale, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: BUSINESS_TZ,
   })} - ${endDate.toLocaleTimeString(dtLocale, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: BUSINESS_TZ,
   })}`;
 
   function handleCancelSingle() {
@@ -261,10 +265,8 @@ export function ClassInstanceQuickView({
     startTransition(async () => {
       if (scope === "single") {
         const base = new Date(instance!.startTime);
-        const newStart = new Date(base);
-        newStart.setHours(sh, sm, 0, 0);
-        const newEnd = new Date(base);
-        newEnd.setHours(eh, em, 0, 0);
+        const newStart = wallClockToDate(base, sh, sm);
+        const newEnd = wallClockToDate(base, eh, em);
 
         await updateClassInstanceTime(
           instance!.id,

@@ -15,6 +15,7 @@ import {
 import { cancelAppointment } from "@/actions/booking";
 import { Calendar, Clock, Loader2, User, XCircle } from "lucide-react";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
+import { BUSINESS_TZ } from "@/lib/tz";
 
 interface Appointment {
   id: string;
@@ -127,11 +128,13 @@ function AppointmentCard({
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: BUSINESS_TZ,
   });
   const timeDisplay = startDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: dateLocale === "en-US",
+    timeZone: BUSINESS_TZ,
   });
 
   async function handleCancel() {
