@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Users, Plus } from "lucide-react";
+import { updateClassInstanceTime } from "@/actions/classes";
 import { Button } from "@/components/ui/button";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import {
@@ -54,6 +55,7 @@ export function CalendarShell({
   );
   const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [, startTransition] = useTransition();
 
   const handleAptClick = useCallback((apt: Appointment) => {
     setSelectedApt(apt as QuickViewAppointment);
@@ -62,6 +64,21 @@ export function CalendarShell({
   const handleClassClick = useCallback((ci: ClassInstance) => {
     setSelectedClass(ci);
   }, []);
+
+  const handleClassTimeChange = useCallback(
+    (instanceId: string, newStart: Date, newEnd: Date) => {
+      startTransition(async () => {
+        await updateClassInstanceTime(
+          instanceId,
+          businessId,
+          newStart.toISOString(),
+          newEnd.toISOString()
+        );
+        router.refresh();
+      });
+    },
+    [businessId, router]
+  );
 
   const filteredAppointments = useMemo(() => {
     if (!staffFilter) return appointments;
@@ -279,6 +296,7 @@ export function CalendarShell({
           currentDate={currentDate}
           onAptClick={handleAptClick}
           onClassClick={handleClassClick}
+          onClassTimeChange={handleClassTimeChange}
         />
       )}
       {view === "month" && (

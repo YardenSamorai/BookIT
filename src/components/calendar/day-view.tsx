@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { useLocale } from "@/lib/i18n/locale-context";
 import type { Appointment, Staff, ClassInstance } from "./calendar-types";
 import { STAFF_COLORS, isSameDay, formatTime } from "./calendar-types";
@@ -14,12 +14,35 @@ interface DayViewProps {
   currentDate: Date;
   onAptClick: (apt: Appointment) => void;
   onClassClick?: (ci: ClassInstance) => void;
+  onClassTimeChange?: (instanceId: string, newStart: Date, newEnd: Date) => void;
 }
 
 const HOUR_START = 7;
 const HOUR_END = 22;
 const ROW_HEIGHT = 64;
 const PX_PER_MIN = ROW_HEIGHT / 60;
+const SNAP_MINUTES = 5;
+const DRAG_THRESHOLD = 5;
+
+function snapMinutes(mins: number): number {
+  return Math.round(mins / SNAP_MINUTES) * SNAP_MINUTES;
+}
+
+function minsToTimeStr(totalMins: number): string {
+  const h = Math.floor(totalMins / 60) % 24;
+  const m = totalMins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+type DragState = {
+  instanceId: string;
+  durationMins: number;
+  startY: number;
+  originalTopMins: number;
+  currentTopMins: number;
+  hasMoved: boolean;
+  heightPx: number;
+};
 
 export function DayView({
   appointments,
@@ -30,11 +53,14 @@ export function DayView({
   currentDate,
   onAptClick,
   onClassClick,
+  onClassTimeChange,
 }: DayViewProps) {
   const locale = useLocale();
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
   const gridRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
 
   const dayApts = useMemo(() => {
     return appointments.filter((a) => isSameDay(new Date(a.startTime), currentDate));
@@ -79,6 +105,86 @@ export function DayView({
     return (mins / 60) * ROW_HEIGHT;
   }, [now, currentDate, totalMinutes]);
 
+  const handleClassPointerDown = useCallback(
+    (e: React.PointerEvent, ci: ClassInstance) => {
+      if (!onClassTimeChange) return;
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+      const start = new Date(ci.startTime);
+      const end = new Date(ci.endTime);
+      const startMins = start.getHours() * 60 + start.getMinutes();
+      const durationMins = (end.getTime() - start.getTime()) / 60_000;
+      const offsetMins = startMins - HOUR_START * 60;
+      const heightPx = Math.max(durationMins * PX_PER_MIN, 24);
+
+      const state: DragState = {
+        instanceId: ci.id,
+        durationMins,
+        startY: e.clientY,
+        originalTopMins: offsetMins,
+        currentTopMins: offsetMins,
+        hasMoved: false,
+        heightPx,
+      };
+      dragRef.current = state;
+      setDrag(state);
+    },
+    [onClassTimeChange]
+  );
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+
+    const deltaY = e.clientY - d.startY;
+    if (!d.hasMoved && Math.abs(deltaY) < DRAG_THRESHOLD) return;
+
+    const deltaMins = (deltaY / ROW_HEIGHT) * 60;
+    const rawMins = d.originalTopMins + deltaMins;
+    const snapped = snapMinutes(rawMins);
+    const clamped = Math.max(0, Math.min(totalMinutes - d.durationMins, snapped));
+
+    const updated: DragState = { ...d, currentTopMins: clamped, hasMoved: true };
+    dragRef.current = updated;
+    setDrag(updated);
+  }, [totalMinutes]);
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const d = dragRef.current;
+      dragRef.current = null;
+      setDrag(null);
+      if (!d) return;
+
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+
+      if (!d.hasMoved) {
+        const ci = dayClassInstances.find((c) => c.id === d.instanceId);
+        if (ci) onClassClick?.(ci);
+        return;
+      }
+
+      if (d.currentTopMins === d.originalTopMins) return;
+
+      const newStartMins = HOUR_START * 60 + d.currentTopMins;
+      const newEndMins = newStartMins + d.durationMins;
+
+      const newStart = new Date(currentDate);
+      newStart.setHours(Math.floor(newStartMins / 60), newStartMins % 60, 0, 0);
+      const newEnd = new Date(currentDate);
+      newEnd.setHours(Math.floor(newEndMins / 60), newEndMins % 60, 0, 0);
+
+      onClassTimeChange?.(d.instanceId, newStart, newEnd);
+    },
+    [dayClassInstances, onClassClick, onClassTimeChange, currentDate]
+  );
+
+  const ghostTop = drag ? (drag.currentTopMins / 60) * ROW_HEIGHT : 0;
+  const ghostTimeStr = drag
+    ? `${minsToTimeStr(HOUR_START * 60 + drag.currentTopMins)} – ${minsToTimeStr(HOUR_START * 60 + drag.currentTopMins + drag.durationMins)}`
+    : "";
+
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
       {/* Sticky staff column headers */}
@@ -111,7 +217,12 @@ export function DayView({
         className="overflow-y-auto"
         style={{ maxHeight: "calc(100vh - 300px)" }}
       >
-        <div className="relative flex" style={{ height: gridHeight }}>
+        <div
+          className="relative flex"
+          style={{ height: gridHeight }}
+          onPointerMove={drag ? handlePointerMove : undefined}
+          onPointerUp={drag ? handlePointerUp : undefined}
+        >
           {/* Time axis */}
           <div className="w-14 shrink-0 border-e border-border/30">
             {hours.map((h) => (
@@ -154,7 +265,9 @@ export function DayView({
                         key={ci.id}
                         instance={ci}
                         dateLocale={dateLocale}
-                        onClassClick={onClassClick}
+                        isDragging={drag?.instanceId === ci.id && drag.hasMoved}
+                        onPointerDown={(e) => handleClassPointerDown(e, ci)}
+                        draggable={!!onClassTimeChange}
                       />
                     ))}
                 </div>
@@ -176,7 +289,9 @@ export function DayView({
                   key={ci.id}
                   instance={ci}
                   dateLocale={dateLocale}
-                  onClassClick={onClassClick}
+                  isDragging={drag?.instanceId === ci.id && drag.hasMoved}
+                  onPointerDown={(e) => handleClassPointerDown(e, ci)}
+                  draggable={!!onClassTimeChange}
                 />
               ))}
             </div>
@@ -209,6 +324,25 @@ export function DayView({
               <div className="relative flex items-center">
                 <div className="absolute -start-1 size-2.5 rounded-full bg-red-500" />
                 <div className="h-px w-full bg-red-500" />
+              </div>
+            </div>
+          )}
+
+          {/* Drag ghost */}
+          {drag && drag.hasMoved && (
+            <div
+              className="pointer-events-none absolute z-20 rounded-lg border-2 border-violet-500 bg-violet-200/70 shadow-lg"
+              style={{
+                top: ghostTop,
+                height: drag.heightPx,
+                left: 60,
+                right: 4,
+              }}
+            >
+              <div className="flex h-full items-center justify-center">
+                <span className="rounded-md bg-violet-600 px-2 py-0.5 text-xs font-bold text-white tabular-nums shadow">
+                  {ghostTimeStr}
+                </span>
               </div>
             </div>
           )}
@@ -279,11 +413,15 @@ function AptBlock({
 function ClassBlock({
   instance,
   dateLocale,
-  onClassClick,
+  isDragging,
+  onPointerDown,
+  draggable,
 }: {
   instance: ClassInstance;
   dateLocale: string;
-  onClassClick?: (ci: ClassInstance) => void;
+  isDragging?: boolean;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  draggable?: boolean;
 }) {
   const start = new Date(instance.startTime);
   const end = new Date(instance.endTime);
@@ -298,16 +436,22 @@ function ClassBlock({
   if (startMins < 0) return null;
 
   return (
-    <button
-      type="button"
-      onClick={() => onClassClick?.(instance)}
-      className="absolute inset-x-1 cursor-pointer overflow-hidden rounded-lg border-s-[3px] border-dashed text-start shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-violet-300"
+    <div
+      onPointerDown={onPointerDown}
+      className={`absolute inset-x-1 overflow-hidden rounded-lg border-s-[3px] border-dashed text-start shadow-sm transition-shadow select-none ${
+        draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+      } ${
+        isDragging
+          ? "opacity-30"
+          : "hover:shadow-md hover:ring-1 hover:ring-violet-300"
+      }`}
       style={{
         top,
         height: heightPx,
         backgroundColor: "#EDE9FE",
         borderColor: "#8B5CF6",
         color: "#4C1D95",
+        touchAction: draggable ? "none" : undefined,
       }}
     >
       {heightPx < 28 ? (
@@ -329,6 +473,6 @@ function ClassBlock({
           <p className="text-[10px] tabular-nums opacity-60 leading-tight">{timeStr}</p>
         </div>
       )}
-    </button>
+    </div>
   );
 }
