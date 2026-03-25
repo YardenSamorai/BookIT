@@ -139,7 +139,7 @@ function BookingWizardInner({
     <div dir={dir} className="flex flex-1 flex-col">
       {/* Mode toggle - shown only when business has both workouts and regular services */}
       {showToggle && (mode === "workout" || step === 0) && (
-        <div className="mb-5">
+        <div className="mx-auto mb-5 w-full max-w-lg">
           <div className="flex gap-1.5 rounded-xl bg-gray-100 p-1">
             <button
               onClick={() => setMode("appointment")}
@@ -176,7 +176,7 @@ function BookingWizardInner({
           primaryColor={primaryColor}
         />
       ) : (
-        <>
+        <div className="mx-auto w-full max-w-lg">
           {!isConfirmed && (
             <div className="mb-6">
               <div className="mb-3 flex items-center justify-between">
@@ -313,7 +313,7 @@ function BookingWizardInner({
               )}
             </motion.div>
           </AnimatePresence>
-        </>
+        </div>
       )}
     </div>
   );

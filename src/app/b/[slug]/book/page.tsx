@@ -32,7 +32,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
     <div className="flex min-h-[100dvh] flex-col bg-gray-50/50" dir={dir}>
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex items-center gap-3 px-4 py-3 md:px-8">
           <Link
             href={`/b/${slug}`}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-600 active:scale-95"
@@ -73,7 +73,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
 
       {/* Content */}
       <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-5 py-6">
+        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-5 py-6 md:max-w-none md:px-8">
           <BookingWizard
             businessId={data.business.id}
             businessName={name}

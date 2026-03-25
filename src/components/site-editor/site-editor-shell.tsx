@@ -21,7 +21,7 @@ import {
   updateSiteSeo,
 } from "@/actions/site-editor";
 import type { InferSelectModel } from "drizzle-orm";
-import type { businesses, siteConfigs, services, staffMembers, businessHours } from "@/lib/db/schema";
+import type { businesses, siteConfigs, services, staffMembers, businessHours, products } from "@/lib/db/schema";
 import type { SiteSection, SocialLinks } from "@/lib/db/schema/site-config";
 
 type Business = InferSelectModel<typeof businesses>;
@@ -29,6 +29,7 @@ type SiteConfig = InferSelectModel<typeof siteConfigs>;
 type Service = InferSelectModel<typeof services>;
 type StaffMember = InferSelectModel<typeof staffMembers>;
 type HoursRow = InferSelectModel<typeof businessHours>;
+type Product = InferSelectModel<typeof products>;
 
 interface SiteEditorShellProps {
   business: Business;
@@ -36,6 +37,7 @@ interface SiteEditorShellProps {
   services: Service[];
   staff: StaffMember[];
   hours: HoursRow[];
+  products: Product[];
 }
 
 const DEFAULT_SECTIONS: SiteSection[] = [
@@ -84,6 +86,7 @@ export function SiteEditorShell({
   services: serviceList,
   staff,
   hours,
+  products: productList,
 }: SiteEditorShellProps) {
   const t = useT();
 
@@ -212,6 +215,7 @@ export function SiteEditorShell({
             onToggleEnabled={(index, enabled) => updateSection(index, { enabled })}
             onContentChange={updateSectionContent}
             onMove={moveSection}
+            extraEditorProps={{ products: productList }}
           />
         );
       case "details":
@@ -292,6 +296,7 @@ export function SiteEditorShell({
             services={serviceList}
             staff={staff}
             hours={hours}
+            products={productList}
             currency={initialBusiness.currency}
             themePresetId={themePresetId}
             activeSectionType={

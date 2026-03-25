@@ -10,11 +10,12 @@ import { Monitor, Smartphone, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SiteSection } from "@/lib/db/schema/site-config";
 import type { InferSelectModel } from "drizzle-orm";
-import type { services, staffMembers, businessHours } from "@/lib/db/schema";
+import type { services, staffMembers, businessHours, products } from "@/lib/db/schema";
 
 type Service = InferSelectModel<typeof services>;
 type StaffMember = InferSelectModel<typeof staffMembers>;
 type HoursRow = InferSelectModel<typeof businessHours>;
+type Product = InferSelectModel<typeof products>;
 
 interface SitePreviewPanelProps {
   brand: {
@@ -28,6 +29,7 @@ interface SitePreviewPanelProps {
   services: Service[];
   staff: StaffMember[];
   hours: HoursRow[];
+  products: Product[];
   currency: string;
   themePresetId?: string;
   activeSectionType?: string | null;
@@ -46,6 +48,7 @@ export function SitePreviewPanel({
   services: serviceList,
   staff,
   hours,
+  products: productList,
   currency,
   themePresetId = "modern",
   activeSectionType = null,
@@ -155,6 +158,7 @@ export function SitePreviewPanel({
                 services={serviceList}
                 staff={staff}
                 hours={hours}
+                products={productList}
                 currency={currency}
                 theme={theme}
                 r={r}
@@ -188,6 +192,7 @@ function PreviewSection({
   services: serviceList,
   staff,
   hours,
+  products: productItems,
   currency,
   theme,
   r,
@@ -202,6 +207,7 @@ function PreviewSection({
   services: Service[];
   staff: StaffMember[];
   hours: HoursRow[];
+  products: Product[];
   currency: string;
   theme: ReturnType<typeof buildSiteTheme>;
   r: string;
@@ -701,6 +707,120 @@ function PreviewSection({
               {(c.button_text as string) || t("pub.book_now")}
             </div>
           </div>
+        </div>
+      );
+    }
+
+    case "products": {
+      const prodLayout = (c.layout as string) || "cards";
+      const showImg = prodLayout !== "minimal" && c.show_images !== false;
+      const showPrice = c.show_prices !== false;
+      const showDesc = c.show_descriptions !== false;
+      const prodCols = typeof c.columns === "number" ? c.columns : 3;
+
+      const orderedProducts = (() => {
+        const order = Array.isArray(c.product_order) ? c.product_order as string[] : null;
+        if (!order || order.length === 0) return productItems;
+        const byId = new Map(productItems.map((p) => [p.id, p]));
+        const result: Product[] = [];
+        for (const id of order) { const p = byId.get(id); if (p) { result.push(p); byId.delete(id); } }
+        for (const p of byId.values()) result.push(p);
+        return result;
+      })();
+
+      const visibleProducts = orderedProducts.slice(0, isMobile ? 2 : Math.max(prodCols, 3));
+      const placeholders = visibleProducts.length > 0
+        ? visibleProducts.map((p) => ({ name: p.title, price: p.price ?? "0", img: p.images?.[0] }))
+        : [1, 2, 3].map((i) => ({ name: `Product ${i}`, price: "49.00", img: undefined as string | undefined }));
+
+      const previewColClass = prodCols <= 2 ? "grid-cols-2" : "grid-cols-3";
+      const renderCards = () => (
+        <div className={cn("mt-2", isMobile ? "space-y-1.5" : cn("grid gap-1.5", previewColClass))}>
+          {placeholders.map((p, i) => (
+            <div key={i} className={cn("p-2", r, theme.card)}>
+              {showImg && (
+                p.img
+                  ? <img src={p.img} alt="" className="mb-1 h-6 w-full rounded object-cover" />
+                  : <div className="mb-1 h-6 rounded bg-gray-100" />
+              )}
+              <p className="text-[7px] font-bold text-gray-700 truncate">{p.name}</p>
+              {showDesc && <p className="text-[5px] text-gray-400 truncate">Description text</p>}
+              {showPrice && <p className="mt-0.5 text-[6px] font-semibold" style={{ color: brand.secondaryColor }}>₪{p.price}</p>}
+            </div>
+          ))}
+        </div>
+      );
+
+      const renderList = () => (
+        <div className="mt-2 space-y-1">
+          {placeholders.map((p, i) => (
+            <div key={i} className={cn("flex items-center gap-1.5 p-1.5", r, theme.card)}>
+              {showImg && (
+                p.img
+                  ? <img src={p.img} alt="" className="size-5 shrink-0 rounded object-cover" />
+                  : <div className="size-5 shrink-0 rounded bg-gray-100" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[7px] font-bold text-gray-700 truncate">{p.name}</p>
+                {showDesc && <p className="text-[5px] text-gray-400 truncate">Short description</p>}
+              </div>
+              {showPrice && <p className="shrink-0 text-[6px] font-semibold" style={{ color: brand.secondaryColor }}>₪{p.price}</p>}
+            </div>
+          ))}
+        </div>
+      );
+
+      const renderMinimal = () => (
+        <div className="mt-2 divide-y divide-gray-100">
+          {placeholders.map((p, i) => (
+            <div key={i} className="flex items-center justify-between py-1.5 px-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[7px] font-bold text-gray-700 truncate">{p.name}</p>
+                {showDesc && <p className="text-[5px] text-gray-400 truncate">Description</p>}
+              </div>
+              {showPrice && <p className="shrink-0 text-[6px] font-semibold" style={{ color: brand.secondaryColor }}>₪{p.price}</p>}
+            </div>
+          ))}
+        </div>
+      );
+
+      const renderCarousel = () => (
+        <div className="relative mt-2 overflow-hidden">
+          <div className="flex gap-1.5 animate-[marquee-preview_12s_linear_infinite]">
+            {[...placeholders, ...placeholders].map((p, i) => (
+              <div key={i} className={cn("w-16 shrink-0 p-1.5", r, theme.card)}>
+                {showImg && (
+                  p.img
+                    ? <img src={p.img} alt="" className="mb-0.5 h-4 w-full rounded object-cover" />
+                    : <div className="mb-0.5 h-4 rounded bg-gray-100" />
+                )}
+                <p className="text-[6px] font-bold text-gray-700 truncate">{p.name}</p>
+                {showPrice && <p className="text-[5px] font-semibold" style={{ color: brand.secondaryColor }}>₪{p.price}</p>}
+              </div>
+            ))}
+          </div>
+          <style>{`@keyframes marquee-preview { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
+        </div>
+      );
+
+      const renderContent = () => {
+        switch (prodLayout) {
+          case "list": return renderList();
+          case "minimal": return renderMinimal();
+          case "carousel": return renderCarousel();
+          default: return renderCards();
+        }
+      };
+
+      return (
+        <div className={cn("px-3 py-4", sectionBg)}>
+          <p className={cn(headingClass, "text-center")} style={{ color: brand.primaryColor }}>
+            {(c.heading as string) || t("pub.our_products")}
+          </p>
+          {typeof c.subtitle === "string" && c.subtitle && (
+            <p className="mt-0.5 text-center text-[7px] text-gray-500">{c.subtitle}</p>
+          )}
+          {renderContent()}
         </div>
       );
     }

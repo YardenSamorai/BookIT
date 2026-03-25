@@ -28,6 +28,7 @@ interface ContentViewProps {
   onToggleEnabled: (index: number, enabled: boolean) => void;
   onContentChange: (index: number, patch: Record<string, unknown>) => void;
   onMove: (from: number, to: number) => void;
+  extraEditorProps?: Record<string, unknown>;
 }
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
@@ -116,6 +117,8 @@ function getSectionSummary(section: SiteSection, t: (key: any, vars?: Record<str
     }
     case "cta_banner":
       return (c.title as string) ?? t("summary.not_configured");
+    case "products":
+      return t("summary.auto_products");
     case "booking":
       return t("summary.auto_booking");
     case "contact":
@@ -142,6 +145,7 @@ export function ContentView({
   onToggleEnabled,
   onContentChange,
   onMove,
+  extraEditorProps,
 }: ContentViewProps) {
   const t = useT();
 
@@ -165,6 +169,7 @@ export function ContentView({
           onBack={() => onEditSection(null)}
           onToggleEnabled={(enabled) => onToggleEnabled(editingIndex, enabled)}
           onContentChange={(patch) => onContentChange(editingIndex, patch)}
+          extraEditorProps={extraEditorProps}
         />
       </motion.div>
     );

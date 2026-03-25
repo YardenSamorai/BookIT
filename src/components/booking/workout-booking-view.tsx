@@ -431,125 +431,313 @@ export function WorkoutBookingView({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: weekDir * -30 }}
                   transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  className="space-y-4"
                 >
-                  {weekDays.map(({ date, dateStr, dayIdx }) => {
-                    const dayInstances = instancesByDay[dateStr] ?? [];
-                    if (dayInstances.length === 0) return null;
-                    const isToday = dateStr === today;
+                  {/* ── Desktop: 7-column weekly grid ── */}
+                  <div className="hidden md:grid md:grid-cols-7 md:gap-3 h-[min(70vh,640px)] min-h-[280px] max-h-[calc(100vh-13rem)]">
+                    {weekDays.map(({ date, dateStr, dayIdx }) => {
+                      const dayInstances = instancesByDay[dateStr] ?? [];
+                      const isToday = dateStr === today;
 
-                    return (
-                      <div key={dateStr}>
-                        {/* Day header */}
-                        {isToday ? (
-                          <div className="mb-2 flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-white sm:rounded-xl sm:px-3.5 sm:py-2.5">
-                            <span className="text-xs font-bold sm:text-sm">
+                      return (
+                        <div
+                          key={dateStr}
+                          className={`flex flex-col overflow-hidden rounded-2xl border ${
+                            isToday
+                              ? "border-gray-200 shadow-sm"
+                              : "border-gray-100"
+                          }`}
+                        >
+                          <div
+                            className={`shrink-0 border-b px-3 py-3.5 text-center ${
+                              isToday
+                                ? "bg-gray-900 text-white border-gray-900"
+                                : "bg-gray-50/70 border-gray-100"
+                            }`}
+                          >
+                            <p
+                              className={`text-xs font-medium ${
+                                isToday ? "text-gray-400" : "text-gray-500"
+                              }`}
+                            >
                               {dayNames[dayIdx]}
-                            </span>
-                            <span className="text-[11px] text-gray-400 sm:text-xs">
-                              {formatDateInTz(date, dtLocale, { month: "short", day: "numeric" })}
-                            </span>
-                            <span className="ms-auto rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/80">
-                              {dayInstances.length}
-                            </span>
+                            </p>
+                            <p
+                              className={`mt-1 inline-flex size-9 items-center justify-center rounded-full text-base font-bold leading-none ${
+                                isToday
+                                  ? "bg-white/15 text-white"
+                                  : "text-gray-900"
+                              }`}
+                            >
+                              {date.getDate()}
+                            </p>
                           </div>
-                        ) : (
-                          <div className="mb-2 flex items-center gap-2 border-b border-gray-100 px-1 pb-1.5">
-                            <span className="text-xs font-bold text-gray-700 sm:text-sm">
-                              {dayNames[dayIdx]}
-                            </span>
-                            <span className="text-[11px] text-gray-400 sm:text-xs">
-                              {formatDateInTz(date, dtLocale, { month: "short", day: "numeric" })}
-                            </span>
-                            <span className="ms-auto text-[10px] font-medium text-gray-400">
-                              {dayInstances.length}
-                            </span>
+
+                          <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+                            <div className="space-y-2">
+                            {dayInstances.length === 0 ? (
+                              <p className="py-10 text-center text-xs text-gray-300">
+                                —
+                              </p>
+                            ) : (
+                              dayInstances.map((inst, instIdx) => {
+                                const isFull =
+                                  inst.bookedCount >= inst.maxParticipants;
+                                const isExpired =
+                                  new Date(inst.startTime) < new Date();
+                                const canBook = !isFull && !isExpired;
+                                const cap = getCapacity(
+                                  inst.bookedCount,
+                                  inst.maxParticipants
+                                );
+                                const capLabel = getCapacityLabel(cap, t);
+                                const duration = getDurationMinutes(
+                                  inst.startTime,
+                                  inst.endTime
+                                );
+
+                                return (
+                                  <motion.button
+                                    key={inst.id}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{
+                                      delay: instIdx * 0.03,
+                                      duration: 0.2,
+                                    }}
+                                    whileTap={
+                                      canBook ? { scale: 0.97 } : undefined
+                                    }
+                                    onClick={() =>
+                                      canBook && handleSelectInstance(inst)
+                                    }
+                                    disabled={!canBook}
+                                    className={`group w-full rounded-xl border p-3 text-start transition-all duration-150 ${
+                                      canBook
+                                        ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200"
+                                        : "border-transparent bg-gray-50/60 opacity-40"
+                                    }`}
+                                    style={
+                                      canBook
+                                        ? {
+                                            borderInlineStartWidth: "3px",
+                                            borderInlineStartColor:
+                                              secondaryColor,
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    <div className="mb-1.5 flex items-baseline gap-1">
+                                      <span
+                                        className="text-sm font-bold tabular-nums"
+                                        style={{
+                                          color: canBook
+                                            ? secondaryColor
+                                            : "#9ca3af",
+                                        }}
+                                      >
+                                        {formatTime(inst.startTime)}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400">
+                                        –
+                                      </span>
+                                      <span className="text-xs tabular-nums text-gray-400">
+                                        {formatTime(inst.endTime)}
+                                      </span>
+                                    </div>
+                                    <p className="text-[13px] font-bold leading-snug text-gray-900 truncate">
+                                      {inst.scheduleTitle || inst.serviceName}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-gray-500 truncate">
+                                      {inst.staffName} · {duration}′
+                                    </p>
+                                    {capLabel && (
+                                      <span
+                                        className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${getCapacityBadgeStyle(
+                                          cap.level
+                                        )}`}
+                                      >
+                                        {capLabel}
+                                      </span>
+                                    )}
+                                    {isExpired && !isFull && (
+                                      <span className="mt-1.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
+                                        —
+                                      </span>
+                                    )}
+                                  </motion.button>
+                                );
+                              })
+                            )}
+                            </div>
                           </div>
-                        )}
-
-                        {/* Instance cards */}
-                        <div className="space-y-2 sm:space-y-2.5">
-                          {dayInstances.map((inst, instIdx) => {
-                            const isFull = inst.bookedCount >= inst.maxParticipants;
-                            const isExpired = new Date(inst.startTime) < new Date();
-                            const canBook = !isFull && !isExpired;
-                            const cap = getCapacity(inst.bookedCount, inst.maxParticipants);
-                            const capLabel = getCapacityLabel(cap, t);
-                            const duration = getDurationMinutes(inst.startTime, inst.endTime);
-
-                            return (
-                              <motion.button
-                                key={inst.id}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: instIdx * 0.04, duration: 0.25 }}
-                                whileTap={canBook ? { scale: 0.98 } : undefined}
-                                onClick={() => canBook && handleSelectInstance(inst)}
-                                disabled={!canBook}
-                                className={`group flex w-full items-center gap-3 rounded-xl border p-3.5 text-start transition-all duration-200 sm:gap-4 sm:rounded-2xl sm:p-4 ${
-                                  canBook
-                                    ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200 hover:-translate-y-px"
-                                    : "border-transparent bg-gray-50/60 opacity-40"
-                                }`}
-                                style={
-                                  canBook
-                                    ? { borderInlineStartWidth: "3px", borderInlineStartColor: secondaryColor }
-                                    : undefined
-                                }
-                              >
-                                {/* Time column */}
-                                <div
-                                  className="flex shrink-0 flex-col items-center rounded-lg px-2.5 py-1.5 sm:rounded-xl sm:px-3 sm:py-2"
-                                  style={{
-                                    backgroundColor: canBook ? `${secondaryColor}0a` : "#f5f5f5",
-                                  }}
-                                >
-                                  <span
-                                    className="text-sm font-bold tabular-nums leading-tight sm:text-base"
-                                    style={{ color: canBook ? secondaryColor : "#9ca3af" }}
-                                  >
-                                    {formatTime(inst.startTime)}
-                                  </span>
-                                  <span className="text-[10px] tabular-nums text-gray-400 sm:text-[11px]">
-                                    {formatTime(inst.endTime)}
-                                  </span>
-                                </div>
-
-                                {/* Info */}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[15px] font-bold text-gray-900 truncate sm:text-base">
-                                    {inst.scheduleTitle || inst.serviceName}
-                                  </p>
-                                  <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500 sm:text-[13px]">
-                                    <User size={11} className="shrink-0 text-gray-400" />
-                                    <span className="truncate">{inst.staffName}</span>
-                                    <span className="text-gray-300">·</span>
-                                    <span className="shrink-0 text-gray-400">
-                                      {t(k("book.duration_min")).replace("{n}", String(duration))}
-                                    </span>
-                                  </p>
-                                </div>
-
-                                {/* Capacity badge */}
-                                {capLabel && (
-                                  <span
-                                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold sm:text-[11px] ${getCapacityBadgeStyle(cap.level)}`}
-                                  >
-                                    {capLabel}
-                                  </span>
-                                )}
-                                {isExpired && !isFull && (
-                                  <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-400">
-                                    —
-                                  </span>
-                                )}
-                              </motion.button>
-                            );
-                          })}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+
+                  {/* ── Mobile: vertical stacked days ── */}
+                  <div className="md:hidden space-y-5">
+                    {weekDays.map(({ date, dateStr, dayIdx }) => {
+                      const dayInstances = instancesByDay[dateStr] ?? [];
+                      if (dayInstances.length === 0) return null;
+                      const isToday = dateStr === today;
+
+                      return (
+                        <div
+                          key={dateStr}
+                          className={`overflow-hidden rounded-2xl border ${
+                            isToday
+                              ? "border-gray-200 shadow-sm"
+                              : "border-gray-100"
+                          }`}
+                        >
+                          {isToday ? (
+                            <div className="flex items-center gap-2.5 bg-gray-900 px-4 py-3 text-white">
+                              <span className="text-sm font-bold">
+                                {dayNames[dayIdx]}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {formatDateInTz(date, dtLocale, {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                              <span className="ms-auto rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-white/80">
+                                {dayInstances.length}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50/70 px-4 py-2.5">
+                              <span className="text-sm font-bold text-gray-700">
+                                {dayNames[dayIdx]}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {formatDateInTz(date, dtLocale, {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                              <span className="ms-auto text-[10px] font-medium text-gray-400">
+                                {dayInstances.length}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="space-y-2 p-3 sm:space-y-2.5 sm:p-4">
+                            {dayInstances.map((inst, instIdx) => {
+                              const isFull =
+                                inst.bookedCount >= inst.maxParticipants;
+                              const isExpired =
+                                new Date(inst.startTime) < new Date();
+                              const canBook = !isFull && !isExpired;
+                              const cap = getCapacity(
+                                inst.bookedCount,
+                                inst.maxParticipants
+                              );
+                              const capLabel = getCapacityLabel(cap, t);
+                              const duration = getDurationMinutes(
+                                inst.startTime,
+                                inst.endTime
+                              );
+
+                              return (
+                                <motion.button
+                                  key={inst.id}
+                                  initial={{ opacity: 0, y: 8 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{
+                                    delay: instIdx * 0.04,
+                                    duration: 0.25,
+                                  }}
+                                  whileTap={
+                                    canBook ? { scale: 0.98 } : undefined
+                                  }
+                                  onClick={() =>
+                                    canBook && handleSelectInstance(inst)
+                                  }
+                                  disabled={!canBook}
+                                  className={`group flex w-full items-center gap-3 rounded-xl border p-3.5 text-start transition-all duration-200 sm:gap-4 sm:rounded-2xl sm:p-4 ${
+                                    canBook
+                                      ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200 hover:-translate-y-px"
+                                      : "border-transparent bg-gray-50/60 opacity-40"
+                                  }`}
+                                  style={
+                                    canBook
+                                      ? {
+                                          borderInlineStartWidth: "3px",
+                                          borderInlineStartColor:
+                                            secondaryColor,
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  <div
+                                    className="flex shrink-0 flex-col items-center rounded-lg px-2.5 py-1.5 sm:rounded-xl sm:px-3 sm:py-2"
+                                    style={{
+                                      backgroundColor: canBook
+                                        ? `${secondaryColor}0a`
+                                        : "#f5f5f5",
+                                    }}
+                                  >
+                                    <span
+                                      className="text-sm font-bold tabular-nums leading-tight sm:text-base"
+                                      style={{
+                                        color: canBook
+                                          ? secondaryColor
+                                          : "#9ca3af",
+                                      }}
+                                    >
+                                      {formatTime(inst.startTime)}
+                                    </span>
+                                    <span className="text-[10px] tabular-nums text-gray-400 sm:text-[11px]">
+                                      {formatTime(inst.endTime)}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[15px] font-bold text-gray-900 truncate sm:text-base">
+                                      {inst.scheduleTitle || inst.serviceName}
+                                    </p>
+                                    <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500 sm:text-[13px]">
+                                      <User
+                                        size={11}
+                                        className="shrink-0 text-gray-400"
+                                      />
+                                      <span className="truncate">
+                                        {inst.staffName}
+                                      </span>
+                                      <span className="text-gray-300">·</span>
+                                      <span className="shrink-0 text-gray-400">
+                                        {t(k("book.duration_min")).replace(
+                                          "{n}",
+                                          String(duration)
+                                        )}
+                                      </span>
+                                    </p>
+                                  </div>
+
+                                  {capLabel && (
+                                    <span
+                                      className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold sm:text-[11px] ${getCapacityBadgeStyle(
+                                        cap.level
+                                      )}`}
+                                    >
+                                      {capLabel}
+                                    </span>
+                                  )}
+                                  {isExpired && !isFull && (
+                                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-400">
+                                      —
+                                    </span>
+                                  )}
+                                </motion.button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </motion.div>
               </AnimatePresence>
             )}

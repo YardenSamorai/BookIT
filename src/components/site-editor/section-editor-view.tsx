@@ -24,6 +24,8 @@ import { ContactSectionEditor } from "./editors/contact-section-editor";
 import { GallerySectionEditor } from "./editors/gallery-section-editor";
 import { TestimonialsSectionEditor } from "./editors/testimonials-section-editor";
 import { CtaSectionEditor } from "./editors/cta-section-editor";
+import { ProductsSectionEditor } from "./editors/products-section-editor";
+import { BookingSectionEditor } from "./editors/booking-section-editor";
 import type { SiteSection } from "@/lib/db/schema/site-config";
 
 interface SectionEditorViewProps {
@@ -32,6 +34,7 @@ interface SectionEditorViewProps {
   onBack: () => void;
   onToggleEnabled: (enabled: boolean) => void;
   onContentChange: (patch: Record<string, unknown>) => void;
+  extraEditorProps?: Record<string, unknown>;
 }
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
@@ -66,6 +69,7 @@ export function SectionEditorView({
   onBack,
   onToggleEnabled,
   onContentChange,
+  extraEditorProps,
 }: SectionEditorViewProps) {
   const t = useT();
   const Icon = SECTION_ICONS[section.type] ?? LayoutTemplate;
@@ -95,6 +99,10 @@ export function SectionEditorView({
         return <CtaSectionEditor {...editorProps} />;
       case "contact":
         return <ContactSectionEditor {...editorProps} />;
+      case "products":
+        return <ProductsSectionEditor {...editorProps} products={(extraEditorProps?.products ?? []) as any[]} />;
+      case "booking":
+        return <BookingSectionEditor {...editorProps} />;
       default:
         return (
           <p className="text-sm text-muted-foreground">{t("editor.no_editor")}</p>
