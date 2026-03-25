@@ -3,6 +3,8 @@
 import { useT } from "@/lib/i18n/locale-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ColorPicker } from "@/components/onboarding/color-picker";
+import { ChevronRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -87,6 +89,40 @@ export function ServicesSectionEditor({ content, onChange }: ServicesSectionEdit
           </SelectContent>
         </Select>
       </div>
+
+      {/* Custom Colors */}
+      <details className="group">
+        <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
+          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+          {t("hero.custom_colors" as any)}
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ColorPicker
+              label={t("svc_editor.title_color" as any)}
+              value={(content.title_color as string) ?? ""}
+              onChange={(v) => onChange({ title_color: v })}
+            />
+            <ColorPicker
+              label={t("svc_editor.subtitle_color" as any)}
+              value={(content.subtitle_color as string) ?? ""}
+              onChange={(v) => onChange({ subtitle_color: v })}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ColorPicker
+              label={t("svc_editor.btn_bg_color" as any)}
+              value={(content.btn_bg_color as string) ?? ""}
+              onChange={(v) => onChange({ btn_bg_color: v })}
+            />
+            <ColorPicker
+              label={t("svc_editor.btn_text_color" as any)}
+              value={(content.btn_text_color as string) ?? ""}
+              onChange={(v) => onChange({ btn_text_color: v })}
+            />
+          </div>
+        </div>
+      </details>
 
       <p className="text-xs text-muted-foreground">
         {t("svc_editor.auto_desc")}

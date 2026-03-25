@@ -90,7 +90,7 @@ export function SectionEditorView({
       case "services":
         return <ServicesSectionEditor {...editorProps} />;
       case "team":
-        return <TeamSectionEditor {...editorProps} />;
+        return <TeamSectionEditor {...editorProps} staffCount={(extraEditorProps?.staff as unknown[] ?? []).length} />;
       case "gallery":
         return <GallerySectionEditor {...editorProps} />;
       case "testimonials":

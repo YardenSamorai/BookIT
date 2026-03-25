@@ -131,7 +131,8 @@ export function ProductForm({ businessId, product, onSuccess }: ProductFormProps
           value={imageUrl}
           onChange={setImageUrl}
           folder="products"
-          aspectRatio="video"
+          aspectRatio="square"
+          fit="contain"
           placeholder={t("prod.name_ph")}
         />
       </div>

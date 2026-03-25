@@ -15,9 +15,10 @@ import {
 interface TeamSectionEditorProps {
   content: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
+  staffCount?: number;
 }
 
-export function TeamSectionEditor({ content, onChange }: TeamSectionEditorProps) {
+export function TeamSectionEditor({ content, onChange, staffCount = 0 }: TeamSectionEditorProps) {
   const t = useT();
 
   return (
@@ -73,11 +74,23 @@ export function TeamSectionEditor({ content, onChange }: TeamSectionEditorProps)
         </Select>
       </div>
 
-      <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-4 text-center">
-        <Users className="mx-auto size-7 text-muted-foreground/40" />
-        <p className="mt-2 text-sm font-medium">{t("empty.team_title")}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t("empty.team_desc")}</p>
-      </div>
+      {staffCount > 0 ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
+          <Users className="mx-auto size-7 text-green-600" />
+          <p className="mt-2 text-sm font-medium text-green-800">
+            {t("team_editor.members_found" as any, { n: staffCount })}
+          </p>
+          <p className="mt-1 text-xs text-green-600">
+            {t("team_editor.members_found_desc" as any)}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-4 text-center">
+          <Users className="mx-auto size-7 text-muted-foreground/40" />
+          <p className="mt-2 text-sm font-medium">{t("empty.team_title")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("empty.team_desc")}</p>
+        </div>
+      )}
     </div>
   );
 }

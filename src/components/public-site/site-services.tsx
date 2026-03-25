@@ -18,9 +18,16 @@ interface SiteServicesProps {
   locale: Locale;
 }
 
-const H = "var(--section-heading, #111827)";
-const B = "var(--section-body, #6b7280)";
-const M = "var(--section-body, #9ca3af)";
+const DEFAULT_H = "var(--section-heading, #111827)";
+const DEFAULT_B = "var(--section-body, #6b7280)";
+const DEFAULT_M = "var(--section-body, #9ca3af)";
+
+interface SvcColors {
+  H: string;
+  B: string;
+  M: string;
+  btnStyle: React.CSSProperties;
+}
 
 export function SiteServices({
   services: serviceList,
@@ -41,6 +48,27 @@ export function SiteServices({
   const showDuration = content.show_duration !== false;
   const cardLayout = (content.card_layout as string) || "grid";
 
+  const customTitleColor = content.title_color as string | undefined;
+  const customSubtitleColor = content.subtitle_color as string | undefined;
+  const customBtnBg = content.btn_bg_color as string | undefined;
+  const customBtnText = content.btn_text_color as string | undefined;
+
+  const colors: SvcColors = {
+    H: customTitleColor || DEFAULT_H,
+    B: customSubtitleColor || DEFAULT_B,
+    M: customSubtitleColor || DEFAULT_M,
+    btnStyle: {
+      ...(customBtnBg
+        ? { backgroundColor: customBtnBg, background: customBtnBg }
+        : theme.preset.buttonStyle === "outline"
+          ? { borderColor: theme.secondaryColor, color: theme.secondaryColor }
+          : theme.preset.buttonStyle === "gradient"
+            ? { background: `linear-gradient(135deg, ${theme.secondaryColor}, ${theme.primaryColor})` }
+            : { backgroundColor: theme.secondaryColor }),
+      ...(customBtnText ? { color: customBtnText } : {}),
+    },
+  };
+
   return (
     <section
       id="services"
@@ -50,11 +78,11 @@ export function SiteServices({
         <div className="text-center">
           <h2
             className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
-            style={{ color: H }}
+            style={{ color: colors.H }}
           >
             {title}
           </h2>
-          <p className="mx-auto mt-3 max-w-md" style={{ color: B }}>{subtitle}</p>
+          <p className="mx-auto mt-3 max-w-md" style={{ color: colors.B }}>{subtitle}</p>
         </div>
 
         {cardLayout === "list" ? (
@@ -69,6 +97,7 @@ export function SiteServices({
                 showDuration={showDuration}
                 bookingUrl={`${bookingUrl}?service=${svc.id}`}
                 locale={locale}
+                colors={colors}
               />
             ))}
           </AnimatedStagger>
@@ -84,6 +113,7 @@ export function SiteServices({
                 showDuration={showDuration}
                 bookingUrl={`${bookingUrl}?service=${svc.id}`}
                 locale={locale}
+                colors={colors}
               />
             ))}
           </AnimatedStagger>
@@ -100,6 +130,7 @@ export function SiteServices({
                   showDuration={showDuration}
                   bookingUrl={`${bookingUrl}?service=${svc.id}`}
                   locale={locale}
+                  colors={colors}
               />
             ))}
             </AnimatedStagger>
@@ -114,6 +145,7 @@ export function SiteServices({
                   showDuration={showDuration}
                   bookingUrl={`${bookingUrl}?service=${svc.id}`}
                   locale={locale}
+                  colors={colors}
               />
             ))}
             </AnimatedStagger>
@@ -132,6 +164,7 @@ function ServiceCard({
   showDuration,
   bookingUrl,
   locale,
+  colors,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -140,6 +173,7 @@ function ServiceCard({
   showDuration: boolean;
   bookingUrl: string;
   locale: Locale;
+  colors: SvcColors;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -173,7 +207,7 @@ function ServiceCard({
 
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-start justify-between">
-          <h3 className={`text-lg font-semibold ${theme.font}`} style={{ color: H }}>{svc.title}</h3>
+          <h3 className={`text-lg font-semibold ${theme.font}`} style={{ color: colors.H }}>{svc.title}</h3>
           {showPrices && !svc.imageUrl && (
             <span
               className={`whitespace-nowrap ${theme.radius.full} px-3 py-1 text-sm font-semibold text-white`}
@@ -185,12 +219,12 @@ function ServiceCard({
         </div>
 
         {svc.description && (
-          <p className="mt-2 text-sm leading-relaxed" style={{ color: B }}>
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: colors.B }}>
             {svc.description}
           </p>
         )}
 
-        <div className="mt-auto flex items-center gap-4 pt-5 text-sm" style={{ color: M }}>
+        <div className="mt-auto flex items-center gap-4 pt-5 text-sm" style={{ color: colors.M }}>
           {showDuration && (
             <span className="flex items-center gap-1.5">
               <Clock className="size-4" />
@@ -208,13 +242,7 @@ function ServiceCard({
         <a
           href={bookingUrl}
           className={`mt-4 block w-full py-2.5 text-center text-sm ${theme.buttonClasses}`}
-          style={
-            theme.preset.buttonStyle === "outline"
-              ? { borderColor: theme.secondaryColor, color: theme.secondaryColor }
-              : theme.preset.buttonStyle === "gradient"
-                ? { background: `linear-gradient(135deg, ${theme.secondaryColor}, ${theme.primaryColor})` }
-                : { backgroundColor: theme.secondaryColor }
-          }
+          style={colors.btnStyle}
         >
           {t(locale, "pub.book_now")}
         </a>
@@ -231,6 +259,7 @@ function ServiceListItem({
   showDuration,
   bookingUrl,
   locale,
+  colors,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -239,6 +268,7 @@ function ServiceListItem({
   showDuration: boolean;
   bookingUrl: string;
   locale: Locale;
+  colors: SvcColors;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -258,28 +288,24 @@ function ServiceListItem({
         />
       )}
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-base font-semibold" style={{ color: H }}>{svc.title}</h3>
+        <h3 className="truncate text-base font-semibold" style={{ color: colors.H }}>{svc.title}</h3>
         {svc.description && (
-          <p className="mt-0.5 truncate text-sm" style={{ color: B }}>{svc.description}</p>
+          <p className="mt-0.5 truncate text-sm" style={{ color: colors.B }}>{svc.description}</p>
         )}
-        <div className="mt-1 flex items-center gap-3 text-sm" style={{ color: M }}>
+        <div className="mt-1 flex items-center gap-3 text-sm" style={{ color: colors.M }}>
           {showDuration && (
             <span className="flex items-center gap-1">
               <Clock className="size-3.5" />
               {svc.durationMinutes} {t(locale, "common.min")}
             </span>
           )}
-          {showPrices && <span className="font-medium" style={{ color: H }}>{priceDisplay}</span>}
+          {showPrices && <span className="font-medium" style={{ color: colors.H }}>{priceDisplay}</span>}
         </div>
       </div>
       <a
         href={bookingUrl}
         className={`shrink-0 px-5 py-2 text-sm ${theme.buttonClasses}`}
-        style={
-          theme.preset.buttonStyle === "outline"
-            ? { borderColor: theme.secondaryColor, color: theme.secondaryColor }
-            : { backgroundColor: theme.secondaryColor }
-        }
+        style={colors.btnStyle}
       >
         {t(locale, "pub.book")}
       </a>
@@ -295,6 +321,7 @@ function ServiceMobileCard({
   showDuration,
   bookingUrl,
   locale,
+  colors,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -303,6 +330,7 @@ function ServiceMobileCard({
   showDuration: boolean;
   bookingUrl: string;
   locale: Locale;
+  colors: SvcColors;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -333,7 +361,7 @@ function ServiceMobileCard({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold" style={{ color: H }}>{svc.title}</h3>
+          <h3 className="text-sm font-semibold" style={{ color: colors.H }}>{svc.title}</h3>
           {showPrices && (
             <span
               className="shrink-0 rounded-md px-2 py-0.5 text-xs font-bold text-white"
@@ -344,10 +372,10 @@ function ServiceMobileCard({
           )}
         </div>
         {svc.description && (
-          <p className="mt-0.5 line-clamp-1 text-xs" style={{ color: B }}>{svc.description}</p>
+          <p className="mt-0.5 line-clamp-1 text-xs" style={{ color: colors.B }}>{svc.description}</p>
         )}
         {showDuration && (
-          <div className="mt-1 flex items-center gap-1 text-xs" style={{ color: M }}>
+          <div className="mt-1 flex items-center gap-1 text-xs" style={{ color: colors.M }}>
             <Clock className="size-3" />
             {svc.durationMinutes} {t(locale, "common.min")}
           </div>
@@ -365,6 +393,7 @@ function ServiceCompact({
   showDuration,
   bookingUrl,
   locale,
+  colors,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -373,6 +402,7 @@ function ServiceCompact({
   showDuration: boolean;
   bookingUrl: string;
   locale: Locale;
+  colors: SvcColors;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -386,16 +416,16 @@ function ServiceCompact({
       className={`flex items-center justify-between gap-3 p-3 ${theme.radius.md} ${theme.card} ${theme.cardHover} cursor-pointer transition-all`}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold" style={{ color: H }}>{svc.title}</p>
-        <p className="text-xs" style={{ color: M }}>
+        <p className="truncate text-sm font-semibold" style={{ color: colors.H }}>{svc.title}</p>
+        <p className="text-xs" style={{ color: colors.M }}>
           {showDuration && `${svc.durationMinutes} ${t(locale, "common.min")}`}
           {showDuration && showPrices && priceDisplay && " · "}
           {showPrices && priceDisplay}
         </p>
       </div>
       <div
-        className={`shrink-0 ${theme.radius.full} px-2 py-0.5 text-[10px] font-semibold text-white`}
-        style={{ backgroundColor: theme.secondaryColor }}
+        className={`shrink-0 ${theme.radius.full} px-2 py-0.5 text-[10px] font-semibold`}
+        style={colors.btnStyle}
       >
         {t(locale, "pub.book")}
       </div>

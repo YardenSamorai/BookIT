@@ -8,7 +8,7 @@ import { ColorPicker } from "@/components/onboarding/color-picker";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/themes/presets";
 import { SITE_FONTS, type SiteFont } from "@/lib/themes/fonts";
-import { Check, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface DesignViewProps {
@@ -34,6 +34,25 @@ const COLOR_COMBOS = [
   { id: "rose", name: "Rose", primary: "#881337", secondary: "#fb7185" },
   { id: "teal", name: "Teal", primary: "#134e4a", secondary: "#2dd4bf" },
   { id: "amber", name: "Amber", primary: "#78350f", secondary: "#f59e0b" },
+  { id: "lavender", name: "Lavender", primary: "#3b0764", secondary: "#c084fc" },
+  { id: "cherry", name: "Cherry", primary: "#4a0404", secondary: "#ef4444" },
+  { id: "mint", name: "Mint", primary: "#064e3b", secondary: "#34d399" },
+  { id: "slate", name: "Slate", primary: "#1e293b", secondary: "#94a3b8" },
+  { id: "coral", name: "Coral", primary: "#6b2130", secondary: "#f472b6" },
+  { id: "navy", name: "Navy", primary: "#0f172a", secondary: "#38bdf8" },
+  { id: "wine", name: "Wine", primary: "#450a0a", secondary: "#d97706" },
+  { id: "sage", name: "Sage", primary: "#1a2e1a", secondary: "#86efac" },
+  { id: "espresso", name: "Espresso", primary: "#3e2723", secondary: "#bcaaa4" },
+  { id: "indigo", name: "Indigo", primary: "#1a237e", secondary: "#7986cb" },
+  { id: "peach", name: "Peach", primary: "#5d2e0c", secondary: "#fdba74" },
+  { id: "arctic", name: "Arctic", primary: "#0c4a6e", secondary: "#7dd3fc" },
+  { id: "plum", name: "Plum", primary: "#581c87", secondary: "#e879f9" },
+  { id: "olive", name: "Olive", primary: "#000000", secondary: "#bef264" },
+  { id: "steel", name: "Steel", primary: "#27272a", secondary: "#a1a1aa" },
+  { id: "blush", name: "Blush", primary: "#831843", secondary: "#fda4af" },
+  { id: "emerald", name: "Emerald", primary: "#022c22", secondary: "#6ee7b7" },
+  { id: "bronze", name: "Bronze", primary: "#451a03", secondary: "#d6a667" },
+  { id: "electric", name: "Electric", primary: "#0a0a23", secondary: "#818cf8" },
 ] as const;
 
 const radiusPreview: Record<string, string> = {
@@ -100,12 +119,13 @@ export function DesignView({
             />
           </div>
 
-          {/* Suggested color combos */}
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
+          {/* Suggested color combos - collapsible */}
+          <details className="mt-4 group">
+            <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
+              <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
               {t("editor.suggested_colors")}
-            </p>
-            <div className="flex flex-wrap gap-2">
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2">
               {COLOR_COMBOS.map((combo) => (
                 <button
                   key={combo.id}
@@ -116,7 +136,7 @@ export function DesignView({
                       secondaryColor: combo.secondary,
                     })
                   }
-                  className="group flex items-center gap-1 rounded-full border px-2 py-1 transition-all hover:shadow-sm"
+                  className="group/combo flex items-center gap-1 rounded-full border px-2 py-1 transition-all hover:shadow-sm"
                   title={combo.name}
                 >
                   <div
@@ -127,13 +147,13 @@ export function DesignView({
                     className="size-4 rounded-full border border-white shadow-sm"
                     style={{ backgroundColor: combo.secondary }}
                   />
-                  <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground">
+                  <span className="text-[10px] font-medium text-muted-foreground group-hover/combo:text-foreground">
                     {combo.name}
                   </span>
                 </button>
               ))}
             </div>
-          </div>
+          </details>
         </CardContent>
       </Card>
 

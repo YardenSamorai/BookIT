@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ColorPicker } from "@/components/onboarding/color-picker";
 import {
   Check,
   Upload,
@@ -23,6 +24,7 @@ import {
   AlignRight,
   Type,
   ChevronDown,
+  ChevronRight,
   Image,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -269,6 +271,52 @@ export function HeroSectionEditor({ content, onChange }: HeroSectionEditorProps)
               {t("hero.show_badge")}
             </label>
           </div>
+
+          {/* Font & Button Colors */}
+          <details className="group">
+            <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
+              <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+              {t("hero.custom_colors" as any)}
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ColorPicker
+                  label={t("hero.title_color" as any)}
+                  value={(content.title_color as string) ?? ""}
+                  onChange={(v) => onChange({ title_color: v })}
+                />
+                <ColorPicker
+                  label={t("hero.subtitle_color" as any)}
+                  value={(content.subtitle_color as string) ?? ""}
+                  onChange={(v) => onChange({ subtitle_color: v })}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ColorPicker
+                  label={t("hero.cta_bg_color" as any)}
+                  value={(content.cta_bg_color as string) ?? ""}
+                  onChange={(v) => onChange({ cta_bg_color: v })}
+                />
+                <ColorPicker
+                  label={t("hero.cta_text_color" as any)}
+                  value={(content.cta_text_color as string) ?? ""}
+                  onChange={(v) => onChange({ cta_text_color: v })}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ColorPicker
+                  label={t("hero.cta2_bg_color" as any)}
+                  value={(content.cta2_bg_color as string) ?? ""}
+                  onChange={(v) => onChange({ cta2_bg_color: v })}
+                />
+                <ColorPicker
+                  label={t("hero.cta2_text_color" as any)}
+                  value={(content.cta2_text_color as string) ?? ""}
+                  onChange={(v) => onChange({ cta2_text_color: v })}
+                />
+              </div>
+            </div>
+          </details>
 
           {/* Overlay & Layout */}
           <div className="grid gap-4 sm:grid-cols-2">

@@ -465,12 +465,12 @@ function ProductCard({ product, currency, bookingUrl, theme, locale, businessId,
       className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-shadow hover:shadow-md"
     >
       {opts.showImages && (
-        <div className="relative aspect-[3/4] overflow-hidden bg-gray-100">
+        <div className="relative aspect-square overflow-hidden bg-gray-50">
           {image ? (
             <img
               src={image}
               alt={product.title}
-              className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="size-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
             />
           ) : (
@@ -562,12 +562,12 @@ function ProductListRow({ product, currency, bookingUrl, theme, locale, business
       className="group flex items-center gap-4 overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100 transition-shadow hover:shadow-md sm:gap-5 sm:p-4"
     >
       {opts.showImages && (
-        <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-gray-100 sm:size-24">
+        <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-gray-50 sm:size-24">
           {image ? (
             <img
               src={image}
               alt={product.title}
-              className="size-full object-cover"
+              className="size-full object-contain p-1"
               loading="lazy"
             />
           ) : (

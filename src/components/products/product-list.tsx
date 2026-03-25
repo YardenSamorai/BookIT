@@ -105,11 +105,11 @@ function ProductCard({
     <>
       <Card className="group relative overflow-hidden">
         {firstImage && (
-          <div className="aspect-video w-full overflow-hidden">
+          <div className="aspect-video w-full overflow-hidden bg-gray-50">
             <img
               src={firstImage}
               alt={product.title}
-              className="size-full object-cover transition-transform group-hover:scale-105"
+              className="size-full object-contain p-2 transition-transform group-hover:scale-105"
             />
           </div>
         )}

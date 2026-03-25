@@ -918,6 +918,13 @@ export const translations = {
     "hero.font_style": "Font Style",
     "hero.headline_size": "Headline Size",
     "hero.show_badge": 'Show "Welcome" badge above headline',
+    "hero.custom_colors": "Custom Colors",
+    "hero.title_color": "Title Color",
+    "hero.subtitle_color": "Subtitle Color",
+    "hero.cta_bg_color": "Button 1 Background",
+    "hero.cta_text_color": "Button 1 Text",
+    "hero.cta2_bg_color": "Button 2 Background",
+    "hero.cta2_text_color": "Button 2 Text",
     "hero.background": "Background",
     "hero.presets": "Presets",
     "hero.upload_bg": "Upload hero background image",
@@ -962,6 +969,10 @@ export const translations = {
     "svc_editor.compact": "Compact",
     "svc_editor.show_prices": "Show Prices",
     "svc_editor.show_duration": "Show Duration",
+    "svc_editor.title_color": "Title Color",
+    "svc_editor.subtitle_color": "Description Color",
+    "svc_editor.btn_bg_color": "Button Background",
+    "svc_editor.btn_text_color": "Button Text",
     "svc_editor.auto_desc": "Services are pulled automatically from your Services page.",
 
     // ── Team Section Editor ──
@@ -974,6 +985,8 @@ export const translations = {
     "team_editor.avatar_bio": "Avatar + Bio",
     "team_editor.minimal": "Minimal",
     "team_editor.show_bio": "Show Bio",
+    "team_editor.members_found": "{n} team members will be displayed",
+    "team_editor.members_found_desc": "Team members are pulled from your Staff page.",
     "team_editor.auto_desc": "Team members are pulled from your Staff page.",
 
     // ── Contact Editor ──
@@ -2581,6 +2594,13 @@ export const translations = {
     "hero.font_style": "סגנון פונט",
     "hero.headline_size": "גודל כותרת",
     "hero.show_badge": 'הצגת תגית "ברוכים הבאים" מעל הכותרת',
+    "hero.custom_colors": "צבעים מותאמים אישית",
+    "hero.title_color": "צבע כותרת",
+    "hero.subtitle_color": "צבע כותרת משנית",
+    "hero.cta_bg_color": "רקע כפתור 1",
+    "hero.cta_text_color": "טקסט כפתור 1",
+    "hero.cta2_bg_color": "רקע כפתור 2",
+    "hero.cta2_text_color": "טקסט כפתור 2",
     "hero.background": "רקע",
     "hero.presets": "תבניות",
     "hero.upload_bg": "העלאת תמונת רקע לבאנר",
@@ -2625,6 +2645,10 @@ export const translations = {
     "svc_editor.compact": "קומפקטי",
     "svc_editor.show_prices": "הצגת מחירים",
     "svc_editor.show_duration": "הצגת משך",
+    "svc_editor.title_color": "צבע כותרת",
+    "svc_editor.subtitle_color": "צבע תיאור",
+    "svc_editor.btn_bg_color": "רקע כפתור",
+    "svc_editor.btn_text_color": "טקסט כפתור",
     "svc_editor.auto_desc": "השירותים נשלפים אוטומטית מעמוד השירותים שלכם.",
 
     // ── Team Section Editor ──
@@ -2637,6 +2661,8 @@ export const translations = {
     "team_editor.avatar_bio": "אווטר + ביוגרפיה",
     "team_editor.minimal": "מינימלי",
     "team_editor.show_bio": "הצגת ביוגרפיה",
+    "team_editor.members_found": "{n} אנשי צוות יוצגו",
+    "team_editor.members_found_desc": "אנשי הצוות נשלפים אוטומטית מעמוד הצוות שלכם.",
     "team_editor.auto_desc": "חברי הצוות נשלפים מעמוד הצוות שלכם.",
 
     // ── Contact Editor ──

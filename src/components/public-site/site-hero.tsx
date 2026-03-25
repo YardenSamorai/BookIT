@@ -56,9 +56,22 @@ export function SiteHero({
   const defaultBody = usesDarkText ? "#4b5563" : "rgba(255,255,255,0.8)";
   const defaultSubtle = usesDarkText ? "#6b7280" : "rgba(255,255,255,0.7)";
 
-  const headingColorStyle: React.CSSProperties = { color: `var(--section-heading, ${defaultHeading})` };
-  const subtitleColorStyle: React.CSSProperties = { color: `var(--section-body, ${defaultSubtle})` };
-  const bodyColorStyle: React.CSSProperties = { color: `var(--section-body, ${defaultBody})` };
+  const customTitleColor = content.title_color as string | undefined;
+  const customSubtitleColor = content.subtitle_color as string | undefined;
+  const customCtaBg = content.cta_bg_color as string | undefined;
+  const customCtaText = content.cta_text_color as string | undefined;
+  const customCta2Bg = content.cta2_bg_color as string | undefined;
+  const customCta2Text = content.cta2_text_color as string | undefined;
+
+  const headingColorStyle: React.CSSProperties = {
+    color: customTitleColor || `var(--section-heading, ${defaultHeading})`,
+  };
+  const subtitleColorStyle: React.CSSProperties = {
+    color: customSubtitleColor || `var(--section-body, ${defaultSubtle})`,
+  };
+  const bodyColorStyle: React.CSSProperties = {
+    color: customSubtitleColor || `var(--section-body, ${defaultBody})`,
+  };
 
   const pillBg = usesDarkText
     ? { backgroundColor: `${theme.secondaryColor}15` }
@@ -70,12 +83,19 @@ export function SiteHero({
     ? "border-gray-300 bg-gray-100 hover:bg-gray-200"
     : "border-white/20 bg-white/5 backdrop-blur-sm hover:bg-white/10";
 
+  const secondaryButtonStyle: React.CSSProperties = customCta2Bg || customCta2Text
+    ? {
+        ...(customCta2Bg ? { backgroundColor: customCta2Bg, borderColor: customCta2Bg } : {}),
+        ...(customCta2Text ? { color: customCta2Text } : {}),
+      }
+    : bodyColorStyle;
+
   const bgStyle: React.CSSProperties =
     isPresetCss && presetBg.css
       ? presetBg.css
       : { backgroundColor: theme.primaryColor };
 
-  const buttonStyle: React.CSSProperties =
+  const baseButtonStyle: React.CSSProperties =
     theme.preset.buttonStyle === "outline"
       ? {
           borderColor: theme.secondaryColor,
@@ -87,6 +107,12 @@ export function SiteHero({
             background: `linear-gradient(135deg, ${theme.secondaryColor}, ${theme.primaryColor})`,
           }
         : { backgroundColor: theme.secondaryColor };
+
+  const buttonStyle: React.CSSProperties = {
+    ...baseButtonStyle,
+    ...(customCtaBg ? { backgroundColor: customCtaBg, background: customCtaBg } : {}),
+    ...(customCtaText ? { color: customCtaText } : {}),
+  };
 
   const alignClass =
     textAlign === "right"
@@ -150,8 +176,8 @@ export function SiteHero({
               {ctaSecondary && (
                 <a
                   href="#contact"
-                  className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${ghostBorder}`}
-                  style={bodyColorStyle}
+                  className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta2Bg ? "" : ghostBorder}`}
+                  style={secondaryButtonStyle}
                 >
                   {ctaSecondary}
                 </a>
@@ -240,8 +266,8 @@ export function SiteHero({
           {ctaSecondary && (
             <a
               href="#contact"
-              className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${ghostBorder}`}
-              style={bodyColorStyle}
+              className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta2Bg ? "" : ghostBorder}`}
+              style={secondaryButtonStyle}
             >
               {ctaSecondary}
             </a>

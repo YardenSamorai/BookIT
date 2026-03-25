@@ -13,6 +13,7 @@ interface ImageUploadProps {
   onChange: (url: string) => void;
   folder: string;
   aspectRatio?: "square" | "video" | "banner";
+  fit?: "cover" | "contain";
   className?: string;
   disabled?: boolean;
   placeholder?: string;
@@ -29,6 +30,7 @@ export function ImageUpload({
   onChange,
   folder,
   aspectRatio = "video",
+  fit = "cover",
   className,
   disabled,
   placeholder,
@@ -81,11 +83,11 @@ export function ImageUpload({
 
   if (value) {
     return (
-      <div className={cn("relative group rounded-xl overflow-hidden border", ASPECT_CLASSES[aspectRatio], className)}>
+      <div className={cn("relative group rounded-xl overflow-hidden border", ASPECT_CLASSES[aspectRatio], fit === "contain" && "bg-gray-50", className)}>
         <img
           src={value}
           alt="Uploaded"
-          className="size-full object-cover"
+          className={cn("size-full", fit === "contain" ? "object-contain p-2" : "object-cover")}
         />
         <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
           <Button

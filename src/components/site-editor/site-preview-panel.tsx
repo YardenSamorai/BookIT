@@ -278,6 +278,20 @@ function PreviewSection({
           xl: "text-lg",
         };
 
+        const customTitleColor = c.title_color as string | undefined;
+        const customSubtitleColor = c.subtitle_color as string | undefined;
+        const customCtaBg = c.cta_bg_color as string | undefined;
+        const customCtaText = c.cta_text_color as string | undefined;
+        const customCta2Bg = c.cta2_bg_color as string | undefined;
+        const customCta2Text = c.cta2_text_color as string | undefined;
+
+        const previewCtaStyle: React.CSSProperties = customCtaBg
+          ? { backgroundColor: customCtaBg, ...(customCtaText ? { color: customCtaText } : {}) }
+          : theme.preset.buttonStyle === "gradient"
+            ? { background: `linear-gradient(135deg, ${brand.secondaryColor}, ${brand.primaryColor})` }
+            : { backgroundColor: brand.secondaryColor };
+        if (!customCtaBg && customCtaText) previewCtaStyle.color = customCtaText;
+
         const textBlock = (
           <div className={cn("relative z-10 flex flex-col", previewAlignClass)}>
             <h1
@@ -290,27 +304,35 @@ function PreviewSection({
               style={{
                 fontFamily: heroFontStyle.fontFamily,
                 textTransform: heroFontStyle.textTransform,
+                ...(customTitleColor ? { color: customTitleColor } : {}),
               }}
             >
               {(c.headline as string) || businessName}
             </h1>
-            <p className={cn("mb-2 text-[9px]", isDarkText ? "text-gray-500" : "opacity-80")}>
+            <p
+              className={cn("mb-2 text-[9px]", !customSubtitleColor && (isDarkText ? "text-gray-500" : "opacity-80"))}
+              style={customSubtitleColor ? { color: customSubtitleColor } : undefined}
+            >
               {(c.subtitle as string) || t("pub.default_subtitle")}
             </p>
             <div className={cn("flex gap-1.5", previewAlignJustify)}>
               <div
-                className={cn("inline-block px-2 py-0.5 text-[8px] font-semibold text-white", r)}
-                style={
-                  theme.preset.buttonStyle === "gradient"
-                    ? { background: `linear-gradient(135deg, ${brand.secondaryColor}, ${brand.primaryColor})` }
-                    : { backgroundColor: brand.secondaryColor }
-                }
+                className={cn("inline-block px-2 py-0.5 text-[8px] font-semibold", r, !customCtaText && "text-white")}
+                style={previewCtaStyle}
               >
                 {(c.cta_text as string) || t("pub.book_now")}
               </div>
               {(c.cta_secondary_text as string) && (
                 <div
-                  className={cn("inline-block border px-2 py-0.5 text-[8px] font-semibold", r, isDarkText ? "border-gray-300 text-gray-700" : "border-white/30 text-white")}
+                  className={cn(
+                    "inline-block border px-2 py-0.5 text-[8px] font-semibold",
+                    r,
+                    !customCta2Bg && !customCta2Text && (isDarkText ? "border-gray-300 text-gray-700" : "border-white/30 text-white")
+                  )}
+                  style={{
+                    ...(customCta2Bg ? { backgroundColor: customCta2Bg, borderColor: customCta2Bg } : {}),
+                    ...(customCta2Text ? { color: customCta2Text } : {}),
+                  }}
                 >
                   {c.cta_secondary_text as string}
                 </div>
@@ -406,13 +428,18 @@ function PreviewSection({
       const isGrid = svcLayout === "grid";
       const isCompact = svcLayout === "compact";
 
+      const svcTitleColor = (c.title_color as string) || brand.primaryColor;
+      const svcSubtitleColor = (c.subtitle_color as string) || undefined;
+      const svcBtnBg = (c.btn_bg_color as string) || brand.secondaryColor;
+      const svcBtnText = (c.btn_text_color as string) || undefined;
+
       return (
         <div className={cn("px-3 py-4", sectionBg)}>
-          <p className={headingClass} style={{ color: brand.primaryColor }}>
+          <p className={headingClass} style={{ color: svcTitleColor }}>
             {(c.title as string) || t("pub.our_services")}
           </p>
           {typeof c.subtitle === "string" && c.subtitle && (
-            <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+            <p className="mb-1.5 text-[7px]" style={{ color: svcSubtitleColor ?? "#6b7280" }}>{c.subtitle}</p>
           )}
           <div className={cn(
             isGrid ? "grid grid-cols-2 gap-1.5" : "space-y-1.5"
@@ -427,9 +454,9 @@ function PreviewSection({
                   <img src={svc.imageUrl} alt="" className={cn("size-8 object-cover", r)} />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-[9px] font-semibold">{svc.title}</p>
+                  <p className="truncate text-[9px] font-semibold" style={svcSubtitleColor ? { color: svcTitleColor } : undefined}>{svc.title}</p>
                   {!isCompact && (
-                    <p className="text-[7px] text-gray-500">
+                    <p className="text-[7px]" style={{ color: svcSubtitleColor ?? "#6b7280" }}>
                       {showDuration && `${svc.durationMinutes}min`}
                       {showDuration && showPrices && svc.price && " · "}
                       {showPrices && svc.price && `${currency}${svc.price}`}
@@ -437,9 +464,17 @@ function PreviewSection({
                   )}
                 </div>
                 {isCompact && showPrices && svc.price && (
-                  <span className="text-[7px] font-medium" style={{ color: brand.primaryColor }}>
+                  <span className="text-[7px] font-medium" style={{ color: svcTitleColor }}>
                     {currency}{svc.price}
                   </span>
+                )}
+                {isCompact && (
+                  <div
+                    className={cn("shrink-0 px-1.5 py-0.5 text-[6px] font-semibold", r)}
+                    style={{ backgroundColor: svcBtnBg, ...(svcBtnText ? { color: svcBtnText } : { color: "white" }) }}
+                  >
+                    {t("pub.book")}
+                  </div>
                 )}
               </div>
             ))}
