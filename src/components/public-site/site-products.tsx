@@ -41,17 +41,26 @@ interface DisplayOpts {
   showPrices: boolean;
   showDescriptions: boolean;
   showImages: boolean;
+  carouselSpeed: "slow" | "medium" | "fast";
 }
+
+const SPEED_MULTIPLIERS: Record<string, number> = {
+  slow: 1.8,
+  medium: 1,
+  fast: 0.5,
+};
 
 function parseDisplayOpts(content: Record<string, unknown>): DisplayOpts {
   const layout = (content.layout as string) ?? "cards";
   const valid = ["cards", "list", "minimal", "carousel"] as const;
+  const speed = (content.carousel_speed as string) ?? "medium";
   return {
     layout: (valid.includes(layout as any) ? layout : "cards") as DisplayOpts["layout"],
     columns: typeof content.columns === "number" ? content.columns : 4,
     showPrices: content.show_prices !== false,
     showDescriptions: content.show_descriptions !== false,
     showImages: layout === "minimal" ? false : content.show_images !== false,
+    carouselSpeed: (["slow", "medium", "fast"].includes(speed) ? speed : "medium") as DisplayOpts["carouselSpeed"],
   };
 }
 
@@ -715,7 +724,7 @@ function ProductCarousel({
           100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee ${Math.max(products.length * 5, 15)}s linear infinite;
+          animation: marquee ${Math.max(products.length * 5, 15) * (SPEED_MULTIPLIERS[opts.carouselSpeed] ?? 1)}s linear infinite;
         }
         .animate-marquee:hover {
           animation-play-state: paused;

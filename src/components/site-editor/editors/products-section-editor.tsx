@@ -153,6 +153,25 @@ export function ProductsSectionEditor({ content, onChange, products }: ProductsS
             </div>
           )}
 
+          {layout === "carousel" && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <Label className="text-sm font-normal">{t("products_editor.carousel_speed" as any)}</Label>
+              <Select
+                value={String(content.carousel_speed ?? "medium")}
+                onValueChange={(v) => onChange({ carousel_speed: v })}
+              >
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slow">{t("products_editor.speed_slow" as any)}</SelectItem>
+                  <SelectItem value="medium">{t("products_editor.speed_medium" as any)}</SelectItem>
+                  <SelectItem value="fast">{t("products_editor.speed_fast" as any)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {layout !== "minimal" && (
             <div className="flex items-center justify-between px-4 py-3">
               <Label htmlFor="prod-show-images" className="text-sm font-normal">
