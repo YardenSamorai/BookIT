@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
-import { useLocale } from "@/lib/i18n/locale-context";
+import { useLocale, useT } from "@/lib/i18n/locale-context";
+import { cn } from "@/lib/utils";
 import type { Appointment, Staff, ClassInstance } from "./calendar-types";
 import {
   STAFF_COLORS,
@@ -10,6 +11,7 @@ import {
   formatTime,
   getStatusStyle,
   CLASS_STYLE,
+  getClassCardVisual,
 } from "./calendar-types";
 
 interface WeekViewProps {
@@ -36,27 +38,77 @@ const DAY_NAMES_HE_FULL = [
   "שבת",
 ];
 
-const MAX_VISIBLE_DESKTOP = 6;
+/** Desktop week grid height: fixed band so each day column scrolls independently */
+const DESKTOP_WEEK_GRID_CLASS =
+  "h-[min(70vh,640px)] min-h-[280px] max-h-[calc(100vh-13rem)]";
+
+type WeekRowItem =
+  | { kind: "appointment"; data: Appointment }
+  | { kind: "class"; data: ClassInstance };
+
+function buildSortedDayItems(
+  dayApts: Appointment[],
+  dayCIs: ClassInstance[]
+): WeekRowItem[] {
+  const rows: WeekRowItem[] = [
+    ...dayApts.map((a) => ({ kind: "appointment" as const, data: a })),
+    ...dayCIs.map((c) => ({ kind: "class" as const, data: c })),
+  ];
+  rows.sort((a, b) => {
+    const ta =
+      a.kind === "appointment"
+        ? new Date(a.data.startTime).getTime()
+        : new Date(a.data.startTime).getTime();
+    const tb =
+      b.kind === "appointment"
+        ? new Date(b.data.startTime).getTime()
+        : new Date(b.data.startTime).getTime();
+    return ta - tb;
+  });
+  return rows;
+}
+
+function appointmentStatusLabel(
+  status: string,
+  t: (key: import("@/lib/i18n").TranslationKey) => string
+): string {
+  switch (status) {
+    case "CONFIRMED":
+      return t("dash.status_confirmed");
+    case "PENDING":
+      return t("dash.status_pending");
+    case "COMPLETED":
+      return t("dash.status_completed");
+    case "NO_SHOW":
+      return t("dash.status_no_show");
+    case "CANCELLED":
+      return t("dash.status_cancelled");
+    default:
+      return status;
+  }
+}
 
 export function WeekView({
   appointments,
   classInstances = [],
-  staff,
-  staffColorMap,
+  staff: _staff,
+  staffColorMap: _staffColorMap,
   staffFilter,
   currentDate,
   onAptClick,
   onClassClick,
   onDayClick,
 }: WeekViewProps) {
+  // Props kept for API compatibility with CalendarShell; week board is day-first (no staff columns).
+  void _staff;
+  void _staffColorMap;
+  const t = useT();
   const locale = useLocale();
   const isRtl = locale === "he";
   const dateLocale = isRtl ? "he-IL" : "en-US";
   const dayNames = isRtl ? DAY_NAMES_HE : DAY_NAMES_EN;
   const dayNamesFull = isRtl ? DAY_NAMES_HE_FULL : DAY_NAMES_EN;
   const today = new Date();
-  const multiStaff = staff.length > 1;
-  const manyProviders = staff.length >= 4;
 
   const weekStart = useMemo(() => {
     const d = new Date(currentDate);
@@ -108,128 +160,50 @@ export function WeekView({
 
   return (
     <>
-      {/* ── Desktop: 7-column grid ── */}
-      <div className="hidden md:grid md:grid-cols-7 md:gap-1.5">
+      {/* ── Desktop: 7 schedule columns, per-column scroll ── */}
+      <div
+        className={cn("hidden md:grid md:grid-cols-7 md:gap-2", DESKTOP_WEEK_GRID_CLASS)}
+        dir={isRtl ? "rtl" : "ltr"}
+      >
         {weekDays.map((day, i) => {
           const isCurrentDay = isSameDay(day, today);
           const dayApts = appointmentsByDay.get(i) ?? [];
           const dayCIs = classInstancesByDay.get(i) ?? [];
+          const items = buildSortedDayItems(dayApts, dayCIs);
           const total1on1 = dayApts.filter((a) => !a.classInstanceId).length;
-          const pendingCount = dayApts.filter(
-            (a) => a.status === "PENDING"
-          ).length;
-          const totalItems = total1on1 + dayCIs.length;
-          const loadPct =
-            totalItems > 0 ? Math.min(100, (totalItems / 10) * 100) : 0;
+          const pendingCount = dayApts.filter((a) => a.status === "PENDING").length;
 
           return (
-            <div
+            <DayScheduleColumn
               key={i}
-              className={`min-h-[180px] rounded-xl border p-1.5 transition-colors ${
-                isCurrentDay
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-border bg-card"
-              }`}
-            >
-              {/* Day header */}
-              <button
-                type="button"
-                onClick={() => onDayClick(day)}
-                className="mb-1.5 w-full text-center transition-colors hover:text-primary"
-              >
-                <p className="text-[10px] text-muted-foreground">
-                  {dayNamesFull[day.getDay()]}
-                </p>
-                <p
-                  className={`text-lg font-bold leading-none ${
-                    isCurrentDay ? "text-primary" : "text-foreground"
-                  }`}
-                >
-                  {day.getDate()}
-                </p>
-              </button>
-
-              {/* Load bar */}
-              {totalItems > 0 && (
-                <div className="mb-1.5 h-1 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      loadPct > 90
-                        ? "bg-red-400"
-                        : loadPct > 70
-                          ? "bg-amber-400"
-                          : "bg-emerald-400"
-                    }`}
-                    style={{ width: `${loadPct}%` }}
-                  />
-                </div>
-              )}
-
-              {/* Content: stacked or sub-columns */}
-              {multiStaff && !manyProviders ? (
-                <StaffSubColumns
-                  staff={staff}
-                  staffFilter={staffFilter}
-                  staffColorMap={staffColorMap}
-                  dayApts={dayApts}
-                  dateLocale={dateLocale}
-                  onAptClick={onAptClick}
-                />
-              ) : (
-                <StackedItemsList
-                  dayApts={dayApts}
-                  dayCIs={dayCIs}
-                  staff={staff}
-                  staffColorMap={staffColorMap}
-                  dateLocale={dateLocale}
-                  multiStaff={multiStaff}
-                  onAptClick={onAptClick}
-                  onClassClick={onClassClick}
-                />
-              )}
-
-              {/* Sub-columns mode: still render classes below */}
-              {multiStaff && !manyProviders && dayCIs.length > 0 && (
-                <div className="mt-1 space-y-0.5">
-                  {dayCIs.map((ci) => (
-                    <ClassChip
-                      key={ci.id}
-                      instance={ci}
-                      dateLocale={dateLocale}
-                      onClassClick={onClassClick}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Summary footer */}
-              <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground">
-                <span>{total1on1} תורים</span>
-                {dayCIs.length > 0 && (
-                  <span>· {dayCIs.length} שיעורים</span>
-                )}
-                {pendingCount > 0 && (
-                  <span className="font-semibold text-amber-600">
-                    · {pendingCount} ממתינים
-                  </span>
-                )}
-              </div>
-            </div>
+              day={day}
+              isCurrentDay={isCurrentDay}
+              dayNamesFull={dayNamesFull}
+              items={items}
+              total1on1={total1on1}
+              classCount={dayCIs.length}
+              pendingCount={pendingCount}
+              staffFilter={staffFilter}
+              dateLocale={dateLocale}
+              t={t}
+              onAptClick={onAptClick}
+              onClassClick={onClassClick}
+              onDayClick={onDayClick}
+            />
           );
         })}
       </div>
 
-      {/* ── Mobile: vertical day-card agenda ── */}
       <MobileWeekAgenda
         weekDays={weekDays}
         appointmentsByDay={appointmentsByDay}
         classInstancesByDay={classInstancesByDay}
-        staff={staff}
-        staffColorMap={staffColorMap}
         dateLocale={dateLocale}
         dayNames={dayNames}
         isRtl={isRtl}
         today={today}
+        staffFilter={staffFilter}
+        t={t}
         onAptClick={onAptClick}
         onClassClick={onClassClick}
         onDayClick={onDayClick}
@@ -239,219 +213,241 @@ export function WeekView({
 }
 
 // ---------------------------------------------------------------------------
-// Stacked items list — used for 4+ providers or single provider
+// Desktop: one day column (sticky header + scroll body + footer)
 // ---------------------------------------------------------------------------
 
-function StackedItemsList({
-  dayApts,
-  dayCIs,
-  staff,
-  staffColorMap,
-  dateLocale,
-  multiStaff,
-  onAptClick,
-  onClassClick,
-}: {
-  dayApts: Appointment[];
-  dayCIs: ClassInstance[];
-  staff: Staff[];
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
-  dateLocale: string;
-  multiStaff: boolean;
-  onAptClick: (apt: Appointment) => void;
-  onClassClick?: (ci: ClassInstance) => void;
-}) {
-  const sorted = [...dayApts].sort(
-    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-  );
-  const visible = sorted.slice(0, MAX_VISIBLE_DESKTOP);
-  const overflow = sorted.length - MAX_VISIBLE_DESKTOP;
-
-  return (
-    <div className="space-y-0.5">
-      {visible.map((apt) => {
-        const style = getStatusStyle(apt.status);
-        const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
-        const start = new Date(apt.startTime);
-
-        return (
-          <button
-            key={apt.id}
-            type="button"
-            onClick={() => onAptClick(apt)}
-            className={`flex w-full items-center gap-1 rounded border-s-2 ${style.border} px-1 py-0.5 text-start text-[10px] leading-tight transition-opacity hover:opacity-80 ${style.bg}`}
-          >
-            <span className={`size-1.5 rounded-full shrink-0 ${style.dot}`} />
-            <span className={`font-semibold tabular-nums ${style.text}`}>
-              {formatTime(start, dateLocale)}
-            </span>
-            <span className={`truncate ${style.text} opacity-75`}>
-              {apt.serviceName}
-            </span>
-            {multiStaff && (
-              <span className="shrink-0 ms-auto flex items-center gap-0.5 text-[9px] text-muted-foreground">
-                <span
-                  className="size-1.5 rounded-full"
-                  style={{ backgroundColor: clr.border }}
-                />
-                {apt.staffName.split(" ")[0]}
-              </span>
-            )}
-          </button>
-        );
-      })}
-
-      {overflow > 0 && (
-        <p className="text-center text-[10px] text-muted-foreground">
-          +{overflow}
-        </p>
-      )}
-
-      {dayCIs.map((ci) => (
-        <ClassChip
-          key={ci.id}
-          instance={ci}
-          dateLocale={dateLocale}
-          onClassClick={onClassClick}
-        />
-      ))}
-
-      {dayApts.length === 0 && dayCIs.length === 0 && (
-        <p className="py-3 text-center text-[10px] text-muted-foreground/50">
-          —
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Staff sub-columns — used for 2-3 providers
-// ---------------------------------------------------------------------------
-
-function StaffSubColumns({
-  staff,
+function DayScheduleColumn({
+  day,
+  isCurrentDay,
+  dayNamesFull,
+  items,
+  total1on1,
+  classCount,
+  pendingCount,
   staffFilter,
-  staffColorMap,
-  dayApts,
   dateLocale,
+  t,
   onAptClick,
+  onClassClick,
+  onDayClick,
 }: {
-  staff: Staff[];
+  day: Date;
+  isCurrentDay: boolean;
+  dayNamesFull: string[];
+  items: WeekRowItem[];
+  total1on1: number;
+  classCount: number;
+  pendingCount: number;
   staffFilter: string | null;
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
-  dayApts: Appointment[];
   dateLocale: string;
+  t: (key: import("@/lib/i18n").TranslationKey, vars?: Record<string, string | number>) => string;
   onAptClick: (apt: Appointment) => void;
+  onClassClick?: (ci: ClassInstance) => void;
+  onDayClick: (date: Date) => void;
 }) {
   return (
-    <div className="flex gap-0.5">
-      {staff.map((s) => {
-        const clr = staffColorMap.get(s.id) ?? STAFF_COLORS[0];
-        const dimmed = staffFilter !== null && staffFilter !== s.id;
-        const staffApts = dayApts.filter((a) => a.staffId === s.id);
+    <div
+      className={cn(
+        "flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card transition-colors",
+        isCurrentDay ? "border-primary/40 bg-primary/[0.06] ring-1 ring-primary/15" : "border-border"
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onDayClick(day)}
+        className="shrink-0 border-b border-border/60 bg-muted/30 px-1 py-2 text-center transition-colors hover:bg-muted/50"
+      >
+        <p className="text-[10px] font-medium text-muted-foreground">
+          {dayNamesFull[day.getDay()]}
+        </p>
+        <p
+          className={cn(
+            "mt-0.5 inline-flex size-8 items-center justify-center rounded-full text-base font-bold leading-none",
+            isCurrentDay ? "bg-primary text-primary-foreground" : "text-foreground"
+          )}
+        >
+          {day.getDate()}
+        </p>
+      </button>
 
-        return (
-          <div
-            key={s.id}
-            className={`flex-1 min-w-0 transition-opacity ${dimmed ? "opacity-30" : ""}`}
-          >
-            <div
-              className="mb-1 flex items-center justify-center gap-0.5 rounded-md py-0.5"
-              style={{ backgroundColor: `${clr.border}18` }}
-            >
-              <span
-                className="size-1.5 rounded-full shrink-0"
-                style={{ backgroundColor: clr.border }}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1.5 py-2">
+        <div className="flex flex-col gap-1.5">
+          {items.length === 0 && (
+            <p className="py-6 text-center text-[11px] text-muted-foreground/50">—</p>
+          )}
+          {items.map((row) =>
+            row.kind === "appointment" ? (
+              <ScheduleBoardCard
+                key={`a-${row.data.id}`}
+                variant="desktop"
+                row={row}
+                dateLocale={dateLocale}
+                staffFilter={staffFilter}
+                t={t}
+                onAptClick={onAptClick}
+                onClassClick={onClassClick}
               />
-              <span
-                className="text-[9px] font-medium truncate"
-                style={{ color: clr.text }}
-              >
-                {staff.length > 3 ? s.name.charAt(0) : s.name.split(" ")[0]}
-              </span>
-            </div>
+            ) : (
+              <ScheduleBoardCard
+                key={`c-${row.data.id}`}
+                variant="desktop"
+                row={row}
+                dateLocale={dateLocale}
+                staffFilter={staffFilter}
+                t={t}
+                onAptClick={onAptClick}
+                onClassClick={onClassClick}
+              />
+            )
+          )}
+        </div>
+      </div>
 
-            <div className="space-y-0.5">
-              {staffApts.map((apt) => {
-                const style = getStatusStyle(apt.status);
-                const start = new Date(apt.startTime);
-                return (
-                  <button
-                    key={apt.id}
-                    type="button"
-                    onClick={() => onAptClick(apt)}
-                    className={`w-full rounded border-s-2 ${style.border} px-1 py-0.5 text-start text-[9px] leading-tight shadow-sm transition-shadow hover:shadow-md ${style.bg}`}
-                  >
-                    <p className={`font-semibold tabular-nums truncate ${style.text}`}>
-                      <span className={`inline-block size-1 rounded-full ${style.dot} me-0.5`} />
-                      {formatTime(start, dateLocale)}
-                    </p>
-                    <p className={`truncate opacity-75 ${style.text}`}>
-                      {apt.serviceName}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+      <div className="shrink-0 border-t border-border/60 px-1 py-1.5 text-center text-[9px] leading-tight text-muted-foreground">
+        <span>
+          {t("cal.week_footer_bookings", { n: total1on1 })}
+          {classCount > 0 && (
+            <>
+              {" · "}
+              {t("cal.week_footer_classes", { n: classCount })}
+            </>
+          )}
+        </span>
+        {pendingCount > 0 && (
+          <span className="mt-0.5 block font-semibold text-amber-600">
+            {t("cal.week_footer_pending", { n: pendingCount })}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Class chip (compact)
+// Shared booking / class card (dense board style)
 // ---------------------------------------------------------------------------
 
-function ClassChip({
-  instance,
+function ScheduleBoardCard({
+  variant,
+  row,
   dateLocale,
+  staffFilter,
+  t,
+  onAptClick,
   onClassClick,
 }: {
-  instance: ClassInstance;
+  variant: "desktop" | "mobile";
+  row: WeekRowItem;
   dateLocale: string;
+  staffFilter: string | null;
+  t: (key: import("@/lib/i18n").TranslationKey, vars?: Record<string, string | number>) => string;
+  onAptClick: (apt: Appointment) => void;
   onClassClick?: (ci: ClassInstance) => void;
 }) {
-  const start = new Date(instance.startTime);
-  const booked = instance.bookedCount ?? 0;
+  const pad = variant === "desktop" ? "px-2.5 py-2" : "px-3 py-2.5";
+  const titleSize = variant === "desktop" ? "text-[11px]" : "text-xs";
+  const metaSize = variant === "desktop" ? "text-[10px]" : "text-[11px]";
+
+  if (row.kind === "class") {
+    const ci = row.data;
+    const vis = getClassCardVisual(ci.calendarColor);
+    const start = new Date(ci.startTime);
+    const end = new Date(ci.endTime);
+    const booked = ci.bookedCount ?? 0;
+    const dimmed = staffFilter !== null && staffFilter !== ci.staffId;
+    const timeRange = `${formatTime(start, dateLocale)} – ${formatTime(end, dateLocale)}`;
+
+    return (
+      <button
+        type="button"
+        onClick={() => onClassClick?.(ci)}
+        title={[timeRange, ci.serviceName, `${booked}/${ci.maxParticipants}`, ci.staffName].join(" · ")}
+        className={cn(
+          "w-full rounded-md border-s-[3px] border-dashed text-start shadow-sm transition-all hover:brightness-[0.98] hover:shadow-md",
+          pad,
+          dimmed && "opacity-35"
+        )}
+        style={{
+          backgroundColor: vis.bg,
+          borderInlineStartColor: vis.accent,
+          borderInlineEndWidth: 0,
+          color: vis.text,
+        }}
+      >
+        <div className={cn("font-semibold tabular-nums leading-snug", titleSize)} dir="ltr">
+          {timeRange}
+        </div>
+        <p className={cn("mt-1 line-clamp-2 min-w-0 break-words font-semibold leading-snug", titleSize)}>
+          {ci.serviceName}
+        </p>
+        <p className={cn("mt-1 font-medium tabular-nums", metaSize, "opacity-90")}>
+          {booked}/{ci.maxParticipants}
+        </p>
+        <p className={cn("mt-0.5 line-clamp-1 min-w-0 font-medium", metaSize, "opacity-80")}>
+          {ci.staffName}
+        </p>
+      </button>
+    );
+  }
+
+  const apt = row.data;
+  const style = getStatusStyle(apt.status);
+  const start = new Date(apt.startTime);
+  const end = new Date(apt.endTime);
+  const dimmed = staffFilter !== null && staffFilter !== apt.staffId;
+  const timeRange = `${formatTime(start, dateLocale)} – ${formatTime(end, dateLocale)}`;
+
+  const metaLine = apt.classInstanceId
+    ? apt.customerName?.trim() || t("cal.week_group_slot")
+    : appointmentStatusLabel(apt.status, t);
+
+  const hoverTitle = [timeRange, apt.serviceName, metaLine, apt.staffName].filter(Boolean).join(" · ");
 
   return (
     <button
       type="button"
-      onClick={() => onClassClick?.(instance)}
-      className={`flex w-full items-center gap-1 rounded border-s-2 border-dashed px-1 py-0.5 text-start text-[10px] leading-tight transition-opacity hover:opacity-80 ${CLASS_STYLE.bg} ${CLASS_STYLE.border}`}
-      style={{ borderColor: "#8B5CF6" }}
+      onClick={() => onAptClick(apt)}
+      title={hoverTitle}
+      className={cn(
+        "w-full rounded-md border-s-[3px] text-start shadow-sm transition-all hover:brightness-[0.98] hover:shadow-md",
+        pad,
+        style.bg,
+        style.border,
+        style.text,
+        dimmed && "opacity-35"
+      )}
     >
-      <span className={`size-1.5 rounded-full shrink-0 ${CLASS_STYLE.dot}`} />
-      <span className={`font-semibold tabular-nums ${CLASS_STYLE.text}`}>
-        {formatTime(start, dateLocale)}
-      </span>
-      <span className={`truncate ${CLASS_STYLE.text} opacity-75`}>
-        ⟳ {instance.serviceName}
-      </span>
-      <span className={`shrink-0 text-[9px] ${CLASS_STYLE.text} opacity-60`}>
-        {booked}/{instance.maxParticipants}
-      </span>
+      <div className={cn("flex items-center gap-1.5")}>
+        <span className={cn("size-1.5 shrink-0 rounded-full", style.dot)} aria-hidden />
+        <span className={cn("font-semibold tabular-nums leading-snug", titleSize)} dir="ltr">
+          {timeRange}
+        </span>
+      </div>
+      <p className={cn("mt-1 line-clamp-2 min-w-0 break-words font-semibold leading-snug", titleSize)}>
+        {apt.serviceName}
+      </p>
+      <p className={cn("mt-1 line-clamp-1 min-w-0 font-medium", metaSize, "opacity-90")}>{metaLine}</p>
+      <p className={cn("mt-0.5 line-clamp-1 min-w-0 font-medium", metaSize, "opacity-75")}>
+        {apt.staffName}
+      </p>
     </button>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Mobile week agenda — vertical collapsible day cards
+// Mobile: collapsible days, same card component
 // ---------------------------------------------------------------------------
 
 function MobileWeekAgenda({
   weekDays,
   appointmentsByDay,
   classInstancesByDay,
-  staff,
-  staffColorMap,
   dateLocale,
   dayNames,
   isRtl,
   today,
+  staffFilter,
+  t,
   onAptClick,
   onClassClick,
   onDayClick,
@@ -459,12 +455,12 @@ function MobileWeekAgenda({
   weekDays: Date[];
   appointmentsByDay: Map<number, Appointment[]>;
   classInstancesByDay: Map<number, ClassInstance[]>;
-  staff: Staff[];
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
   dateLocale: string;
   dayNames: string[];
   isRtl: boolean;
   today: Date;
+  staffFilter: string | null;
+  t: (key: import("@/lib/i18n").TranslationKey, vars?: Record<string, string | number>) => string;
   onAptClick: (apt: Appointment) => void;
   onClassClick?: (ci: ClassInstance) => void;
   onDayClick: (date: Date) => void;
@@ -489,23 +485,20 @@ function MobileWeekAgenda({
         const isCurrentDay = isSameDay(day, today);
         const dayApts = appointmentsByDay.get(i) ?? [];
         const dayCIs = classInstancesByDay.get(i) ?? [];
+        const items = buildSortedDayItems(dayApts, dayCIs);
         const isOpen = expanded.has(i);
-        const total = dayApts.filter((a) => !a.classInstanceId).length + dayCIs.length;
-        const pendingCount = dayApts.filter(
-          (a) => a.status === "PENDING"
-        ).length;
-        const multiStaff = staff.length > 1;
+        const total1on1 = dayApts.filter((a) => !a.classInstanceId).length;
+        const pendingCount = dayApts.filter((a) => a.status === "PENDING").length;
+        const totalItems = total1on1 + dayCIs.length;
 
         return (
           <div
             key={i}
-            className={`rounded-xl border overflow-hidden transition-colors ${
-              isCurrentDay
-                ? "border-primary/30 bg-primary/5"
-                : "border-border bg-card"
-            }`}
+            className={cn(
+              "overflow-hidden rounded-xl border transition-colors",
+              isCurrentDay ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+            )}
           >
-            {/* Collapsed header — always visible */}
             <button
               type="button"
               onClick={() => toggleDay(i)}
@@ -516,134 +509,61 @@ function MobileWeekAgenda({
                   {dayNames[day.getDay()]}
                 </span>
                 <span
-                  className={`mt-0.5 flex size-8 items-center justify-center rounded-full text-sm font-bold ${
-                    isCurrentDay
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground"
-                  }`}
+                  className={cn(
+                    "mt-0.5 flex size-8 items-center justify-center rounded-full text-sm font-bold",
+                    isCurrentDay ? "bg-primary text-primary-foreground" : "text-foreground"
+                  )}
                 >
                   {day.getDate()}
                 </span>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{total} פריטים</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <span>{t("cal.week_mobile_items", { n: totalItems })}</span>
                   {pendingCount > 0 && (
                     <span className="font-semibold text-amber-600">
-                      {pendingCount} ממתינים
+                      {t("cal.week_footer_pending", { n: pendingCount })}
                     </span>
                   )}
                 </div>
-                {/* Mini load bar */}
-                {total > 0 && (
-                  <div className="mt-1 h-1 w-24 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        total > 8
-                          ? "bg-red-400"
-                          : total > 5
-                            ? "bg-amber-400"
-                            : "bg-emerald-400"
-                      }`}
-                      style={{
-                        width: `${Math.min(100, (total / 10) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                )}
               </div>
 
               {isOpen ? (
-                <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+                <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
               ) : (
-                <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
               )}
             </button>
 
-            {/* Expanded content */}
             {isOpen && (
-              <div className="border-t px-3 pb-3 pt-2 space-y-1.5">
-                {dayApts.length === 0 && dayCIs.length === 0 && (
-                  <p className="py-2 text-sm text-muted-foreground/50 text-center">
-                    אין תורים
+              <div className="space-y-1.5 border-t px-3 pb-3 pt-2">
+                {items.length === 0 && (
+                  <p className="py-2 text-center text-sm text-muted-foreground/50">
+                    {t("cal.week_empty_day")}
                   </p>
                 )}
 
-                {[...dayApts]
-                  .sort(
-                    (a, b) =>
-                      new Date(a.startTime).getTime() -
-                      new Date(b.startTime).getTime()
-                  )
-                  .map((apt) => {
-                    const style = getStatusStyle(apt.status);
-                    const clr = staffColorMap.get(apt.staffId) ?? STAFF_COLORS[0];
-                    const start = new Date(apt.startTime);
+                {items.map((row) => (
+                  <ScheduleBoardCard
+                    key={row.kind === "appointment" ? `a-${row.data.id}` : `c-${row.data.id}`}
+                    variant="mobile"
+                    row={row}
+                    dateLocale={dateLocale}
+                    staffFilter={staffFilter}
+                    t={t}
+                    onAptClick={onAptClick}
+                    onClassClick={onClassClick}
+                  />
+                ))}
 
-                    return (
-                      <button
-                        key={apt.id}
-                        type="button"
-                        onClick={() => onAptClick(apt)}
-                        className={`flex w-full items-center gap-2 rounded-lg border-s-[3px] ${style.border} ${style.bg} p-2 text-start transition-shadow active:shadow-md`}
-                      >
-                        <span className={`size-2 rounded-full shrink-0 ${style.dot}`} />
-                        <span className={`font-semibold tabular-nums text-xs ${style.text}`}>
-                          {formatTime(start, dateLocale)}
-                        </span>
-                        <span className={`text-xs truncate ${style.text}`}>
-                          {apt.serviceName}
-                        </span>
-                        {multiStaff && (
-                          <span className="shrink-0 ms-auto flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <span
-                              className="size-1.5 rounded-full"
-                              style={{ backgroundColor: clr.border }}
-                            />
-                            {apt.staffName.split(" ")[0]}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-
-                {dayCIs.map((ci) => {
-                  const start = new Date(ci.startTime);
-                  const booked = ci.bookedCount ?? 0;
-
-                  return (
-                    <button
-                      key={ci.id}
-                      type="button"
-                      onClick={() => onClassClick?.(ci)}
-                      className={`flex w-full items-center gap-2 rounded-lg border-s-[3px] border-dashed ${CLASS_STYLE.border} ${CLASS_STYLE.bg} p-2 text-start transition-shadow active:shadow-md`}
-                      style={{ borderColor: "#8B5CF6" }}
-                    >
-                      <span className={`size-2 rounded-full shrink-0 ${CLASS_STYLE.dot}`} />
-                      <span className={`font-semibold tabular-nums text-xs ${CLASS_STYLE.text}`}>
-                        {formatTime(start, dateLocale)}
-                      </span>
-                      <span className={`text-xs truncate ${CLASS_STYLE.text}`}>
-                        ⟳ {ci.serviceName}
-                      </span>
-                      <span className={`shrink-0 text-[10px] ${CLASS_STYLE.text} opacity-70`}>
-                        {booked}/{ci.maxParticipants}
-                      </span>
-                    </button>
-                  );
-                })}
-
-                {/* Drill-down link */}
                 <button
                   type="button"
                   onClick={() => onDayClick(day)}
                   className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed py-2 text-xs text-muted-foreground hover:bg-muted/50"
                 >
-                  צפייה ביום מלא
-                  <ChevronLeft
-                    className={`size-3 ${isRtl ? "" : "rotate-180"}`}
-                  />
+                  {t("cal.week_open_full_day")}
+                  <ChevronLeft className={cn("size-3", !isRtl && "rotate-180")} />
                 </button>
               </div>
             )}

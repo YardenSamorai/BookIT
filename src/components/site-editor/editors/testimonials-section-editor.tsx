@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { MessageSquareQuote, Plus, Trash2 } from "lucide-react";
 
 interface Testimonial {
   name: string;
@@ -204,9 +204,11 @@ export function TestimonialsSectionEditor({
         </div>
 
         {testimonials.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {t("testimonial_editor.no_items")}
-          </p>
+          <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-6 text-center">
+            <MessageSquareQuote className="mx-auto size-8 text-muted-foreground/40" />
+            <p className="mt-2 text-sm font-medium">{t("empty.testimonials_title")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("empty.testimonials_desc")}</p>
+          </div>
         )}
       </div>
     </div>

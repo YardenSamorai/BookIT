@@ -21,6 +21,7 @@ import {
   Images,
   MessageSquareQuote,
   Megaphone,
+  CalendarCheck,
 } from "lucide-react";
 import { HeroSectionEditor } from "./editors/hero-section-editor";
 import { AboutSectionEditor } from "./editors/about-section-editor";
@@ -49,10 +50,11 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   testimonials: <MessageSquareQuote className="size-4" />,
   cta_banner: <Megaphone className="size-4" />,
   products: <Sparkles className="size-4" />,
+  booking: <CalendarCheck className="size-4" />,
   contact: <Phone className="size-4" />,
 };
 
-const SECTION_LABEL_KEYS: Record<string, "section.hero" | "section.about" | "section.services" | "section.team" | "section.gallery" | "section.testimonials" | "section.cta_banner" | "section.products" | "section.contact"> = {
+const SECTION_LABEL_KEYS: Record<string, "section.hero" | "section.about" | "section.services" | "section.team" | "section.gallery" | "section.testimonials" | "section.cta_banner" | "section.products" | "section.booking" | "section.contact"> = {
   hero: "section.hero",
   about: "section.about",
   services: "section.services",
@@ -61,6 +63,7 @@ const SECTION_LABEL_KEYS: Record<string, "section.hero" | "section.about" | "sec
   testimonials: "section.testimonials",
   cta_banner: "section.cta_banner",
   products: "section.products",
+  booking: "section.booking",
   contact: "section.contact",
 };
 

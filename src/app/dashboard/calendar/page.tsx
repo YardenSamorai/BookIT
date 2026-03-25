@@ -42,7 +42,7 @@ export default async function CalendarPage({
   const [staff, servicesList, serviceStaffLinks, calendarData, locale] =
     await Promise.all([
       getStaffMembers(businessId),
-      getServices(businessId),
+      getServices(businessId, { includeAutoManaged: true }),
       getServiceStaffLinks(businessId),
       getCalendarData(businessId, rangeStart, rangeEnd),
       getBusinessLocale(businessId),

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Images, Plus, Trash2 } from "lucide-react";
 
 interface GalleryImage {
   url: string;
@@ -170,9 +170,11 @@ export function GallerySectionEditor({ content, onChange }: GallerySectionEditor
         </div>
 
         {images.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {t("gallery_editor.no_images")}
-          </p>
+          <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-6 text-center">
+            <Images className="mx-auto size-8 text-muted-foreground/40" />
+            <p className="mt-2 text-sm font-medium">{t("empty.gallery_title")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("empty.gallery_desc")}</p>
+          </div>
         )}
       </div>
     </div>

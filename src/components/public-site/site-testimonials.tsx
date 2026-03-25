@@ -1,6 +1,7 @@
 import { Star } from "lucide-react";
 import type { SiteTheme } from "@/lib/themes/presets";
 import { t, type Locale } from "@/lib/i18n";
+import { AnimatedStagger } from "./animated-section";
 
 interface Testimonial {
   name: string;
@@ -56,17 +57,17 @@ export function SiteTestimonials({ theme, content = {}, sectionIndex, locale }: 
         </div>
 
         {layout === "minimal" ? (
-          <div className="mx-auto mt-12 max-w-3xl space-y-8">
+          <AnimatedStagger className="mx-auto mt-12 max-w-3xl space-y-8">
             {testimonials.map((t, i) => (
               <MinimalTestimonial key={i} testimonial={t} theme={theme} />
             ))}
-          </div>
+          </AnimatedStagger>
         ) : (
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <AnimatedStagger className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((t, i) => (
               <TestimonialCard key={i} testimonial={t} theme={theme} />
             ))}
-          </div>
+          </AnimatedStagger>
         )}
       </div>
     </section>

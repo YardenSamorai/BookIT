@@ -11,6 +11,7 @@ import {
   customers,
   users,
   classInstances,
+  classSchedules,
 } from "@/lib/db/schema";
 
 export interface CalendarAppointment {
@@ -43,6 +44,7 @@ export interface CalendarClassInstance {
   serviceName: string;
   staffName: string;
   bookedCount: number;
+  calendarColor: string | null;
 }
 
 export interface StaffScheduleRow {
@@ -235,11 +237,13 @@ async function getClassInstancesWithCounts(
       endTime: classInstances.endTime,
       maxParticipants: classInstances.maxParticipants,
       status: classInstances.status,
-      serviceName: services.title,
+      serviceName: sql<string>`COALESCE(${classSchedules.title}, ${services.title})`.as("service_name"),
       staffName: staffMembers.name,
       bookedCount: sql<number>`coalesce(${bookedCountSq.cnt}, 0)`.mapWith(Number),
+      calendarColor: classSchedules.calendarColor,
     })
     .from(classInstances)
+    .innerJoin(classSchedules, eq(classInstances.classScheduleId, classSchedules.id))
     .innerJoin(services, eq(classInstances.serviceId, services.id))
     .innerJoin(staffMembers, eq(classInstances.staffId, staffMembers.id))
     .leftJoin(bookedCountSq, eq(classInstances.id, bookedCountSq.classInstanceId))

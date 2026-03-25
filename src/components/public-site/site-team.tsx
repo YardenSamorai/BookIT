@@ -2,6 +2,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import type { staffMembers } from "@/lib/db/schema";
 import type { SiteTheme } from "@/lib/themes/presets";
 import { t, type Locale } from "@/lib/i18n";
+import { AnimatedStagger } from "./animated-section";
 
 type StaffMember = InferSelectModel<typeof staffMembers>;
 
@@ -39,7 +40,7 @@ export function SiteTeam({ staff, content = {}, theme, sectionIndex, locale }: S
           <p className="mx-auto mt-3 max-w-md" style={{ color: "var(--section-body, #6b7280)" }}>{subtitle}</p>
         </div>
 
-        <div
+        <AnimatedStagger
           className={`mt-12 grid gap-8 ${
             cardStyle === "minimal"
               ? "sm:grid-cols-2 lg:grid-cols-4"
@@ -55,7 +56,7 @@ export function SiteTeam({ staff, content = {}, theme, sectionIndex, locale }: S
               <AvatarCard key={member.id} member={member} theme={theme} showBio={showBio} />
             )
           )}
-        </div>
+        </AnimatedStagger>
       </div>
     </section>
   );

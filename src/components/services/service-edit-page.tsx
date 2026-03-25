@@ -57,6 +57,7 @@ export function ServiceEditPage({ service, categories }: ServiceEditPageProps) {
     isGroup: service.isGroup ?? false,
     maxParticipants: service.maxParticipants ?? 1,
     blocksAllStaff: service.blocksAllStaff ?? false,
+    autoManaged: service.autoManaged ?? false,
     cancelHoursBefore: service.cancelHoursBefore ?? 0,
     rescheduleHoursBefore: service.rescheduleHoursBefore ?? 0,
     isActive: service.isActive,

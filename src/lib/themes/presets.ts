@@ -2,6 +2,8 @@ export interface ThemePreset {
   id: string;
   name: string;
   description: string;
+  nameKey: string;
+  descriptionKey: string;
   primaryColor: string;
   secondaryColor: string;
   navStyle: "solid" | "transparent" | "glass" | "white";
@@ -18,6 +20,8 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "modern",
     name: "Modern",
     description: "Clean and contemporary with subtle shadows",
+    nameKey: "theme.modern",
+    descriptionKey: "theme.modern_desc",
     primaryColor: "#0F172A",
     secondaryColor: "#3B82F6",
     navStyle: "solid",
@@ -32,6 +36,8 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "elegant",
     name: "Elegant",
     description: "Refined and luxurious with serif accents",
+    nameKey: "theme.elegant",
+    descriptionKey: "theme.elegant_desc",
     primaryColor: "#1C1917",
     secondaryColor: "#A16207",
     navStyle: "transparent",
@@ -46,6 +52,8 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "bold",
     name: "Bold",
     description: "Vibrant and energetic with strong presence",
+    nameKey: "theme.bold",
+    descriptionKey: "theme.bold_desc",
     primaryColor: "#7C3AED",
     secondaryColor: "#F59E0B",
     navStyle: "solid",
@@ -60,6 +68,8 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "minimal",
     name: "Minimal",
     description: "Ultra-clean with restrained elegance",
+    nameKey: "theme.minimal",
+    descriptionKey: "theme.minimal_desc",
     primaryColor: "#18181B",
     secondaryColor: "#18181B",
     navStyle: "white",
@@ -74,6 +84,8 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "warm",
     name: "Warm",
     description: "Inviting and cozy with earthy tones",
+    nameKey: "theme.warm",
+    descriptionKey: "theme.warm_desc",
     primaryColor: "#78350F",
     secondaryColor: "#D97706",
     navStyle: "glass",
@@ -88,6 +100,8 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "fresh",
     name: "Fresh",
     description: "Light, airy, and approachable",
+    nameKey: "theme.fresh",
+    descriptionKey: "theme.fresh_desc",
     primaryColor: "#065F46",
     secondaryColor: "#10B981",
     navStyle: "glass",
@@ -274,7 +288,8 @@ export interface SiteTheme {
 export function buildSiteTheme(
   presetId: string,
   primaryColor: string,
-  secondaryColor: string
+  secondaryColor: string,
+  fontFamily?: string | null
 ): SiteTheme {
   const preset = getThemePreset(presetId);
 
@@ -284,12 +299,14 @@ export function buildSiteTheme(
     pill: { sm: "rounded-full", md: "rounded-2xl", lg: "rounded-3xl", full: "rounded-full" },
   }[preset.borderRadius];
 
-  const font = {
-    modern: "font-sans",
-    classic: "font-serif",
-    bold: "font-sans",
-    playful: "font-sans",
-  }[preset.fontStyle];
+  const font = fontFamily
+    ? fontFamily
+    : {
+        modern: "font-sans",
+        classic: "font-serif",
+        bold: "font-sans",
+        playful: "font-sans",
+      }[preset.fontStyle];
 
   const headingWeight = {
     modern: "font-extrabold",

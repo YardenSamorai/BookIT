@@ -21,7 +21,7 @@ import {
   getMinutesInTz,
   wallClockToDate,
   getStatusStyle,
-  CLASS_STYLE,
+  getClassCardVisual,
   getCardTier,
   getStaffScheduleForDay,
   getBlockedSlotsForStaffDay,
@@ -895,6 +895,7 @@ function ClassBlock({
   const capacityStr = `${booked}/${instance.maxParticipants}`;
   const isFull = booked >= instance.maxParticipants;
   const tier = getCardTier(heightPx);
+  const vis = getClassCardVisual(instance.calendarColor);
 
   if (startMins < 0) return null;
 
@@ -904,32 +905,26 @@ function ClassBlock({
       onPointerDown={onPointerDown}
       className={`absolute inset-x-1 overflow-hidden rounded-lg border-s-[3px] border-dashed text-start shadow-sm transition-shadow select-none ${
         draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
-      } ${
-        isDragging
-          ? "opacity-30"
-          : "hover:shadow-md hover:ring-1 hover:ring-violet-300"
-      } ${CLASS_STYLE.bg} ${CLASS_STYLE.border}`}
+      } ${isDragging ? "opacity-30" : "hover:shadow-md hover:ring-1 hover:ring-black/10"}`}
       style={{
         top,
         height: heightPx,
-        borderColor: "#8B5CF6",
+        backgroundColor: vis.bg,
+        borderInlineStartColor: vis.accent,
+        color: vis.text,
         touchAction: draggable ? "none" : undefined,
       }}
     >
       {tier === "tiny" && (
         <p className="flex items-center h-full px-1.5 text-[11px] truncate gap-1">
-          <span className={`size-1.5 rounded-full shrink-0 ${CLASS_STYLE.dot}`} />
-          <span className={`font-semibold ${CLASS_STYLE.text}`}>
-            ⟳ {timeStart}
-          </span>
+          <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: vis.accent }} />
+          <span className="font-semibold">⟳ {timeStart}</span>
         </p>
       )}
       {tier === "small" && (
         <div className="px-1.5 py-0.5">
-          <p className={`truncate text-xs font-semibold leading-tight ${CLASS_STYLE.text}`}>
-            ⟳ {instance.serviceName}
-          </p>
-          <p className={`text-[11px] leading-tight opacity-70 ${CLASS_STYLE.text}`}>
+          <p className="truncate text-xs font-semibold leading-tight">⟳ {instance.serviceName}</p>
+          <p className="text-[11px] leading-tight opacity-70">
             {capacityStr} · {timeStart}
           </p>
         </div>
@@ -937,25 +932,26 @@ function ClassBlock({
       {(tier === "medium" || tier === "large") && (
         <div className="px-2 py-1">
           <p className="flex items-center gap-1 text-[11px] leading-tight">
-            <span className={`size-1.5 rounded-full shrink-0 ${CLASS_STYLE.dot}`} />
-            <span className={`font-medium ${CLASS_STYLE.text} tabular-nums`}>
+            <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: vis.accent }} />
+            <span className="font-medium tabular-nums">
               {timeStart}-{timeEnd}
             </span>
           </p>
-          <p className={`truncate text-xs font-bold leading-tight mt-0.5 ${CLASS_STYLE.text}`}>
-            ⟳ {instance.serviceName}
-          </p>
-          {/* Capacity bar */}
+          <p className="mt-0.5 truncate text-xs font-bold leading-tight">⟳ {instance.serviceName}</p>
           <div className="mt-1 flex items-center gap-1.5">
-            <div className="flex-1 h-1.5 rounded-full bg-violet-200 overflow-hidden">
+            <div
+              className="h-1.5 flex-1 overflow-hidden rounded-full"
+              style={{ backgroundColor: vis.capacityTrack }}
+            >
               <div
-                className={`h-full rounded-full transition-all ${isFull ? "bg-red-400" : "bg-violet-500"}`}
+                className={`h-full rounded-full transition-all ${isFull ? "bg-red-400" : ""}`}
                 style={{
                   width: `${Math.min(100, (booked / instance.maxParticipants) * 100)}%`,
+                  ...(isFull ? {} : { backgroundColor: vis.capacityFill }),
                 }}
               />
             </div>
-            <span className={`text-[10px] font-semibold tabular-nums ${isFull ? "text-red-600" : CLASS_STYLE.text}`}>
+            <span className={`text-[10px] font-semibold tabular-nums ${isFull ? "text-red-600" : ""}`}>
               {capacityStr}
             </span>
             {isFull && (

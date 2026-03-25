@@ -1,5 +1,6 @@
 import type { PublicBusinessData } from "@/lib/db/queries/public-site";
 import { buildSiteTheme } from "@/lib/themes/presets";
+import { getGoogleFontUrl, getSiteFont } from "@/lib/themes/fonts";
 import { getDir, type Locale } from "@/lib/i18n";
 import { SiteHero } from "./site-hero";
 import { SiteAbout } from "./site-about";
@@ -8,13 +9,14 @@ import { SiteTeam } from "./site-team";
 import { SiteGallery } from "./site-gallery";
 import { SiteTestimonials } from "./site-testimonials";
 import { SiteCtaBanner } from "./site-cta-banner";
+import { SiteBooking } from "./site-booking";
 import { SiteProducts } from "./site-products";
 import { SiteContact } from "./site-contact";
 import { SiteReviews } from "./site-reviews";
 import { SiteFooter } from "./site-footer";
 import { SiteNav } from "./site-nav";
 import { WhatsAppButton } from "./whatsapp-button";
-import { PuckPublicRenderer } from "./puck-public-renderer";
+import { AnimatedSection } from "./animated-section";
 
 interface PublicSiteProps {
   data: PublicBusinessData;
@@ -26,26 +28,17 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
   const sections = siteConfig?.sections ?? [];
   const bookingUrl = `/b/${business.slug}/book`;
   const socialLinks = siteConfig?.socialLinks ?? {};
-  const puckData = (siteConfig as any)?.puckData;
+
+  const fontId = siteConfig?.fontFamily as string | null;
+  const siteFont = fontId ? getSiteFont(fontId) : null;
+  const googleFontUrl = fontId ? getGoogleFontUrl(fontId) : null;
 
   const theme = buildSiteTheme(
     siteConfig?.themePreset ?? "modern",
     business.primaryColor,
-    business.secondaryColor
+    business.secondaryColor,
+    siteFont?.tailwindClass ?? null
   );
-
-  if (puckData?.content?.length > 0) {
-    return (
-      <PuckPublicRenderer
-        data={data}
-        puckData={puckData}
-        theme={theme}
-        locale={locale}
-        bookingUrl={bookingUrl}
-        socialLinks={socialLinks}
-      />
-    );
-  }
 
   const enabledSections = sections
     .filter((s) => s.enabled)
@@ -55,6 +48,10 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
 
   return (
     <div className={`min-h-screen bg-white ${theme.font}`} dir={getDir(locale)}>
+      {googleFontUrl && (
+        // eslint-disable-next-line @next/next/no-page-custom-font
+        <link rel="stylesheet" href={googleFontUrl} />
+      )}
       <SiteNav
         businessName={business.name}
         slug={business.slug}
@@ -67,123 +64,151 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
 
       {enabledSections.map((section) => {
         const idx = sectionIndex++;
-        switch (section.type) {
-          case "hero":
-            return (
-              <SiteHero
-                key="hero"
-                businessName={business.name}
-                coverImageUrl={business.coverImageUrl}
-                content={section.content}
-                theme={theme}
-                locale={locale}
-              />
-            );
-          case "about":
-            return (
-              <SiteAbout
-                key="about"
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                locale={locale}
-              />
-            );
-          case "services":
-            return (
-              <SiteServices
-                key="services"
-                services={services}
-                currency={business.currency}
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                bookingUrl={bookingUrl}
-                locale={locale}
-              />
-            );
-          case "team":
-            return (
-              <SiteTeam
-                key="team"
-                staff={staff}
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                locale={locale}
-              />
-            );
-          case "gallery":
-            return (
-              <SiteGallery
-                key="gallery"
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                locale={locale}
-              />
-            );
-          case "testimonials":
-            return (
-              <SiteTestimonials
-                key="testimonials"
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                locale={locale}
-              />
-            );
-          case "cta_banner":
-            return (
-              <SiteCtaBanner
-                key="cta_banner"
-                content={section.content}
-                theme={theme}
-                bookingUrl={bookingUrl}
-                locale={locale}
-              />
-            );
-          case "products":
-            return (
-              <SiteProducts
-                key="products"
-                products={products}
-                currency={business.currency}
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                bookingUrl={bookingUrl}
-                locale={locale}
-                businessId={business.id}
-                cardTemplates={cardTemplates}
-              />
-            );
-          case "contact":
-            return (
-              <SiteContact
-                key="contact"
-                business={business}
-                hours={hours}
-                content={section.content}
-                theme={theme}
-                sectionIndex={idx}
-                locale={locale}
-              />
-            );
-          default:
-            return null;
-        }
+        const isHero = section.type === "hero";
+
+        const inner = (() => {
+          switch (section.type) {
+            case "hero":
+              return (
+                <SiteHero
+                  key="hero"
+                  businessName={business.name}
+                  coverImageUrl={business.coverImageUrl}
+                  content={section.content}
+                  theme={theme}
+                  locale={locale}
+                />
+              );
+            case "about":
+              return (
+                <SiteAbout
+                  key="about"
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  locale={locale}
+                />
+              );
+            case "services":
+              return (
+                <SiteServices
+                  key="services"
+                  services={services}
+                  currency={business.currency}
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  bookingUrl={bookingUrl}
+                  locale={locale}
+                />
+              );
+            case "team":
+              return (
+                <SiteTeam
+                  key="team"
+                  staff={staff}
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  locale={locale}
+                />
+              );
+            case "gallery":
+              return (
+                <SiteGallery
+                  key="gallery"
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  locale={locale}
+                />
+              );
+            case "testimonials":
+              return (
+                <SiteTestimonials
+                  key="testimonials"
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  locale={locale}
+                />
+              );
+            case "cta_banner":
+              return (
+                <SiteCtaBanner
+                  key="cta_banner"
+                  content={section.content}
+                  theme={theme}
+                  bookingUrl={bookingUrl}
+                  locale={locale}
+                />
+              );
+            case "booking":
+              return (
+                <SiteBooking
+                  key="booking"
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  bookingUrl={bookingUrl}
+                  locale={locale}
+                />
+              );
+            case "products":
+              return (
+                <SiteProducts
+                  key="products"
+                  products={products}
+                  currency={business.currency}
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  bookingUrl={bookingUrl}
+                  locale={locale}
+                  businessId={business.id}
+                  cardTemplates={cardTemplates}
+                />
+              );
+            case "contact":
+              return (
+                <SiteContact
+                  key="contact"
+                  business={business}
+                  hours={hours}
+                  content={section.content}
+                  theme={theme}
+                  sectionIndex={idx}
+                  locale={locale}
+                />
+              );
+            default:
+              return null;
+          }
+        })();
+
+        if (!inner) return null;
+
+        return (
+          <AnimatedSection
+            key={section.type}
+            animation={isHero ? "fade-in" : "fade-up"}
+          >
+            {inner}
+          </AnimatedSection>
+        );
       })}
 
       {ratingStats.totalReviews > 0 && (
-        <SiteReviews
-          reviews={reviews}
-          avgRating={ratingStats.avgRating}
-          totalReviews={ratingStats.totalReviews}
-          theme={theme}
-          sectionIndex={enabledSections.length}
-          locale={locale}
-        />
+        <AnimatedSection>
+          <SiteReviews
+            reviews={reviews}
+            avgRating={ratingStats.avgRating}
+            totalReviews={ratingStats.totalReviews}
+            theme={theme}
+            sectionIndex={enabledSections.length}
+            locale={locale}
+          />
+        </AnimatedSection>
       )}
 
       <SiteFooter

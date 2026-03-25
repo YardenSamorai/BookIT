@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
@@ -82,7 +82,7 @@ export async function createService(
   const [svcCount] = await db
     .select({ value: count() })
     .from(services)
-    .where(eq(services.businessId, businessId));
+    .where(and(eq(services.businessId, businessId), ne(services.autoManaged, true)));
 
   const gate = canAddService(plan, svcCount.value);
   if (!gate.allowed) {
@@ -112,6 +112,7 @@ export async function createService(
       isGroup: data.isGroup,
       maxParticipants: data.maxParticipants,
       blocksAllStaff: data.blocksAllStaff,
+      autoManaged: data.autoManaged,
       isActive: data.isActive,
     })
     .returning({ id: services.id });
@@ -154,6 +155,7 @@ export async function updateService(
       isGroup: data.isGroup,
       maxParticipants: data.maxParticipants,
       blocksAllStaff: data.blocksAllStaff,
+      autoManaged: data.autoManaged,
       isActive: data.isActive,
       updatedAt: new Date(),
     })

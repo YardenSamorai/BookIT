@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, count } from "drizzle-orm";
+import { eq, and, gte, lte, desc, count, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   classSchedules,
@@ -18,11 +18,19 @@ export async function getClassSchedules(businessId: string) {
       title: classSchedules.title,
       daysOfWeek: classSchedules.daysOfWeek,
       startTime: classSchedules.startTime,
+      durationMinutes: classSchedules.durationMinutes,
       maxParticipants: classSchedules.maxParticipants,
       effectiveFrom: classSchedules.effectiveFrom,
       effectiveUntil: classSchedules.effectiveUntil,
       isActive: classSchedules.isActive,
       notes: classSchedules.notes,
+      calendarColor: classSchedules.calendarColor,
+      price: classSchedules.price,
+      paymentMode: classSchedules.paymentMode,
+      approvalType: classSchedules.approvalType,
+      depositAmount: classSchedules.depositAmount,
+      cancelHoursBefore: classSchedules.cancelHoursBefore,
+      rescheduleHoursBefore: classSchedules.rescheduleHoursBefore,
       createdAt: classSchedules.createdAt,
       serviceName: services.title,
       staffName: staffMembers.name,
@@ -60,10 +68,12 @@ export async function getClassInstancesForRange(
       endTime: classInstances.endTime,
       maxParticipants: classInstances.maxParticipants,
       status: classInstances.status,
-      serviceName: services.title,
+      serviceName: sql<string>`COALESCE(${classSchedules.title}, ${services.title})`.as("service_name"),
       staffName: staffMembers.name,
+      calendarColor: classSchedules.calendarColor,
     })
     .from(classInstances)
+    .innerJoin(classSchedules, eq(classInstances.classScheduleId, classSchedules.id))
     .innerJoin(services, eq(classInstances.serviceId, services.id))
     .innerJoin(staffMembers, eq(classInstances.staffId, staffMembers.id))
     .where(

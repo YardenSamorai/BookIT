@@ -1,6 +1,7 @@
 import type { SiteTheme } from "@/lib/themes/presets";
 import { Star } from "lucide-react";
 import { t, type Locale } from "@/lib/i18n";
+import { AnimatedStagger } from "./animated-section";
 
 interface Review {
   id: string;
@@ -67,7 +68,7 @@ export function SiteReviews({
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <AnimatedStagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.slice(0, 9).map((review) => (
             <div
               key={review.id}
@@ -101,7 +102,7 @@ export function SiteReviews({
               </div>
             </div>
           ))}
-        </div>
+        </AnimatedStagger>
       </div>
     </section>
   );

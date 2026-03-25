@@ -27,8 +27,17 @@ import type { InferSelectModel } from "drizzle-orm";
 import type { services, serviceCategories, staffMembers } from "@/lib/db/schema";
 import { AlertTriangle, Clock, Loader2, MoreVertical, Pencil, Scissors, Trash2, Users } from "lucide-react";
 import { useT } from "@/lib/i18n/locale-context";
+import type { TranslationKey } from "@/lib/i18n";
 
 type Service = InferSelectModel<typeof services>;
+
+const PAYMENT_MODE_LABEL_KEY: Record<Service["paymentMode"], TranslationKey> = {
+  FULL: "svc.mode_FULL",
+  DEPOSIT: "svc.mode_DEPOSIT",
+  ON_SITE: "svc.mode_ON_SITE",
+  CONTACT_FOR_PRICE: "svc.mode_CONTACT_FOR_PRICE",
+  FREE: "svc.mode_FREE",
+};
 type Category = InferSelectModel<typeof serviceCategories>;
 type StaffMember = InferSelectModel<typeof staffMembers>;
 
@@ -168,7 +177,7 @@ function ServiceRow({
               </span>
               <span className="font-medium text-foreground">{priceDisplay}</span>
               <Badge variant="secondary" className="text-xs">
-                {t(`svc.mode_${svc.paymentMode}` as "svc.mode_FULL_PAYMENT")}
+                {t(PAYMENT_MODE_LABEL_KEY[svc.paymentMode])}
               </Badge>
             </div>
             {linkedStaff.length > 0 && (

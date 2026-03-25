@@ -12,7 +12,7 @@ export default async function CustomersPage() {
   const [customers, staffList, servicesList, serviceStaffLinks, locale] = await Promise.all([
     getCustomersForBusiness(businessId),
     getStaffMembers(businessId),
-    getServices(businessId),
+    getServices(businessId, { includeAutoManaged: true }),
     getServiceStaffLinks(businessId),
     getBusinessLocale(businessId),
   ]);

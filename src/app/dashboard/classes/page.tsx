@@ -12,7 +12,7 @@ export default async function ClassesPage() {
   const locale = await getBusinessLocale(businessId);
   const [schedules, allServices, allStaff] = await Promise.all([
     getClassSchedules(businessId),
-    getServices(businessId),
+    getServices(businessId, { includeAutoManaged: true }),
     getStaffMembers(businessId),
   ]);
 
@@ -21,6 +21,14 @@ export default async function ClassesPage() {
     title: s.title,
     isGroup: s.isGroup,
     durationMinutes: s.durationMinutes,
+    autoManaged: s.autoManaged,
+    maxParticipants: s.maxParticipants,
+    paymentMode: s.paymentMode,
+    approvalType: s.approvalType,
+    price: s.price,
+    depositAmount: s.depositAmount,
+    cancelHoursBefore: s.cancelHoursBefore,
+    rescheduleHoursBefore: s.rescheduleHoursBefore,
   }));
 
   const serializableStaff = allStaff.map((s) => ({

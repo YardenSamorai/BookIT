@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lte, count } from "drizzle-orm";
+import { and, eq, gte, lte, count, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   classInstances,
@@ -34,9 +34,8 @@ export async function GET(request: NextRequest) {
         endTime: classInstances.endTime,
         maxParticipants: classInstances.maxParticipants,
         status: classInstances.status,
-        serviceName: services.title,
+        serviceName: sql<string>`COALESCE(${classSchedules.title}, ${services.title})`.as("service_name"),
         staffName: staffMembers.name,
-        scheduleTitle: classSchedules.title,
       })
       .from(classInstances)
       .innerJoin(services, eq(classInstances.serviceId, services.id))

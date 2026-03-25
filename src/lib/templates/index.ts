@@ -1,4 +1,6 @@
 import type { BusinessTemplate } from "./types";
+import type { Locale } from "@/lib/i18n";
+import type { SiteSection } from "@/lib/db/schema/site-config";
 import { barberTemplate } from "./barber";
 import { beautyTemplate } from "./beauty";
 import { fitnessTemplate } from "./fitness";
@@ -19,4 +21,12 @@ const TEMPLATES: Record<string, BusinessTemplate> = {
 
 export function getTemplate(businessType: string): BusinessTemplate {
   return TEMPLATES[businessType] ?? genericTemplate;
+}
+
+export function getTemplateSections(
+  businessType: string,
+  locale: Locale
+): SiteSection[] {
+  const template = getTemplate(businessType);
+  return template.sections(locale);
 }

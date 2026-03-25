@@ -34,7 +34,9 @@ import {
   updateAllFutureInstancesTime,
   getClassInstanceParticipants,
   searchBusinessCustomers,
+  updateClassSchedule,
 } from "@/actions/classes";
+import { ClassCalendarColorPicker } from "@/components/classes/class-calendar-color-picker";
 import { enrollCustomerInClass } from "@/actions/booking";
 import type { ClassInstance } from "./calendar-types";
 import { getHoursInTz, getMinutesInTz, wallClockToDate, BUSINESS_TZ } from "./calendar-types";
@@ -81,6 +83,7 @@ export function ClassInstanceQuickView({
   const [searchResults, setSearchResults] = useState<{ id: string; name: string; phone: string }[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{ name: string; phone: string } | null>(null);
+  const [calendarColor, setCalendarColor] = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dtLocale = locale === "he" ? "he-IL" : "en-US";
@@ -118,9 +121,21 @@ export function ClassInstanceQuickView({
       setSearchQuery("");
       setSearchResults([]);
       setSelectedCustomer(null);
+      setCalendarColor(instance.calendarColor ?? null);
       loadParticipants();
     }
   }, [open, instance, loadParticipants]);
+
+  function handleCalendarColorChange(hex: string | null) {
+    if (!instance) return;
+    setCalendarColor(hex);
+    startTransition(async () => {
+      const res = await updateClassSchedule(instance.classScheduleId, businessId, {
+        calendarColor: hex,
+      });
+      if (res.success) router.refresh();
+    });
+  }
 
   const durationMin = instance
     ? Math.round(
@@ -384,6 +399,18 @@ export function ClassInstanceQuickView({
             <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
               <Scissors className="size-4 shrink-0" />
               <span>{instance.staffName}</span>
+            </div>
+
+            {/* Calendar color (all sessions for this recurring workout) */}
+            <div className="space-y-2 rounded-lg border bg-muted/15 p-3">
+              <p className="text-xs font-medium text-foreground">{t("cls.calendar_color")}</p>
+              <ClassCalendarColorPicker
+                value={calendarColor}
+                onChange={handleCalendarColorChange}
+                disabled={isPending}
+                hint={t("cls.calendar_color_hint")}
+                defaultLabel={t("cls.calendar_color_default")}
+              />
             </div>
 
             {/* Registrations bar */}

@@ -1,4 +1,5 @@
 import type { SiteSection } from "@/lib/db/schema/site-config";
+import type { Locale } from "@/lib/i18n";
 
 export interface ServiceTemplate {
   title: string;
@@ -18,5 +19,5 @@ export interface HoursTemplate {
 export interface BusinessTemplate {
   services: ServiceTemplate[];
   hours: HoursTemplate[];
-  sections: SiteSection[];
+  sections: (locale: Locale) => SiteSection[];
 }

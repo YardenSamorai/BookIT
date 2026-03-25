@@ -9,10 +9,25 @@ import {
   updateSectionsSchema,
   updateBrandSchema,
   socialLinksSchema,
+  updateSeoSchema,
 } from "@/validators/site-editor";
 import type { ActionResult } from "@/types";
 import type { SiteSection } from "@/lib/db/schema/site-config";
-import type { UpdateSectionsInput, UpdateBrandInput, SocialLinksInput } from "@/validators/site-editor";
+import type { UpdateSectionsInput, UpdateBrandInput, SocialLinksInput, UpdateSeoInput } from "@/validators/site-editor";
+
+async function getBusinessSlug(businessId: string): Promise<string | null> {
+  const row = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { slug: true },
+  });
+  return row?.slug ?? null;
+}
+
+function revalidatePublicSite(slug: string | null) {
+  revalidatePath("/dashboard/site-editor");
+  if (slug) revalidatePath(`/b/${slug}`);
+  revalidatePath("/b");
+}
 
 export async function updateSiteSections(
   input: UpdateSectionsInput
@@ -31,7 +46,8 @@ export async function updateSiteSections(
     .set({ sections, updatedAt: new Date() })
     .where(eq(siteConfigs.businessId, businessId));
 
-  revalidatePath("/dashboard/site-editor");
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
   return { success: true, data: undefined };
 }
 
@@ -56,7 +72,8 @@ export async function updateSiteBrand(
     })
     .where(eq(businesses.id, businessId));
 
-  revalidatePath("/dashboard/site-editor");
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
   return { success: true, data: undefined };
 }
 
@@ -70,7 +87,23 @@ export async function updateThemePreset(
     .set({ themePreset: presetId, updatedAt: new Date() })
     .where(eq(siteConfigs.businessId, businessId));
 
-  revalidatePath("/dashboard/site-editor");
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
+  return { success: true, data: undefined };
+}
+
+export async function updateFontFamily(
+  fontFamily: string | null
+): Promise<ActionResult> {
+  const { businessId } = await requireBusinessOwner();
+
+  await db
+    .update(siteConfigs)
+    .set({ fontFamily: fontFamily || null, updatedAt: new Date() })
+    .where(eq(siteConfigs.businessId, businessId));
+
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
   return { success: true, data: undefined };
 }
 
@@ -84,7 +117,8 @@ export async function toggleSitePublished(
     .set({ published, updatedAt: new Date() })
     .where(eq(businesses.id, businessId));
 
-  revalidatePath("/dashboard/site-editor");
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
   return { success: true, data: undefined };
 }
 
@@ -98,7 +132,8 @@ export async function savePuckData(
     .set({ puckData: data, updatedAt: new Date() })
     .where(eq(siteConfigs.businessId, businessId));
 
-  revalidatePath("/dashboard/site-editor");
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
   return { success: true, data: undefined };
 }
 
@@ -121,6 +156,32 @@ export async function updateSocialLinks(
     .set({ socialLinks, updatedAt: new Date() })
     .where(eq(siteConfigs.businessId, businessId));
 
-  revalidatePath("/dashboard/site-editor");
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
+  return { success: true, data: undefined };
+}
+
+export async function updateSiteSeo(
+  input: UpdateSeoInput
+): Promise<ActionResult> {
+  const { businessId } = await requireBusinessOwner();
+
+  const parsed = updateSeoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0].message };
+  }
+
+  await db
+    .update(siteConfigs)
+    .set({
+      metaTitle: parsed.data.metaTitle || null,
+      metaDescription: parsed.data.metaDescription || null,
+      ogImageUrl: parsed.data.ogImageUrl || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(siteConfigs.businessId, businessId));
+
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
   return { success: true, data: undefined };
 }

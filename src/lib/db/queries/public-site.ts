@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { getBusinessRatingStats } from "./reviews";
 
-export async function getPublicBusinessData(slug: string) {
+export const getPublicBusinessData = cache(async function getPublicBusinessData(slug: string) {
   const business = await db.query.businesses.findFirst({
     where: eq(businesses.slug, slug),
   });
@@ -148,7 +149,7 @@ export async function getPublicBusinessData(slug: string) {
     hasWorkouts: !!activeClassSchedule,
     cardTemplates: cardTemplatesWithServices,
   };
-}
+});
 
 export type PublicBusinessData = NonNullable<
   Awaited<ReturnType<typeof getPublicBusinessData>>

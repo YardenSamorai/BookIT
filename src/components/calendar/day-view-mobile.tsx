@@ -19,7 +19,7 @@ import {
   getHoursInTz,
   getMinutesInTz,
   getStatusStyle,
-  CLASS_STYLE,
+  getClassCardVisual,
   getStaffScheduleForDay,
   getBlockedSlotsForStaffDay,
   isStaffOnTimeOff,
@@ -510,34 +510,39 @@ function MobileClassCard({
   const end = new Date(instance.endTime);
   const booked = instance.bookedCount ?? 0;
   const isFull = booked >= instance.maxParticipants;
+  const vis = getClassCardVisual(instance.calendarColor);
 
   return (
     <button
       onClick={onClick}
-      className={`w-full rounded-xl border-s-[3px] border-dashed ${CLASS_STYLE.border} ${CLASS_STYLE.bg} p-3 text-start transition-shadow active:shadow-md`}
-      style={{ borderColor: "#8B5CF6" }}
+      className="w-full rounded-xl border-s-[3px] border-dashed p-3 text-start transition-shadow active:shadow-md"
+      style={{
+        backgroundColor: vis.bg,
+        borderInlineStartColor: vis.accent,
+        color: vis.text,
+      }}
     >
       <p className="flex items-center gap-1.5 text-sm">
-        <span className={`size-2 rounded-full shrink-0 ${CLASS_STYLE.dot}`} />
-        <span className={`font-semibold ${CLASS_STYLE.text}`}>
+        <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: vis.accent }} />
+        <span className="font-semibold">
           {formatTime(start, dateLocale)} – {formatTime(end, dateLocale)}
         </span>
       </p>
-      <p className={`text-sm font-bold mt-0.5 ${CLASS_STYLE.text}`}>
-        ⟳ {instance.serviceName}
-      </p>
+      <p className="mt-0.5 text-sm font-bold">⟳ {instance.serviceName}</p>
       <div className="mt-1.5 flex items-center gap-2">
-        <div className="flex-1 h-1.5 rounded-full bg-violet-200 overflow-hidden max-w-32">
+        <div
+          className="h-1.5 max-w-32 flex-1 overflow-hidden rounded-full"
+          style={{ backgroundColor: vis.capacityTrack }}
+        >
           <div
-            className={`h-full rounded-full ${isFull ? "bg-red-400" : "bg-violet-500"}`}
+            className={`h-full rounded-full ${isFull ? "bg-red-400" : ""}`}
             style={{
               width: `${Math.min(100, (booked / instance.maxParticipants) * 100)}%`,
+              ...(isFull ? {} : { backgroundColor: vis.capacityFill }),
             }}
           />
         </div>
-        <span
-          className={`text-xs font-semibold tabular-nums ${isFull ? "text-red-600" : CLASS_STYLE.text}`}
-        >
+        <span className={`text-xs font-semibold tabular-nums ${isFull ? "text-red-600" : ""}`}>
           {booked}/{instance.maxParticipants}
         </span>
         {isFull && (

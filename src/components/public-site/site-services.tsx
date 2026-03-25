@@ -4,6 +4,7 @@ import type { SiteTheme } from "@/lib/themes/presets";
 import { Clock, Users } from "lucide-react";
 import { formatPrice } from "@/lib/utils/currencies";
 import { t, type Locale } from "@/lib/i18n";
+import { AnimatedStagger } from "./animated-section";
 
 type Service = InferSelectModel<typeof services>;
 
@@ -57,7 +58,7 @@ export function SiteServices({
         </div>
 
         {cardLayout === "list" ? (
-          <div className="mt-8 space-y-3 sm:mt-12 sm:space-y-4">
+          <AnimatedStagger className="mt-8 space-y-3 sm:mt-12 sm:space-y-4">
             {serviceList.map((svc) => (
               <ServiceListItem
                 key={svc.id}
@@ -70,9 +71,9 @@ export function SiteServices({
                 locale={locale}
               />
             ))}
-          </div>
+          </AnimatedStagger>
         ) : cardLayout === "compact" ? (
-          <div className="mt-8 grid gap-2 sm:mt-12 sm:grid-cols-2 sm:gap-3">
+          <AnimatedStagger className="mt-8 grid gap-2 sm:mt-12 sm:grid-cols-2 sm:gap-3">
             {serviceList.map((svc) => (
               <ServiceCompact
                 key={svc.id}
@@ -85,10 +86,10 @@ export function SiteServices({
                 locale={locale}
               />
             ))}
-          </div>
+          </AnimatedStagger>
         ) : (
           <>
-            <div className="mt-8 space-y-3 sm:hidden">
+            <AnimatedStagger className="mt-8 space-y-3 sm:hidden">
               {serviceList.map((svc) => (
                 <ServiceMobileCard
                   key={svc.id}
@@ -99,10 +100,10 @@ export function SiteServices({
                   showDuration={showDuration}
                   bookingUrl={`${bookingUrl}?service=${svc.id}`}
                   locale={locale}
-                />
-              ))}
-            </div>
-            <div className="mt-12 hidden gap-6 sm:grid sm:grid-cols-2 lg:grid-cols-3">
+              />
+            ))}
+            </AnimatedStagger>
+            <AnimatedStagger className="mt-12 hidden gap-6 sm:grid sm:grid-cols-2 lg:grid-cols-3">
               {serviceList.map((svc) => (
                 <ServiceCard
                   key={svc.id}
@@ -113,9 +114,9 @@ export function SiteServices({
                   showDuration={showDuration}
                   bookingUrl={`${bookingUrl}?service=${svc.id}`}
                   locale={locale}
-                />
-              ))}
-            </div>
+              />
+            ))}
+            </AnimatedStagger>
           </>
         )}
       </div>

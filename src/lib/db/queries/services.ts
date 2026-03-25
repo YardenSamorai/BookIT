@@ -1,8 +1,22 @@
-import { eq, asc } from "drizzle-orm";
+import { eq, and, asc, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { services, serviceCategories, servicePackages, serviceStaff } from "@/lib/db/schema";
 
-export async function getServices(businessId: string) {
+export async function getServices(
+  businessId: string,
+  opts?: { includeAutoManaged?: boolean }
+) {
+  const conditions = [eq(services.businessId, businessId)];
+  if (!opts?.includeAutoManaged) {
+    conditions.push(ne(services.autoManaged, true));
+  }
+  return db.query.services.findMany({
+    where: and(...conditions),
+    orderBy: [asc(services.sortOrder), asc(services.createdAt)],
+  });
+}
+
+export async function getAllServices(businessId: string) {
   return db.query.services.findMany({
     where: eq(services.businessId, businessId),
     orderBy: [asc(services.sortOrder), asc(services.createdAt)],

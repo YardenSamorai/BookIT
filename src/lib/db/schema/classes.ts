@@ -6,10 +6,11 @@ import {
   boolean,
   timestamp,
   date,
+  decimal,
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
-import { classInstanceStatusEnum } from "./enums";
+import { classInstanceStatusEnum, paymentModeEnum, approvalTypeEnum } from "./enums";
 import { businesses } from "./businesses";
 import { services } from "./services";
 import { staffMembers } from "./staff";
@@ -30,11 +31,20 @@ export const classSchedules = pgTable(
     title: text("title"),
     daysOfWeek: jsonb("days_of_week").notNull().$type<number[]>(),
     startTime: text("start_time").notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(60),
     maxParticipants: integer("max_participants").notNull().default(10),
     effectiveFrom: date("effective_from").notNull(),
     effectiveUntil: date("effective_until"),
     isActive: boolean("is_active").notNull().default(true),
     notes: text("notes"),
+    /** Hex e.g. #8B5CF6; null = default violet in calendar UI */
+    calendarColor: text("calendar_color"),
+    price: decimal("price", { precision: 10, scale: 2 }),
+    depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
+    paymentMode: paymentModeEnum("payment_mode").notNull().default("FREE"),
+    approvalType: approvalTypeEnum("approval_type").notNull().default("AUTO"),
+    cancelHoursBefore: integer("cancel_hours_before"),
+    rescheduleHoursBefore: integer("reschedule_hours_before"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

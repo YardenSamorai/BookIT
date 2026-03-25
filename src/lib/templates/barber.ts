@@ -1,5 +1,5 @@
 import type { BusinessTemplate } from "./types";
-import { makeHours, DEFAULT_SECTIONS } from "./shared";
+import { makeHours, makeVerticalSections } from "./shared";
 
 export const barberTemplate: BusinessTemplate = {
   services: [
@@ -8,5 +8,13 @@ export const barberTemplate: BusinessTemplate = {
     { title: "Hair + Beard", description: "Full haircut and beard grooming", durationMinutes: 45, price: "90.00", paymentMode: "ON_SITE" },
   ],
   hours: makeHours([0, 1, 2, 3, 4], "09:00", "20:00"),
-  sections: DEFAULT_SECTIONS,
+  sections: (locale) =>
+    makeVerticalSections(locale, {
+      heroHeadline: "tpl.barber.hero_headline",
+      heroSubtitle: "tpl.barber.hero_subtitle",
+      about: "tpl.barber.about",
+      aboutH1: "tpl.barber.about_h1",
+      aboutH2: "tpl.barber.about_h2",
+      aboutH3: "tpl.barber.about_h3",
+    }),
 };

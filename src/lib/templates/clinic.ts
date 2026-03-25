@@ -1,5 +1,5 @@
 import type { BusinessTemplate } from "./types";
-import { makeHours, DEFAULT_SECTIONS } from "./shared";
+import { makeHours, makeVerticalSections } from "./shared";
 
 export const clinicTemplate: BusinessTemplate = {
   services: [
@@ -7,5 +7,13 @@ export const clinicTemplate: BusinessTemplate = {
     { title: "Treatment", description: "Standard treatment session", durationMinutes: 60, price: "400.00", paymentMode: "DEPOSIT" },
   ],
   hours: makeHours([0, 1, 2, 3, 4], "08:00", "17:00"),
-  sections: DEFAULT_SECTIONS,
+  sections: (locale) =>
+    makeVerticalSections(locale, {
+      heroHeadline: "tpl.clinic.hero_headline",
+      heroSubtitle: "tpl.clinic.hero_subtitle",
+      about: "tpl.clinic.about",
+      aboutH1: "tpl.clinic.about_h1",
+      aboutH2: "tpl.clinic.about_h2",
+      aboutH3: "tpl.clinic.about_h3",
+    }),
 };

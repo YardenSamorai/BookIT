@@ -3,6 +3,7 @@
 import { useT } from "@/lib/i18n/locale-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Users } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -72,9 +73,11 @@ export function TeamSectionEditor({ content, onChange }: TeamSectionEditorProps)
         </Select>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        {t("team_editor.auto_desc")}
-      </p>
+      <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-4 text-center">
+        <Users className="mx-auto size-7 text-muted-foreground/40" />
+        <p className="mt-2 text-sm font-medium">{t("empty.team_title")}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("empty.team_desc")}</p>
+      </div>
     </div>
   );
 }

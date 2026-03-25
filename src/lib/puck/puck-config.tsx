@@ -7,6 +7,7 @@ import { SiteTeam } from "@/components/public-site/site-team";
 import { SiteGallery } from "@/components/public-site/site-gallery";
 import { SiteTestimonials } from "@/components/public-site/site-testimonials";
 import { SiteCtaBanner } from "@/components/public-site/site-cta-banner";
+import { SiteBooking } from "@/components/public-site/site-booking";
 import { SiteContact } from "@/components/public-site/site-contact";
 import { SiteProducts } from "@/components/public-site/site-products";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -199,6 +200,19 @@ function CtaBannerBlock(props: Record<string, unknown>) {
   );
 }
 
+function BookingBlock(props: Record<string, unknown> & { _sectionIndex?: number }) {
+  const biz = usePuckBusiness();
+  return withSectionBg(props,
+    <SiteBooking
+      content={props}
+      theme={biz.theme}
+      sectionIndex={props._sectionIndex ?? 5}
+      bookingUrl={biz.bookingUrl}
+      locale={biz.locale}
+    />
+  );
+}
+
 function ContactBlock(props: Record<string, unknown> & { _sectionIndex?: number }) {
   const biz = usePuckBusiness();
   return withSectionBg(props,
@@ -369,6 +383,7 @@ const labels = {
   cta_banner:      i("באנר קריאה לפעולה", "CTA Banner"),
   contact:         i("יצירת קשר", "Contact"),
   products:        i("מוצרים", "Products"),
+  booking:         i("הזמנת תור", "Booking"),
 
   headline:        i("כותרת", "Headline"),
   subtitle:        i("תת כותרת", "Subtitle"),
@@ -504,7 +519,7 @@ export function buildPuckConfig(locale: L): Config {
       hero:      { title: l("cat_hero", locale),      components: ["Hero"] },
       content:   { title: l("cat_content", locale),    components: ["About", "Gallery"] },
       business:  { title: l("cat_business", locale),   components: ["Services", "Team", "Contact", "Products"] },
-      promotion: { title: l("cat_promotion", locale),  components: ["CtaBanner", "Testimonials"] },
+      promotion: { title: l("cat_promotion", locale),  components: ["CtaBanner", "Testimonials", "Booking"] },
     },
     components: {
       Hero: {
@@ -873,6 +888,23 @@ export function buildPuckConfig(locale: L): Config {
           ...sectionBgDefaults,
         },
         render: (props: any) => <ProductsBlock {...props} />,
+      },
+
+      Booking: {
+        label: l("booking", locale),
+        fields: {
+          title:       { type: "text", label: l("title", locale) },
+          subtitle:    { type: "text", label: l("subtitle", locale) },
+          button_text: { type: "text", label: l("cta_text", locale) },
+          ...sectionBgFields(locale),
+        },
+        defaultProps: {
+          title: "",
+          subtitle: "",
+          button_text: locale === "he" ? "הזמינו עכשיו" : "Book Now",
+          ...sectionBgDefaults,
+        },
+        render: (props: any) => <BookingBlock {...props} />,
       },
 
     },

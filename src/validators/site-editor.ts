@@ -41,7 +41,14 @@ export const socialLinksSchema = z.object({
   website: z.string().url().optional().or(z.literal("")),
 });
 
+export const updateSeoSchema = z.object({
+  metaTitle: z.string().max(70).optional().or(z.literal("")),
+  metaDescription: z.string().max(200).optional().or(z.literal("")),
+  ogImageUrl: z.string().url().optional().or(z.literal("")),
+});
+
 export type SectionInput = z.infer<typeof sectionSchema>;
 export type UpdateSectionsInput = z.infer<typeof updateSectionsSchema>;
 export type UpdateBrandInput = z.infer<typeof updateBrandSchema>;
 export type SocialLinksInput = z.infer<typeof socialLinksSchema>;
+export type UpdateSeoInput = z.infer<typeof updateSeoSchema>;

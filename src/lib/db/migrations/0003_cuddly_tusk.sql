@@ -1,0 +1,1 @@
+ALTER TABLE "site_config" ADD COLUMN "font_family" text;

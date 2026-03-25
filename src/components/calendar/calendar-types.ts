@@ -62,6 +62,8 @@ export type ClassInstance = {
   serviceName: string;
   staffName: string;
   bookedCount: number;
+  /** From recurring schedule; null = default violet in UI */
+  calendarColor?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -208,6 +210,53 @@ export const CLASS_STYLE = {
   text: "text-violet-800",
   dot: "bg-violet-500",
 };
+
+/** Default class block tint (matches previous hard-coded violet). */
+export const DEFAULT_CLASS_CALENDAR_HEX = "#8B5CF6";
+
+export const CLASS_CALENDAR_COLOR_PRESETS = [
+  "#8B5CF6",
+  "#2563EB",
+  "#059669",
+  "#D97706",
+  "#DC2626",
+  "#DB2777",
+  "#0891B2",
+  "#4F46E5",
+  "#65A30D",
+  "#EA580C",
+] as const;
+
+export type ClassCardVisual = {
+  accent: string;
+  bg: string;
+  text: string;
+  capacityTrack: string;
+  capacityFill: string;
+};
+
+export function parseCalendarHex(hex: string | null | undefined): string {
+  if (hex && typeof hex === "string") {
+    const t = hex.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t;
+  }
+  return DEFAULT_CLASS_CALENDAR_HEX;
+}
+
+export function getClassCardVisual(hex: string | null | undefined): ClassCardVisual {
+  const c = parseCalendarHex(hex);
+  const r = parseInt(c.slice(1, 3), 16);
+  const g = parseInt(c.slice(3, 5), 16);
+  const b = parseInt(c.slice(5, 7), 16);
+  const tc = (n: number) => Math.max(38, Math.min(118, Math.round(n * 0.34 + 14)));
+  return {
+    accent: c,
+    bg: `rgba(${r},${g},${b},0.16)`,
+    text: `rgb(${tc(r)}, ${tc(g)}, ${tc(b)})`,
+    capacityTrack: `rgba(${r},${g},${b},0.24)`,
+    capacityFill: `rgb(${Math.round(r * 0.75)}, ${Math.round(g * 0.75)}, ${Math.round(b * 0.75)})`,
+  };
+}
 
 export function getStatusStyle(status: string): StatusStyle {
   return STATUS_STYLES[status] ?? STATUS_STYLES.CONFIRMED;

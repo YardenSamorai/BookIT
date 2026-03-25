@@ -1,5 +1,6 @@
 import type { SiteTheme } from "@/lib/themes/presets";
 import { t, type Locale } from "@/lib/i18n";
+import { AnimatedStagger } from "./animated-section";
 
 interface GalleryImage {
   url: string;
@@ -61,17 +62,17 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
         </div>
 
         {layout === "masonry" ? (
-          <div className={`mt-8 columns-3 gap-2 space-y-2 sm:mt-12 sm:columns-2 sm:gap-4 sm:space-y-4 ${columns >= 3 ? "lg:columns-3" : ""}`}>
+          <AnimatedStagger className={`mt-8 columns-3 gap-2 space-y-2 sm:mt-12 sm:columns-2 sm:gap-4 sm:space-y-4 ${columns >= 3 ? "lg:columns-3" : ""}`}>
             {images.map((img, i) => (
               <GalleryItem key={i} image={img} theme={theme} />
             ))}
-          </div>
+          </AnimatedStagger>
         ) : (
-          <div className={`mt-8 grid gap-2 sm:mt-12 sm:gap-4 ${colClass}`}>
+          <AnimatedStagger className={`mt-8 grid gap-2 sm:mt-12 sm:gap-4 ${colClass}`}>
             {images.map((img, i) => (
               <GalleryItem key={i} image={img} theme={theme} />
             ))}
-          </div>
+          </AnimatedStagger>
         )}
       </div>
     </section>

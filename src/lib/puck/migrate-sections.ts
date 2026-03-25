@@ -11,6 +11,7 @@ const SECTION_TYPE_TO_COMPONENT: Record<string, string> = {
   cta_banner: "CtaBanner",
   contact: "Contact",
   products: "Products",
+  booking: "Booking",
 };
 
 function serializeBooleans(content: Record<string, unknown>): Record<string, unknown> {

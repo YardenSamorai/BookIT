@@ -69,6 +69,7 @@ export function ServiceFormPage({
     isGroup: defaultValues?.isGroup ?? false,
     maxParticipants: defaultValues?.maxParticipants ?? 1,
     blocksAllStaff: defaultValues?.blocksAllStaff ?? false,
+    autoManaged: defaultValues?.autoManaged ?? false,
     cancelHoursBefore: defaultValues?.cancelHoursBefore ?? 0,
     rescheduleHoursBefore: defaultValues?.rescheduleHoursBefore ?? 0,
     isActive: defaultValues?.isActive ?? true,

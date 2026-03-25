@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useT } from "@/lib/i18n/locale-context";
 import { DAYS_SHORT_KEYS } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ interface SitePreviewPanelProps {
   hours: HoursRow[];
   currency: string;
   themePresetId?: string;
+  activeSectionType?: string | null;
 }
 
 
@@ -47,6 +48,7 @@ export function SitePreviewPanel({
   hours,
   currency,
   themePresetId = "modern",
+  activeSectionType = null,
 }: SitePreviewPanelProps) {
   const t = useT();
   const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
@@ -97,7 +99,7 @@ export function SitePreviewPanel({
         <div className="h-[calc(100vh-200px)] overflow-y-auto bg-white">
           <div
             className={cn(
-              "text-[10px] leading-relaxed",
+              "text-[10px] leading-relaxed [&_*]:transition-[background-color,color,border-color] [&_*]:duration-300",
               theme.preset.fontStyle === "classic" ? "font-serif" : "font-sans"
             )}
           >
@@ -157,6 +159,8 @@ export function SitePreviewPanel({
                 theme={theme}
                 r={r}
                 t={t}
+                isActive={activeSectionType === section.type}
+                isMobile={isMobile}
               />
             ))}
 
@@ -188,6 +192,8 @@ function PreviewSection({
   theme,
   r,
   t,
+  isActive = false,
+  isMobile = false,
 }: {
   section: SiteSection;
   sectionIndex: number;
@@ -200,7 +206,17 @@ function PreviewSection({
   theme: ReturnType<typeof buildSiteTheme>;
   r: string;
   t: (key: import("@/lib/i18n").TranslationKey, vars?: Record<string, string | number>) => string;
+  isActive?: boolean;
+  isMobile?: boolean;
 }) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isActive && sectionRef.current) {
+      sectionRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isActive]);
+
   const c = section.content;
   const isAlt = sectionIndex % 2 === 1;
   const sectionBg = isAlt ? "bg-gray-50/60" : "bg-white";
@@ -218,10 +234,15 @@ function PreviewSection({
     theme.preset.cardStyle === "glass" && "border border-white/20 bg-white/80 backdrop-blur-sm"
   );
 
-  switch (section.type) {
+  const activeRing = isActive
+    ? "ring-2 ring-primary/40 ring-offset-1 transition-shadow duration-300"
+    : "transition-shadow duration-300";
+
+  const renderSection = () => { switch (section.type) {
     case "hero":
       {
         const bgMode = (c.bg_mode as string) || "upload";
+        const heroLayout = (c.layout as string) || "center";
         const presetBg = bgMode === "preset" && typeof c.bg_preset_id === "string"
           ? getHeroBackground(c.bg_preset_id)
           : undefined;
@@ -251,12 +272,70 @@ function PreviewSection({
           xl: "text-lg",
         };
 
+        const textBlock = (
+          <div className={cn("relative z-10 flex flex-col", previewAlignClass)}>
+            <h1
+              className={cn(
+                "mb-1 leading-tight",
+                previewHeadlineSizeMap[heroTextSize.id] ?? "text-base",
+                heroFontStyle.fontWeight,
+                heroFontStyle.letterSpacing
+              )}
+              style={{
+                fontFamily: heroFontStyle.fontFamily,
+                textTransform: heroFontStyle.textTransform,
+              }}
+            >
+              {(c.headline as string) || businessName}
+            </h1>
+            <p className={cn("mb-2 text-[9px]", isDarkText ? "text-gray-500" : "opacity-80")}>
+              {(c.subtitle as string) || t("pub.default_subtitle")}
+            </p>
+            <div className={cn("flex gap-1.5", previewAlignJustify)}>
+              <div
+                className={cn("inline-block px-2 py-0.5 text-[8px] font-semibold text-white", r)}
+                style={
+                  theme.preset.buttonStyle === "gradient"
+                    ? { background: `linear-gradient(135deg, ${brand.secondaryColor}, ${brand.primaryColor})` }
+                    : { backgroundColor: brand.secondaryColor }
+                }
+              >
+                {(c.cta_text as string) || t("pub.book_now")}
+              </div>
+              {(c.cta_secondary_text as string) && (
+                <div
+                  className={cn("inline-block border px-2 py-0.5 text-[8px] font-semibold", r, isDarkText ? "border-gray-300 text-gray-700" : "border-white/30 text-white")}
+                >
+                  {c.cta_secondary_text as string}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+        if (heroLayout === "split" && showImage && imgSrc) {
+          return (
+            <div
+              className={cn("relative flex min-h-[120px] overflow-hidden", heroTextColor)}
+              style={heroBgStyle}
+            >
+              <div className="flex w-1/2 flex-col justify-center px-3 py-6">
+                {textBlock}
+              </div>
+              <div className="relative w-1/2">
+                <img src={imgSrc} alt="" className="absolute inset-0 size-full object-cover" />
+                <div className="absolute inset-0" style={{ backgroundColor: "black", opacity: ((c.overlay_opacity as number) ?? 0.5) * 0.3 }} />
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div
             className={cn(
               "relative flex min-h-[120px] flex-col overflow-hidden px-4 py-8",
               previewAlignClass,
-              heroAlign === "center" ? "justify-center" : "justify-center",
+              "justify-center",
               heroTextColor
             )}
             style={heroBgStyle}
@@ -277,44 +356,7 @@ function PreviewSection({
                 }}
               />
             )}
-            <div className={cn("relative z-10 flex flex-col", previewAlignClass)}>
-              <h1
-                className={cn(
-                  "mb-1 leading-tight",
-                  previewHeadlineSizeMap[heroTextSize.id] ?? "text-base",
-                  heroFontStyle.fontWeight,
-                  heroFontStyle.letterSpacing
-                )}
-                style={{
-                  fontFamily: heroFontStyle.fontFamily,
-                  textTransform: heroFontStyle.textTransform,
-                }}
-              >
-                {(c.headline as string) || businessName}
-              </h1>
-              <p className={cn("mb-2 text-[9px]", isDarkText ? "text-gray-500" : "opacity-80")}>
-                {(c.subtitle as string) || t("pub.default_subtitle")}
-              </p>
-              <div className={cn("flex gap-1.5", previewAlignJustify)}>
-                <div
-                  className={cn("inline-block px-2 py-0.5 text-[8px] font-semibold text-white", r)}
-                  style={
-                    theme.preset.buttonStyle === "gradient"
-                      ? { background: `linear-gradient(135deg, ${brand.secondaryColor}, ${brand.primaryColor})` }
-                      : { backgroundColor: brand.secondaryColor }
-                  }
-                >
-                  {(c.cta_text as string) || t("pub.book_now")}
-                </div>
-                {(c.cta_secondary_text as string) && (
-                  <div
-                    className={cn("inline-block border px-2 py-0.5 text-[8px] font-semibold", r, isDarkText ? "border-gray-300 text-gray-700" : "border-white/30 text-white")}
-                  >
-                    {c.cta_secondary_text as string}
-                  </div>
-                )}
-              </div>
-            </div>
+            {textBlock}
           </div>
         );
       }
@@ -351,61 +393,128 @@ function PreviewSection({
         </div>
       );
 
-    case "services":
+    case "services": {
+      const svcLayout = (c.card_layout as string) || "grid";
+      const showPrices = c.show_prices !== false;
+      const showDuration = c.show_duration !== false;
+      const isGrid = svcLayout === "grid";
+      const isCompact = svcLayout === "compact";
+
       return (
         <div className={cn("px-3 py-4", sectionBg)}>
           <p className={headingClass} style={{ color: brand.primaryColor }}>
             {(c.title as string) || t("pub.our_services")}
           </p>
-          <div className="space-y-1.5">
-            {serviceList.slice(0, 4).map((svc) => (
-              <div key={svc.id} className={cn("flex items-center gap-2", cardClass)}>
-                {svc.imageUrl && (
+          {typeof c.subtitle === "string" && c.subtitle && (
+            <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+          )}
+          <div className={cn(
+            isGrid ? "grid grid-cols-2 gap-1.5" : "space-y-1.5"
+          )}>
+            {serviceList.slice(0, isCompact ? 6 : 4).map((svc) => (
+              <div key={svc.id} className={cn(
+                isCompact
+                  ? "flex items-center justify-between gap-1 py-0.5 border-b border-gray-100 last:border-0"
+                  : cn("flex items-center gap-2", cardClass)
+              )}>
+                {!isCompact && svc.imageUrl && (
                   <img src={svc.imageUrl} alt="" className={cn("size-8 object-cover", r)} />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-[9px] font-semibold">{svc.title}</p>
-                  <p className="text-[7px] text-gray-500">
-                    {svc.durationMinutes}min
-                    {svc.price && c.show_prices !== false && ` · ${currency}${svc.price}`}
-                  </p>
+                  {!isCompact && (
+                    <p className="text-[7px] text-gray-500">
+                      {showDuration && `${svc.durationMinutes}min`}
+                      {showDuration && showPrices && svc.price && " · "}
+                      {showPrices && svc.price && `${currency}${svc.price}`}
+                    </p>
+                  )}
                 </div>
+                {isCompact && showPrices && svc.price && (
+                  <span className="text-[7px] font-medium" style={{ color: brand.primaryColor }}>
+                    {currency}{svc.price}
+                  </span>
+                )}
               </div>
             ))}
-            {serviceList.length > 4 && (
+            {serviceList.length > (isCompact ? 6 : 4) && (
               <p className="text-center text-[7px] text-gray-400">
-                {t("pub.n_more", { n: serviceList.length - 4 })}
+                {t("pub.n_more", { n: serviceList.length - (isCompact ? 6 : 4) })}
               </p>
             )}
           </div>
         </div>
       );
+    }
 
-    case "team":
+    case "team": {
+      const teamStyle = (c.card_style as string) || "photo";
+
       return (
         <div className={cn("px-3 py-4", sectionBg)}>
           <p className={headingClass} style={{ color: brand.primaryColor }}>
             {(c.title as string) || t("pub.meet_team")}
           </p>
-          <div className="flex gap-2 overflow-x-auto">
-            {staff.slice(0, 4).map((member) => (
-              <div key={member.id} className="flex flex-col items-center gap-1">
-                <div
-                  className="flex size-8 items-center justify-center rounded-full text-[8px] font-bold text-white"
-                  style={{ backgroundColor: brand.secondaryColor }}
-                >
-                  {member.imageUrl ? (
-                    <img src={member.imageUrl} alt="" className="size-full rounded-full object-cover" />
-                  ) : (
-                    member.name.slice(0, 2).toUpperCase()
-                  )}
+          {typeof c.subtitle === "string" && c.subtitle && (
+            <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+          )}
+          {teamStyle === "minimal" ? (
+            <div className="space-y-1">
+              {staff.slice(0, 4).map((member) => (
+                <div key={member.id} className="flex items-center gap-2 py-0.5">
+                  <div
+                    className="flex size-5 items-center justify-center rounded-full text-[6px] font-bold text-white"
+                    style={{ backgroundColor: brand.secondaryColor }}
+                  >
+                    {member.name.slice(0, 1).toUpperCase()}
+                  </div>
+                  <p className="text-[8px] font-medium">{member.name}</p>
                 </div>
-                <p className="text-[7px] font-medium">{member.name.split(" ")[0]}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : teamStyle === "avatar" ? (
+            <div className="space-y-1.5">
+              {staff.slice(0, 3).map((member) => (
+                <div key={member.id} className={cn("flex items-center gap-2", cardClass)}>
+                  <div
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full text-[7px] font-bold text-white"
+                    style={{ backgroundColor: brand.secondaryColor }}
+                  >
+                    {member.imageUrl ? (
+                      <img src={member.imageUrl} alt="" className="size-full rounded-full object-cover" />
+                    ) : (
+                      member.name.slice(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-semibold">{member.name}</p>
+                    {member.roleTitle && <p className="text-[6px] text-gray-500">{member.roleTitle}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto">
+              {staff.slice(0, 4).map((member) => (
+                <div key={member.id} className="flex flex-col items-center gap-1">
+                  <div
+                    className="flex size-8 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                    style={{ backgroundColor: brand.secondaryColor }}
+                  >
+                    {member.imageUrl ? (
+                      <img src={member.imageUrl} alt="" className="size-full rounded-full object-cover" />
+                    ) : (
+                      member.name.slice(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <p className="text-[7px] font-medium">{member.name.split(" ")[0]}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       );
+    }
 
     case "gallery": {
       const images = Array.isArray(c.images) ? c.images : [];
@@ -416,12 +525,20 @@ function PreviewSection({
         })
         .filter((img: { url: string }) => img.url);
 
+      const galCols = Math.min(4, Math.max(2, Number(c.columns ?? 2)));
+      const galLayout = (c.layout as string) || "grid";
+      const isCarousel = galLayout === "carousel";
+      const maxShow = galCols * 2;
+
       if (galleryImages.length === 0) {
         return (
           <div className={cn("px-3 py-4", sectionBg)}>
             <p className={headingClass} style={{ color: brand.primaryColor }}>
               {(c.title as string) || t("pub.our_work")}
             </p>
+            {typeof c.subtitle === "string" && c.subtitle && (
+              <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+            )}
             <p className="text-[8px] text-gray-400">{t("pub.add_images_hint")}</p>
           </div>
         );
@@ -432,14 +549,34 @@ function PreviewSection({
           <p className={headingClass} style={{ color: brand.primaryColor }}>
             {(c.title as string) || t("pub.our_work")}
           </p>
-          <div className="grid grid-cols-2 gap-1">
-            {galleryImages.slice(0, 4).map((img: { url: string; caption: string }, i: number) => (
-              <img key={i} src={img.url} alt={img.caption} className={cn("h-12 w-full object-cover", r)} />
-            ))}
-          </div>
-          {galleryImages.length > 4 && (
+          {typeof c.subtitle === "string" && c.subtitle && (
+            <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+          )}
+          {isCarousel ? (
+            <div className="flex gap-1 overflow-hidden">
+              {galleryImages.slice(0, 4).map((img: { url: string; caption: string }, i: number) => (
+                <img key={i} src={img.url} alt={img.caption} className={cn("h-14 w-20 shrink-0 object-cover", r)} />
+              ))}
+            </div>
+          ) : (
+            <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${galCols}, 1fr)` }}>
+              {galleryImages.slice(0, maxShow).map((img: { url: string; caption: string }, i: number) => (
+                <img
+                  key={i}
+                  src={img.url}
+                  alt={img.caption}
+                  className={cn(
+                    "w-full object-cover",
+                    r,
+                    galLayout === "masonry" && i % 3 === 0 ? "h-16" : "h-12"
+                  )}
+                />
+              ))}
+            </div>
+          )}
+          {galleryImages.length > maxShow && (
             <p className="mt-1 text-center text-[7px] text-gray-400">
-              {t("pub.n_more", { n: galleryImages.length - 4 })}
+              {t("pub.n_more", { n: galleryImages.length - maxShow })}
             </p>
           )}
         </div>
@@ -448,16 +585,18 @@ function PreviewSection({
 
     case "testimonials": {
       const testimonials = Array.isArray(c.testimonials) ? c.testimonials : [];
+      const testLayout = (c.layout as string) || "cards";
       const parsed = testimonials
         .map((item: unknown) => {
           const o = item as Record<string, unknown>;
           return {
             name: String(o?.name ?? ""),
             text: String(o?.text ?? ""),
+            role: String(o?.role ?? ""),
             rating: Number(o?.rating ?? 5),
           };
         })
-        .filter((item: { name: string; text: string }) => item.name && item.text);
+        .filter((item) => item.name && item.text);
 
       if (parsed.length === 0) {
         return (
@@ -465,6 +604,9 @@ function PreviewSection({
             <p className={headingClass} style={{ color: brand.primaryColor }}>
               {(c.title as string) || t("pub.what_clients_say")}
             </p>
+            {typeof c.subtitle === "string" && c.subtitle && (
+              <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+            )}
             <p className="text-[8px] text-gray-400">{t("pub.add_testimonials_hint")}</p>
           </div>
         );
@@ -475,82 +617,205 @@ function PreviewSection({
           <p className={headingClass} style={{ color: brand.primaryColor }}>
             {(c.title as string) || t("pub.what_clients_say")}
           </p>
-          <div className="space-y-1.5">
-            {parsed.slice(0, 3).map((item: { name: string; text: string; rating: number }, i: number) => (
-              <div key={i} className={cardClass}>
-                <div className="mb-0.5 flex gap-0.5">
-                  {Array.from({ length: 5 }, (_, j) => (
-                    <Star
-                      key={j}
-                      className="size-2"
-                      fill={j < item.rating ? brand.secondaryColor : "transparent"}
-                      stroke={j < item.rating ? brand.secondaryColor : "#D1D5DB"}
-                    />
-                  ))}
+          {typeof c.subtitle === "string" && c.subtitle && (
+            <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
+          )}
+          {testLayout === "minimal" ? (
+            <div className="space-y-2 border-s-2 ps-2" style={{ borderColor: brand.secondaryColor }}>
+              {parsed.slice(0, 3).map((item, i) => (
+                <div key={i}>
+                  <p className="text-[8px] text-gray-600 italic line-clamp-2">&ldquo;{item.text}&rdquo;</p>
+                  <p className="mt-0.5 text-[7px] font-semibold">{item.name}</p>
                 </div>
-                <p className="text-[8px] text-gray-600 italic line-clamp-2">&ldquo;{item.text}&rdquo;</p>
-                <p className="mt-0.5 text-[7px] font-semibold">{item.name}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+          ) : testLayout === "slider" ? (
+            <div className="flex gap-1.5 overflow-hidden">
+              {parsed.slice(0, 3).map((item, i) => (
+                <div key={i} className={cn("shrink-0 w-[70%]", cardClass)}>
+                  <div className="mb-0.5 flex gap-0.5">
+                    {Array.from({ length: 5 }, (_, j) => (
+                      <Star key={j} className="size-2" fill={j < item.rating ? brand.secondaryColor : "transparent"} stroke={j < item.rating ? brand.secondaryColor : "#D1D5DB"} />
+                    ))}
+                  </div>
+                  <p className="text-[8px] text-gray-600 italic line-clamp-2">&ldquo;{item.text}&rdquo;</p>
+                  <p className="mt-0.5 text-[7px] font-semibold">{item.name}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {parsed.slice(0, 3).map((item, i) => (
+                <div key={i} className={cardClass}>
+                  <div className="mb-0.5 flex gap-0.5">
+                    {Array.from({ length: 5 }, (_, j) => (
+                      <Star key={j} className="size-2" fill={j < item.rating ? brand.secondaryColor : "transparent"} stroke={j < item.rating ? brand.secondaryColor : "#D1D5DB"} />
+                    ))}
+                  </div>
+                  <p className="text-[8px] text-gray-600 italic line-clamp-2">&ldquo;{item.text}&rdquo;</p>
+                  <p className="mt-0.5 text-[7px] font-semibold">
+                    {item.name}
+                    {item.role && <span className="font-normal text-gray-400"> · {item.role}</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "cta_banner": {
+      const ctaBgStyle = (c.bg_style as string) || "gradient";
+      const ctaLayout = (c.layout as string) || "centered";
+      const isLeft = ctaLayout === "left";
+      const ctaBgCss: React.CSSProperties =
+        ctaBgStyle === "image" && (c.bg_image as string)
+          ? { backgroundImage: `url(${c.bg_image})`, backgroundSize: "cover", backgroundPosition: "center" }
+          : ctaBgStyle === "solid"
+            ? { backgroundColor: brand.primaryColor }
+            : { background: `linear-gradient(135deg, ${brand.primaryColor} 0%, ${brand.secondaryColor} 100%)` };
+
+      return (
+        <div
+          className={cn("relative px-3 py-5 text-white", isLeft ? "text-start" : "text-center")}
+          style={ctaBgCss}
+        >
+          {ctaBgStyle === "image" && (
+            <div className="absolute inset-0 bg-black/50" />
+          )}
+          <div className="relative z-10">
+            <p className={cn(
+              "text-[10px] leading-tight",
+              theme.preset.fontStyle === "bold" ? "font-black" : "font-bold"
+            )}>
+              {(c.headline as string) || t("pub.cta_default")}
+            </p>
+            {typeof c.subtitle === "string" && c.subtitle && (
+              <p className="mt-0.5 text-[8px] text-white/70">{c.subtitle}</p>
+            )}
+            <div
+              className={cn("mt-2 inline-block px-2 py-0.5 text-[8px] font-semibold", r)}
+              style={{ backgroundColor: "white", color: brand.primaryColor }}
+            >
+              {(c.button_text as string) || t("pub.book_now")}
+            </div>
           </div>
         </div>
       );
     }
 
-    case "cta_banner":
+    case "booking":
       return (
-        <div
-          className="px-3 py-5 text-center text-white"
-          style={
-            (c.bg_style as string) === "solid"
-              ? { backgroundColor: brand.primaryColor }
-              : { background: `linear-gradient(135deg, ${brand.primaryColor} 0%, ${brand.secondaryColor} 100%)` }
-          }
-        >
-          <p className={cn(
-            "text-[10px] leading-tight",
-            theme.preset.fontStyle === "bold" ? "font-black" : "font-bold"
-          )}>
-            {(c.headline as string) || t("pub.cta_default")}
-          </p>
-          {typeof c.subtitle === "string" && c.subtitle && (
-            <p className="mt-0.5 text-[8px] text-white/70">{c.subtitle}</p>
-          )}
+        <div className={cn("px-3 py-5 text-center", sectionBg)}>
           <div
-            className={cn("mt-2 inline-block px-2 py-0.5 text-[8px] font-semibold", r)}
-            style={{ backgroundColor: "white", color: brand.primaryColor }}
+            className={cn("mx-auto px-4 py-5", r, theme.card)}
           >
-            {(c.button_text as string) || t("pub.book_now")}
+            <p className={cn("text-[10px] font-bold", theme.preset.fontStyle === "bold" ? "font-black" : "font-bold")} style={{ color: brand.primaryColor }}>
+              {(c.title as string) || t("pub.booking_section_title")}
+            </p>
+            {typeof c.subtitle === "string" && c.subtitle && (
+              <p className="mt-0.5 text-[7px] text-gray-500">{c.subtitle}</p>
+            )}
+            <div
+              className={cn("mt-2 inline-block px-2 py-0.5 text-[7px] font-semibold text-white", r)}
+              style={{ backgroundColor: brand.secondaryColor }}
+            >
+              {(c.button_text as string) || t("pub.book_now")}
+            </div>
           </div>
         </div>
       );
 
-    case "contact":
-      return (
-        <div className={cn("px-3 py-4", sectionBg)}>
-          <p className={headingClass} style={{ color: brand.primaryColor }}>
-            {(c.title as string) || t("section.contact")}
-          </p>
-          <div className="space-y-0.5">
-            {hours
-              .filter((h) => h.isOpen)
-              .slice(0, 5)
-              .map((h) => (
-                <div
-                  key={h.dayOfWeek}
-                  className="flex justify-between text-[7px] text-gray-700"
-                >
-                  <span>{t(DAYS_SHORT_KEYS[h.dayOfWeek])}</span>
-                  <span>
-                    {formatTime(h.startTime)} – {formatTime(h.endTime)}
-                  </span>
-                </div>
-              ))}
+    case "contact": {
+      const contactLayout = (c.layout as string) || "split";
+      const hoursRows = hours.filter((h) => h.isOpen).slice(0, 5);
+
+      const miniHours = (
+        <div className="space-y-0.5">
+          {hoursRows.map((h) => (
+            <div key={h.dayOfWeek} className="flex justify-between text-[7px] text-gray-700">
+              <span>{t(DAYS_SHORT_KEYS[h.dayOfWeek])}</span>
+              <span>{formatTime(h.startTime)} – {formatTime(h.endTime)}</span>
+            </div>
+          ))}
+        </div>
+      );
+
+      const miniContact = (
+        <div className="space-y-0.5 text-[7px] text-gray-600">
+          <div className="flex items-center gap-1">
+            <div className="size-1.5 rounded-full" style={{ backgroundColor: brand.secondaryColor }} />
+            <span>{t("pub.phone")}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="size-1.5 rounded-full" style={{ backgroundColor: brand.secondaryColor }} />
+            <span>{t("pub.email")}</span>
           </div>
         </div>
       );
+
+      const miniMap = (c.map_embed_url as string) ? (
+        <div className="rounded bg-gray-200 flex items-center justify-center" style={{ height: isMobile ? 30 : 40 }}>
+          <span className="text-[6px] text-gray-400">Map</span>
+        </div>
+      ) : null;
+
+      if (contactLayout === "stacked") {
+        return (
+          <div className={cn("px-3 py-4 space-y-2", sectionBg)}>
+            <p className={cn(headingClass, "text-center")} style={{ color: brand.primaryColor }}>
+              {(c.title as string) || t("section.contact")}
+            </p>
+            {miniContact}
+            {miniHours}
+            {miniMap}
+          </div>
+        );
+      }
+
+      if (contactLayout === "with_map") {
+        return (
+          <div className={cn("px-3 py-4", sectionBg)}>
+            <p className={cn(headingClass, "text-center")} style={{ color: brand.primaryColor }}>
+              {(c.title as string) || t("section.contact")}
+            </p>
+            <div className={cn("mt-1", isMobile ? "space-y-2" : "grid grid-cols-2 gap-2")}>
+              <div className="space-y-2">
+                {miniContact}
+                {miniHours}
+              </div>
+              {miniMap || (
+                <div className="rounded bg-gray-100 flex items-center justify-center" style={{ height: 40 }}>
+                  <span className="text-[6px] text-gray-300">Map</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className={cn("px-3 py-4", sectionBg)}>
+          <p className={cn(headingClass, "text-center")} style={{ color: brand.primaryColor }}>
+            {(c.title as string) || t("section.contact")}
+          </p>
+          <div className={cn("mt-1", isMobile ? "space-y-2" : "grid grid-cols-2 gap-2")}>
+            {miniContact}
+            {miniHours}
+          </div>
+          {miniMap && <div className="mt-2">{miniMap}</div>}
+        </div>
+      );
+    }
 
     default:
       return null;
-  }
+  }};
+
+  return (
+    <div ref={sectionRef} className={activeRing}>
+      {renderSection()}
+    </div>
+  );
 }

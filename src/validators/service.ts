@@ -20,6 +20,7 @@ export const serviceSchema = z.object({
   isGroup: z.boolean().default(false),
   maxParticipants: z.coerce.number().int().min(1).max(500).default(1),
   blocksAllStaff: z.boolean().default(false),
+  autoManaged: z.boolean().default(false),
   cancelHoursBefore: z.coerce.number().int().min(0).optional(),
   rescheduleHoursBefore: z.coerce.number().int().min(0).optional(),
   isActive: z.boolean().default(true),

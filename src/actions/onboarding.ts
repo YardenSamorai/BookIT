@@ -73,8 +73,8 @@ export async function createBusiness(
 
     db.insert(siteConfigs).values({
       businessId: business.id,
-      sections: template.sections,
-      themePreset: "default",
+      sections: template.sections("he"),
+      themePreset: "modern",
     }),
   ]);
 

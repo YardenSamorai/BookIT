@@ -733,20 +733,20 @@ export function getHeroBackground(id: string): HeroBackground | undefined {
 }
 
 export const BACKGROUND_CATEGORIES = [
-  { id: "photo", label: "Photos" },
-  { id: "dark", label: "Dark" },
-  { id: "texture", label: "Textures" },
-  { id: "colorful", label: "Colorful" },
-  { id: "light", label: "Light" },
+  { id: "photo", label: "Photos", labelKey: "hero.bg_photos" },
+  { id: "dark", label: "Dark", labelKey: "hero.bg_dark" },
+  { id: "texture", label: "Textures", labelKey: "hero.bg_textures" },
+  { id: "colorful", label: "Colorful", labelKey: "hero.bg_colorful" },
+  { id: "light", label: "Light", labelKey: "hero.bg_light" },
 ] as const;
 
 export const PHOTO_SUBCATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "nature", label: "Nature" },
-  { id: "urban", label: "Urban" },
-  { id: "workspace", label: "Workspace" },
-  { id: "abstract", label: "Abstract" },
-  { id: "lifestyle", label: "Lifestyle" },
+  { id: "all", label: "All", labelKey: "hero.sub_all" },
+  { id: "nature", label: "Nature", labelKey: "hero.sub_nature" },
+  { id: "urban", label: "Urban", labelKey: "hero.sub_urban" },
+  { id: "workspace", label: "Workspace", labelKey: "hero.sub_workspace" },
+  { id: "abstract", label: "Abstract", labelKey: "hero.sub_abstract" },
+  { id: "lifestyle", label: "Lifestyle", labelKey: "hero.sub_lifestyle" },
 ] as const;
 
 export const PHOTOS_PER_PAGE = 12;

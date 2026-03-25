@@ -61,6 +61,7 @@ export function ServiceForm({ categories, defaultValues, onSuccess }: ServiceFor
     isGroup: defaultValues?.isGroup ?? false,
     maxParticipants: defaultValues?.maxParticipants ?? 1,
     blocksAllStaff: defaultValues?.blocksAllStaff ?? false,
+    autoManaged: defaultValues?.autoManaged ?? false,
     isActive: defaultValues?.isActive ?? true,
   });
 
