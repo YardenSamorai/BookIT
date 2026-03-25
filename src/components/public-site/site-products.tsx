@@ -44,10 +44,10 @@ interface DisplayOpts {
   carouselSpeed: "slow" | "medium" | "fast";
 }
 
-const SPEED_MULTIPLIERS: Record<string, number> = {
-  slow: 1.8,
-  medium: 1,
-  fast: 0.5,
+const SPEED_SECONDS_PER_ITEM: Record<string, number> = {
+  slow: 4,
+  medium: 2.5,
+  fast: 1.2,
 };
 
 function parseDisplayOpts(content: Record<string, unknown>): DisplayOpts {
@@ -724,7 +724,7 @@ function ProductCarousel({
           100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee ${Math.max(products.length * 5, 15) * (SPEED_MULTIPLIERS[opts.carouselSpeed] ?? 1)}s linear infinite;
+          animation: marquee ${Math.max(products.length * (SPEED_SECONDS_PER_ITEM[opts.carouselSpeed] ?? 2.5), 8)}s linear infinite;
         }
         .animate-marquee:hover {
           animation-play-state: paused;

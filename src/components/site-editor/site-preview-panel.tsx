@@ -819,24 +819,28 @@ function PreviewSection({
         </div>
       );
 
-      const renderCarousel = () => (
-        <div className="relative mt-2 overflow-hidden">
-          <div className="flex gap-1.5 animate-[marquee-preview_12s_linear_infinite]">
-            {[...placeholders, ...placeholders].map((p, i) => (
-              <div key={i} className={cn("w-16 shrink-0 p-1.5", r, theme.card)}>
-                {showImg && (
-                  p.img
-                    ? <img src={p.img} alt="" className="mb-0.5 h-4 w-full rounded object-cover" />
-                    : <div className="mb-0.5 h-4 rounded bg-gray-100" />
-                )}
-                <p className="text-[6px] font-bold text-gray-700 truncate">{p.name}</p>
-                {showPrice && <p className="text-[5px] font-semibold" style={{ color: brand.secondaryColor }}>₪{p.price}</p>}
-              </div>
-            ))}
+      const renderCarousel = () => {
+        const speedMap: Record<string, number> = { slow: 20, medium: 12, fast: 6 };
+        const dur = speedMap[(c.carousel_speed as string) ?? "medium"] ?? 12;
+        return (
+          <div className="relative mt-2 overflow-hidden">
+            <div className="flex gap-1.5" style={{ animation: `marquee-preview ${dur}s linear infinite` }}>
+              {[...placeholders, ...placeholders].map((p, i) => (
+                <div key={i} className={cn("w-16 shrink-0 p-1.5", r, theme.card)}>
+                  {showImg && (
+                    p.img
+                      ? <img src={p.img} alt="" className="mb-0.5 h-4 w-full rounded object-cover" />
+                      : <div className="mb-0.5 h-4 rounded bg-gray-100" />
+                  )}
+                  <p className="text-[6px] font-bold text-gray-700 truncate">{p.name}</p>
+                  {showPrice && <p className="text-[5px] font-semibold" style={{ color: brand.secondaryColor }}>₪{p.price}</p>}
+                </div>
+              ))}
+            </div>
+            <style>{`@keyframes marquee-preview { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
           </div>
-          <style>{`@keyframes marquee-preview { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
-        </div>
-      );
+        );
+      };
 
       const renderContent = () => {
         switch (prodLayout) {
