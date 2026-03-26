@@ -698,7 +698,7 @@ function ProductCarousel({
   const doubled = [...products, ...products];
   const stripRef = useRef<HTMLDivElement>(null);
   const touchState = useRef({ startX: 0, currentOffset: 0, dragging: false });
-  const resumeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const pauseAnimation = useCallback(() => {
     const el = stripRef.current;
