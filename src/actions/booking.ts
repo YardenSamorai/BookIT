@@ -300,8 +300,8 @@ export async function createAppointment(
       db.query.users.findFirst({ where: eq(users.id, userId), columns: { phone: true, name: true } }),
     ]);
 
-    const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-    const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
+    const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
     const variables: Record<string, string> = {
       customerName: user?.name || "",
       businessName: biz?.name || "",
@@ -521,8 +521,8 @@ export async function createManualAppointment(input: {
       db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true, ownerId: true } }),
       db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
     ]);
-    const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-    const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
+    const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
     const variables: Record<string, string> = {
       customerName,
       businessName: biz?.name || "",
@@ -744,8 +744,8 @@ export async function enrollCustomerInClass(input: {
       db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true, ownerId: true } }),
       db.query.staffMembers.findFirst({ where: eq(staffMembers.id, instance.staffId), columns: { name: true } }),
     ]);
-    const dateStr = instance.startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-    const timeStr = instance.startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = instance.startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
+    const timeStr = instance.startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
     const variables: Record<string, string> = {
       customerName,
       businessName: biz?.name || "",
@@ -938,8 +938,8 @@ export async function cancelAppointment(
         db.query.services.findFirst({ where: eq(services.id, appointment.serviceId), columns: { title: true } }),
         db.query.businesses.findFirst({ where: eq(businesses.id, appointment.businessId), columns: { name: true, ownerId: true } }),
       ]);
-      const dateStr = new Date(appointment.startTime).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-      const timeStr = new Date(appointment.startTime).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      const dateStr = new Date(appointment.startTime).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
+      const timeStr = new Date(appointment.startTime).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
       const variables: Record<string, string> = {
         customerName: user?.name || "",
         businessName: cancelBiz?.name || "",
@@ -1106,8 +1106,8 @@ export async function rescheduleAppointment(
         db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
         db.query.businesses.findFirst({ where: eq(businesses.id, appointment.businessId), columns: { name: true } }),
       ]);
-      const dateStr = start.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-      const timeStr = start.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      const dateStr = start.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
+      const timeStr = start.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
       const variables: Record<string, string> = {
         customerName: user?.name || "",
         businessName: biz?.name || "",

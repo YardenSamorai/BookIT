@@ -104,10 +104,12 @@ export async function GET(request: NextRequest) {
           weekday: "long",
           day: "numeric",
           month: "long",
+          timeZone: "Asia/Jerusalem",
         });
         const timeStr = new Date(apt.startTime).toLocaleTimeString("he-IL", {
           hour: "2-digit",
           minute: "2-digit",
+          timeZone: "Asia/Jerusalem",
         });
 
         await sendBookingNotification({
