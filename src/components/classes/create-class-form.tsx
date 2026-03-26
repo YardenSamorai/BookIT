@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ClassCalendarColorPicker } from "./class-calendar-color-picker";
 import { createClass } from "@/actions/classes";
@@ -35,6 +36,7 @@ type Staff = { id: string; name: string };
 type ClassType = {
   id: string;
   title: string;
+  description: string | null;
   isGroup: boolean;
   durationMinutes: number;
   autoManaged: boolean;
@@ -97,6 +99,7 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
   const [selectedTypeId, setSelectedTypeId] = useState<string | "">("");
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(12);
   const [calendarColor, setCalendarColor] = useState<string | null>(null);
@@ -123,10 +126,12 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
 
   const typeName = selectedType?.title ?? name;
   const typeDuration = selectedType?.durationMinutes ?? durationMinutes;
+  const hasFilledSlots = slots.some((s) => s.staffId && s.daysOfWeek.length > 0);
 
   function reset() {
     setSelectedTypeId("");
     setName("");
+    setDescription("");
     setDurationMinutes(60);
     setMaxParticipants(12);
     setCalendarColor(null);
@@ -177,7 +182,15 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
 
   function handleSubmit() {
     if (isNewType && !name.trim()) { setError(t("cls.class_name")); return; }
-    for (const slot of slots) {
+
+    const filledSlots = slots.filter((s) => s.staffId && s.daysOfWeek.length > 0);
+
+    if (!isNewType && filledSlots.length === 0) {
+      setError(t("cls.select_days"));
+      return;
+    }
+
+    for (const slot of filledSlots) {
       if (!slot.staffId) { setError(t("cls.instructor")); return; }
       if (slot.daysOfWeek.length === 0) { setError(t("cls.select_days")); return; }
     }
@@ -188,10 +201,11 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
         businessId,
         serviceId: selectedTypeId || undefined,
         name: isNewType ? name.trim() : selectedType!.title,
+        description: isNewType ? (description.trim() || null) : (selectedType!.description ?? null),
         durationMinutes: isNewType ? durationMinutes : selectedType!.durationMinutes,
         maxParticipants: isNewType ? maxParticipants : (selectedType!.maxParticipants ?? 12),
-        effectiveFrom,
-        effectiveUntil: effectiveUntil || undefined,
+        effectiveFrom: filledSlots.length > 0 ? effectiveFrom : new Date().toISOString().slice(0, 10),
+        effectiveUntil: filledSlots.length > 0 ? (effectiveUntil || undefined) : undefined,
         calendarColor,
         price: isNewType ? (price || null) : (selectedType!.price ?? null),
         depositAmount: isNewType ? (depositAmount || null) : (selectedType!.depositAmount ?? null),
@@ -203,7 +217,7 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
         rescheduleHoursBefore: isNewType
           ? (rescheduleHoursBefore ? Number(rescheduleHoursBefore) : null)
           : (selectedType!.rescheduleHoursBefore ?? null),
-        slots: slots.map((s) => ({
+        slots: filledSlots.map((s) => ({
           staffId: s.staffId,
           daysOfWeek: s.daysOfWeek,
           startTime: s.startTime,
@@ -212,7 +226,7 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
       });
       if (!res.success) { setError(res.error); return; }
       setSuccessName(isNewType ? name.trim() : selectedType!.title);
-      setSuccessCount(slots.length);
+      setSuccessCount(filledSlots.length);
       setSuccess(true);
       setTimeout(() => handleOpenChange(false), 1800);
     });
@@ -231,8 +245,9 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
 
   const canSubmit =
     (isNewType ? !!name.trim() : true) &&
-    slots.length > 0 &&
-    slots.every((s) => s.staffId && s.daysOfWeek.length > 0);
+    (isNewType
+      ? slots.every((s) => s.daysOfWeek.length === 0 || (!!s.staffId && s.daysOfWeek.length > 0))
+      : slots.length > 0 && slots.every((s) => s.staffId && s.daysOfWeek.length > 0));
 
   function paymentLabel(mode: string) {
     const pm = PAYMENT_MODES.find((p) => p.value === mode);
@@ -257,11 +272,15 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
             </div>
             <div className="text-center space-y-1">
               <p className="text-xl font-semibold">
-                {successCount > 1
-                  ? t("cls.slots_created", { n: successCount, name: successName })
-                  : t("cls.class_created")}
+                {successCount === 0
+                  ? t("cls.type_saved")
+                  : successCount > 1
+                    ? t("cls.slots_created", { n: successCount, name: successName })
+                    : t("cls.class_created")}
               </p>
-              <p className="text-sm text-muted-foreground">{successName}</p>
+              <p className="text-sm text-muted-foreground">
+                {successCount === 0 ? t("cls.type_saved_desc") : successName}
+              </p>
             </div>
           </div>
         ) : (
@@ -346,6 +365,18 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
                         disabled={isPending}
                         autoFocus
                         className="h-10"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("cls.description")}</Label>
+                      <Textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder={t("cls.description_placeholder")}
+                        disabled={isPending}
+                        rows={3}
+                        className="resize-none"
                       />
                     </div>
 
@@ -458,10 +489,15 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
 
               {/* ── Section 2: Time Slots ── */}
               <section className="space-y-4">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Repeat className="size-4 text-muted-foreground" />
-                  {t("cls.time_slots")}
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Repeat className="size-4 text-muted-foreground" />
+                    {t("cls.time_slots")}
+                  </h3>
+                  {isNewType && (
+                    <span className="text-xs text-muted-foreground">{t("cls.slots_optional_hint")}</span>
+                  )}
+                </div>
 
                 <div className="space-y-4">
                   {slots.map((slot, idx) => (
@@ -550,24 +586,26 @@ export function CreateClassForm({ open, onOpenChange, businessId, staff, classTy
                 </button>
               </section>
 
-              {/* ── Section 3: Active Period ── */}
-              <section className="space-y-4">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <CalendarDays className="size-4 text-muted-foreground" />
-                  {t("cls.active_period")}
-                </h3>
+              {/* ── Section 3: Active Period (hidden when type-only) ── */}
+              {hasFilledSlots && (
+                <section className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <CalendarDays className="size-4 text-muted-foreground" />
+                    {t("cls.active_period")}
+                  </h3>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">{t("cls.effective_from")}</Label>
-                    <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} disabled={isPending} className="h-10" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("cls.effective_from")}</Label>
+                      <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} disabled={isPending} className="h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("cls.effective_until")}</Label>
+                      <Input type="date" value={effectiveUntil} onChange={(e) => setEffectiveUntil(e.target.value)} disabled={isPending} className="h-10" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">{t("cls.effective_until")}</Label>
-                    <Input type="date" value={effectiveUntil} onChange={(e) => setEffectiveUntil(e.target.value)} disabled={isPending} className="h-10" />
-                  </div>
-                </div>
-              </section>
+                </section>
+              )}
             </div>
 
             {/* ─── Sticky Footer ─── */}

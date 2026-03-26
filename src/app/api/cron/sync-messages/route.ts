@@ -17,16 +17,23 @@ export async function GET(request: NextRequest) {
   try {
     const allBusinesses = await db
       .select({ id: businesses.id })
-      .from(businesses)
-      .limit(1);
+      .from(businesses);
 
-    const businessId = allBusinesses[0]?.id;
-    if (!businessId) {
-      return NextResponse.json({ error: "No business found" }, { status: 404 });
+    if (allBusinesses.length === 0) {
+      return NextResponse.json({ error: "No businesses found" }, { status: 404 });
     }
 
-    const result = await syncTwilioMessagesCore(businessId);
-    return NextResponse.json({ ok: true, ...result });
+    const results: Record<string, unknown> = {};
+    for (const biz of allBusinesses) {
+      try {
+        results[biz.id] = await syncTwilioMessagesCore(biz.id);
+      } catch (err) {
+        console.error(`Twilio sync error for business ${biz.id}:`, err);
+        results[biz.id] = { error: String(err) };
+      }
+    }
+
+    return NextResponse.json({ ok: true, synced: allBusinesses.length, results });
   } catch (err) {
     console.error("Twilio sync error:", err);
     return NextResponse.json({ error: "Sync failed" }, { status: 500 });

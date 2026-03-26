@@ -87,6 +87,17 @@ export default async function MessagesPage() {
     }
   }
 
+  const waConfig = {
+    number: process.env.TWILIO_WHATSAPP_NUMBER?.replace("whatsapp:", "") ?? "",
+    templates: {
+      BOOKING_CONFIRMED: process.env.WA_TEMPLATE_BOOKING_CONFIRMED ?? "",
+      BOOKING_OWNER: process.env.WA_TEMPLATE_BOOKING_OWNER ?? "",
+      REMINDER: process.env.WA_TEMPLATE_REMINDER ?? "",
+      CANCELLATION: process.env.WA_TEMPLATE_CANCELLED ?? "",
+      RESCHEDULE: process.env.WA_TEMPLATE_RESCHEDULED ?? "",
+    },
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -102,6 +113,7 @@ export default async function MessagesPage() {
         businessPhone={business?.phone ?? ""}
         locale={locale}
         phoneToName={phoneToName}
+        waConfig={waConfig}
       />
     </div>
   );

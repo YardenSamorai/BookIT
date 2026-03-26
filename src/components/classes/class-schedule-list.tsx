@@ -13,7 +13,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Repeat, Users, Clock, CalendarDays, Dumbbell, ChevronDown, ChevronUp } from "lucide-react";
-import { deleteClassSchedule, permanentDeleteClassSchedule } from "@/actions/classes";
+import { deleteClassSchedule, permanentDeleteClassSchedule, deleteClassType } from "@/actions/classes";
 import { CreateClassForm } from "./create-class-form";
 import { EditClassForm } from "./edit-class-form";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
@@ -22,6 +22,7 @@ import { DAYS_SHORT_KEYS, t as tFn } from "@/lib/i18n";
 type Service = {
   id: string;
   title: string;
+  description: string | null;
   isGroup: boolean;
   durationMinutes: number;
   autoManaged: boolean;
@@ -57,6 +58,7 @@ type Schedule = {
   cancelHoursBefore: number | null;
   rescheduleHoursBefore: number | null;
   serviceName: string;
+  serviceDescription: string | null;
   staffName: string;
   serviceDuration: number;
 };
@@ -183,6 +185,14 @@ export function ClassScheduleList({ businessId, schedules, services, staff }: Pr
     [inactiveSchedules, locale]
   );
 
+  const scheduledServiceIds = useMemo(() => {
+    return new Set(schedules.map((s) => s.serviceId));
+  }, [schedules]);
+
+  const unscheduledTypes = useMemo(() => {
+    return classTypes.filter((ct) => !scheduledServiceIds.has(ct.id));
+  }, [classTypes, scheduledServiceIds]);
+
   const hasActiveFilters =
     filterService !== "ALL" || filterStaff !== "ALL" || searchQuery.trim() !== "";
 
@@ -215,6 +225,13 @@ export function ClassScheduleList({ businessId, schedules, services, staff }: Pr
     });
   }
 
+  function handleDeleteType(serviceId: string) {
+    if (!confirm(t("cls.confirm_delete_type"))) return;
+    startTransition(async () => {
+      await deleteClassType(serviceId, businessId);
+    });
+  }
+
   function formatDays(days: number[]) {
     return days
       .sort()
@@ -242,7 +259,7 @@ export function ClassScheduleList({ businessId, schedules, services, staff }: Pr
     />
   ) : null;
 
-  if (schedules.length === 0) {
+  if (schedules.length === 0 && unscheduledTypes.length === 0) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -479,6 +496,60 @@ export function ClassScheduleList({ businessId, schedules, services, staff }: Pr
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Unscheduled class types */}
+      {unscheduledTypes.length > 0 && (
+        <div className="space-y-2 border-t pt-4">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">{t("cls.unscheduled_types")}</h3>
+            <Badge variant="secondary" className="font-normal text-xs">
+              {unscheduledTypes.length}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">{t("cls.unscheduled_types_desc")}</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {unscheduledTypes.map((ct) => (
+              <Card key={ct.id} className="overflow-hidden border-dashed">
+                <CardContent className="p-0">
+                  <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <Dumbbell className="size-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold sm:text-base">{ct.title}</p>
+                      {ct.description && (
+                        <p className="truncate text-xs text-muted-foreground">{ct.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs text-muted-foreground sm:px-4 sm:py-2.5 sm:text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="size-3 shrink-0" />
+                      {ct.durationMinutes}′
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Users className="size-3 shrink-0" />
+                      {ct.maxParticipants ?? "–"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 border-t px-3 py-2 sm:px-4">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-xs"
+                      onClick={() => handleDeleteType(ct.id)}
+                      disabled={isPending}
+                    >
+                      <Trash2 className="me-1 size-3" />
+                      {t("cls.delete_type")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 

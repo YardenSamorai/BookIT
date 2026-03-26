@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -37,6 +39,7 @@ interface WorkoutInstance {
   maxParticipants: number;
   bookedCount: number;
   serviceName: string;
+  serviceDescription: string | null;
   staffName: string;
   scheduleTitle: string | null;
   isRegistered?: boolean;
@@ -145,6 +148,8 @@ export function WorkoutBookingView({
   const locale = useLocale();
   const dir = getDir(locale);
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const siteUrl = pathname.replace(/\/book$/, "");
 
   const dayNames = locale === "he" ? DAYS_HE : DAYS_EN;
   const dtLocale = locale === "he" ? "he-IL" : "en-US";
@@ -372,7 +377,7 @@ export function WorkoutBookingView({
               locale={locale}
               dtLocale={dtLocale}
               t={t}
-              onBack={handleBackToCalendar}
+              siteUrl={siteUrl}
             />
           </motion.div>
         )}
@@ -558,6 +563,11 @@ export function WorkoutBookingView({
                                     <p className="text-[13px] font-bold leading-snug text-gray-900 truncate">
                                       {inst.scheduleTitle || inst.serviceName}
                                     </p>
+                                    {inst.serviceDescription && (
+                                      <p className="mt-0.5 text-[11px] leading-snug text-gray-400 line-clamp-2">
+                                        {inst.serviceDescription}
+                                      </p>
+                                    )}
                                     <p className="mt-0.5 text-xs text-gray-500 truncate">
                                       {inst.staffName} · {duration}′
                                     </p>
@@ -727,6 +737,11 @@ export function WorkoutBookingView({
                                     <p className="text-[15px] font-bold text-gray-900 truncate sm:text-base">
                                       {inst.scheduleTitle || inst.serviceName}
                                     </p>
+                                    {inst.serviceDescription && (
+                                      <p className="mt-0.5 text-xs text-gray-400 line-clamp-2">
+                                        {inst.serviceDescription}
+                                      </p>
+                                    )}
                                     <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500 sm:text-[13px]">
                                       <User
                                         size={11}
@@ -896,6 +911,11 @@ function ConfirmView({
             <h3 className="text-lg font-bold text-gray-900 sm:text-xl">
               {inst.scheduleTitle || inst.serviceName}
             </h3>
+            {inst.serviceDescription && (
+              <p className="mt-1 text-sm text-gray-500">
+                {inst.serviceDescription}
+              </p>
+            )}
           </div>
 
           <div className="mb-4 h-px bg-gray-100 sm:mb-5" />
@@ -1003,7 +1023,7 @@ function SuccessView({
   locale,
   dtLocale,
   t,
-  onBack,
+  siteUrl,
 }: {
   inst: WorkoutInstance | null;
   secondaryColor: string;
@@ -1012,7 +1032,7 @@ function SuccessView({
   locale: string;
   dtLocale: string;
   t: ReturnType<typeof useT>;
-  onBack: () => void;
+  siteUrl: string;
 }) {
   const k = (key: string) => key as Parameters<typeof t>[0];
 
@@ -1121,17 +1141,20 @@ function SuccessView({
       )}
 
       {/* Back to classes */}
-      <motion.button
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
-        onClick={onBack}
-        className="mt-8 flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-all hover:bg-gray-50 active:scale-[0.97]"
-        style={{ borderColor: `${secondaryColor}30`, color: secondaryColor }}
       >
-        <ArrowRight className="size-4 ltr:rotate-180" />
-        {t(k("book.back_to_classes"))}
-      </motion.button>
+        <Link
+          href={siteUrl}
+          className="mt-8 inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-all hover:bg-gray-50 active:scale-[0.97]"
+          style={{ borderColor: `${secondaryColor}30`, color: secondaryColor }}
+        >
+          <ArrowRight className="size-4 ltr:rotate-180" />
+          {t(k("book.back_to_classes"))}
+        </Link>
+      </motion.div>
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, notificationPreferences, notificationLogs, users } from "@/lib/db/schema";
+import { businesses, notificationPreferences, notificationLogs, users, staffMembers, customers } from "@/lib/db/schema";
 import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
-import { sendWhatsAppText, type WhatsAppResult } from "./whatsapp";
+import { sendWhatsAppText, sendWhatsAppTemplate, getTemplateSid, buildTemplateVariables, type WhatsAppResult } from "./whatsapp";
 import { sendSmsWithDetails } from "./sms";
 import { getTemplateForNotification, renderTemplate } from "./templates";
 
@@ -11,7 +11,10 @@ export type NotificationType =
   | "BOOKING_OWNER"
   | "REMINDER"
   | "CANCELLATION"
-  | "RESCHEDULE";
+  | "RESCHEDULE"
+  | "STAFF_NEW_BOOKING"
+  | "STAFF_CANCELLATION"
+  | "STAFF_RESCHEDULE";
 
 interface NotificationPayload {
   businessId: string;
@@ -92,25 +95,49 @@ export async function sendBookingNotification(
   const prefs = await getNotificationPrefs(payload.businessId);
   console.log(`[Notification] Prefs: whatsapp=${prefs.whatsappEnabled}, sms=${prefs.smsBookingEnabled}`);
 
-  let whatsappResult: WhatsAppResult = { success: false, error: "DISABLED" };
-  let smsResult: { success: boolean; messageSid?: string; error?: string } = { success: false, error: "DISABLED" };
+  const isCustomerFacing = !payload.type.startsWith("STAFF_") && payload.type !== "BOOKING_OWNER";
+  let customerWhatsappOptIn = true;
+  let customerSmsOptIn = true;
 
-  if (prefs.whatsappEnabled) {
-    const waBody = await getTemplateForNotification(
-      payload.businessId,
-      payload.type,
-      "WHATSAPP",
-      locale
-    );
-    const renderedWa = renderTemplate(waBody, payload.variables);
-    console.log(`[Notification] Sending WhatsApp to ${payload.recipientPhone}`);
-
-    whatsappResult = await sendWhatsAppText(payload.recipientPhone, renderedWa);
-    console.log(`[Notification] WhatsApp result:`, whatsappResult);
-    await logNotification(payload, "WHATSAPP", renderedWa, whatsappResult);
+  if (isCustomerFacing && payload.userId) {
+    const customer = await db.query.customers.findFirst({
+      where: and(
+        eq(customers.businessId, payload.businessId),
+        eq(customers.userId, payload.userId)
+      ),
+      columns: { whatsappOptIn: true, smsOptIn: true },
+    });
+    if (customer) {
+      customerWhatsappOptIn = customer.whatsappOptIn;
+      customerSmsOptIn = customer.smsOptIn;
+    }
   }
 
-  if (prefs.smsBookingEnabled) {
+  let whatsappResult: WhatsAppResult = { success: false, error: "DISABLED" };
+  let smsResult: { success: boolean; messageSid?: string; error?: string } = { success: false, error: "DISABLED" };
+  let whatsappAttempted = false;
+
+  if (prefs.whatsappEnabled && customerWhatsappOptIn) {
+    const templateSid = getTemplateSid(payload.type);
+
+    if (templateSid) {
+      const contentVars = buildTemplateVariables(payload.type, payload.variables);
+      console.log(`[Notification] Sending WhatsApp template ${templateSid} to ${payload.recipientPhone}`);
+      whatsappResult = await sendWhatsAppTemplate(payload.recipientPhone, templateSid, contentVars);
+      whatsappAttempted = true;
+      console.log(`[Notification] WhatsApp template result:`, whatsappResult);
+      await logNotification(payload, "WHATSAPP", `[Template: ${templateSid}] vars: ${JSON.stringify(contentVars)}`, whatsappResult);
+    } else {
+      console.log(`[Notification] No WhatsApp template for ${payload.type}, skipping WhatsApp (freeform blocked by WhatsApp policy)`);
+    }
+  }
+
+  // Send SMS if explicitly enabled, OR as automatic fallback when WhatsApp failed/wasn't attempted
+  const shouldSendSms =
+    (prefs.smsBookingEnabled && customerSmsOptIn) ||
+    (!whatsappResult.success && customerSmsOptIn);
+
+  if (shouldSendSms) {
     const smsBody = await getTemplateForNotification(
       payload.businessId,
       payload.type,
@@ -120,7 +147,7 @@ export async function sendBookingNotification(
     const renderedSms = renderTemplate(smsBody, payload.variables);
 
     smsResult = await sendSmsWithDetails(payload.recipientPhone, renderedSms);
-    console.log(`[Notification] SMS result:`, smsResult);
+    console.log(`[Notification] SMS ${whatsappAttempted && !whatsappResult.success ? "(fallback)" : ""} result:`, smsResult);
     await logNotification(payload, "SMS", renderedSms, smsResult);
   }
 
@@ -175,19 +202,18 @@ export async function sendOwnerBookingNotification(
       variables,
     };
 
+    let waSuccess = false;
     if (prefs.whatsappEnabled) {
-      const waBody = await getTemplateForNotification(
-        businessId,
-        "BOOKING_OWNER",
-        "WHATSAPP",
-        locale
-      );
-      const rendered = renderTemplate(waBody, variables);
-      const result = await sendWhatsAppText(owner.phone, rendered);
-      await logNotification(ownerPayload, "WHATSAPP", rendered, result);
+      const templateSid = getTemplateSid("BOOKING_OWNER");
+      if (templateSid) {
+        const contentVars = buildTemplateVariables("BOOKING_OWNER", variables);
+        const result = await sendWhatsAppTemplate(owner.phone, templateSid, contentVars);
+        await logNotification(ownerPayload, "WHATSAPP", `[Template: ${templateSid}] vars: ${JSON.stringify(contentVars)}`, result);
+        waSuccess = result.success;
+      }
     }
 
-    if (prefs.smsBookingEnabled) {
+    if (prefs.smsBookingEnabled || !waSuccess) {
       const smsBody = await getTemplateForNotification(
         businessId,
         "BOOKING_OWNER",
@@ -200,6 +226,64 @@ export async function sendOwnerBookingNotification(
     }
   } catch (err) {
     console.error("Owner notification failed:", err);
+  }
+}
+
+/**
+ * Send notification to the assigned staff member for booking events.
+ * Looks up staff phone number, sends via WhatsApp/SMS based on business prefs.
+ */
+export async function sendStaffNotification(
+  businessId: string,
+  staffId: string,
+  type: "STAFF_NEW_BOOKING" | "STAFF_CANCELLATION" | "STAFF_RESCHEDULE",
+  variables: Record<string, string>
+): Promise<void> {
+  try {
+    const staff = await db.query.staffMembers.findFirst({
+      where: eq(staffMembers.id, staffId),
+      columns: { phone: true, name: true },
+    });
+
+    if (!staff?.phone) {
+      console.log(`[StaffNotification] Skipped: staff ${staffId} has no phone`);
+      return;
+    }
+
+    const { plan, locale } = await getBusinessInfo(businessId);
+    const limits = getLimitsForPlan(plan);
+    if (!limits.whatsappNotifications) return;
+
+    const prefs = await getNotificationPrefs(businessId);
+
+    const staffPayload: NotificationPayload = {
+      businessId,
+      recipientPhone: staff.phone,
+      type,
+      variables,
+    };
+
+    let waSuccess = false;
+    if (prefs.whatsappEnabled) {
+      const templateSid = getTemplateSid(type);
+      if (templateSid) {
+        const contentVars = buildTemplateVariables(type, variables);
+        const result = await sendWhatsAppTemplate(staff.phone, templateSid, contentVars);
+        await logNotification(staffPayload, "WHATSAPP", `[Template: ${templateSid}] vars: ${JSON.stringify(contentVars)}`, result);
+        waSuccess = result.success;
+      } else {
+        console.log(`[StaffNotification] No WhatsApp template for ${type}, skipping WhatsApp`);
+      }
+    }
+
+    if (prefs.smsBookingEnabled || !waSuccess) {
+      const smsBody = await getTemplateForNotification(businessId, type, "SMS", locale);
+      const rendered = renderTemplate(smsBody, variables);
+      const result = await sendSmsWithDetails(staff.phone, rendered);
+      await logNotification(staffPayload, "SMS", rendered, result);
+    }
+  } catch (err) {
+    console.error("Staff notification failed:", err);
   }
 }
 

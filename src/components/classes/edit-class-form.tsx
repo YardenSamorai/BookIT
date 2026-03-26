@@ -51,6 +51,7 @@ type Schedule = {
   cancelHoursBefore: number | null;
   rescheduleHoursBefore: number | null;
   serviceName: string;
+  serviceDescription: string | null;
   staffName: string;
   serviceDuration: number;
 };
@@ -82,6 +83,7 @@ export function EditClassForm({ open, onOpenChange, businessId, staff, schedule 
   const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [staffId, setStaffId] = useState("");
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [startTime, setStartTime] = useState("09:00");
@@ -105,6 +107,7 @@ export function EditClassForm({ open, onOpenChange, businessId, staff, schedule 
   useEffect(() => {
     if (open && schedule) {
       setName(schedule.title || schedule.serviceName);
+      setDescription(schedule.serviceDescription ?? "");
       setStaffId(schedule.staffId);
       setDaysOfWeek([...(schedule.daysOfWeek as number[])]);
       setStartTime(schedule.startTime);
@@ -140,6 +143,7 @@ export function EditClassForm({ open, onOpenChange, businessId, staff, schedule 
     startTransition(async () => {
       const res = await updateClassSchedule(schedule.id, businessId, {
         title: name.trim(),
+        description: description.trim() || null,
         staffId,
         daysOfWeek,
         startTime,
@@ -208,6 +212,18 @@ export function EditClassForm({ open, onOpenChange, businessId, staff, schedule 
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t("cls.class_name_placeholder")}
                   disabled={isPending}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">{t("cls.description")}</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t("cls.description_placeholder")}
+                  disabled={isPending}
+                  rows={3}
+                  className="resize-none"
                 />
               </div>
 

@@ -114,6 +114,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "RESCHEDULE",
   "OTP",
   "MANUAL",
+  "STAFF_NEW_BOOKING",
+  "STAFF_CANCELLATION",
+  "STAFF_RESCHEDULE",
 ]);
 
 export const notificationStatusEnum = pgEnum("notification_status", [

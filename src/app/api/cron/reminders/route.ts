@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lt, inArray } from "drizzle-orm";
+import { and, eq, or, gte, lt, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   appointments,
@@ -27,7 +27,10 @@ export async function GET(request: NextRequest) {
   let totalSent = 0;
 
   const allPrefs = await db.query.notificationPreferences.findMany({
-    where: eq(notificationPreferences.whatsappEnabled, true),
+    where: or(
+      eq(notificationPreferences.whatsappEnabled, true),
+      eq(notificationPreferences.smsBookingEnabled, true)
+    ),
   });
 
   for (const prefs of allPrefs) {

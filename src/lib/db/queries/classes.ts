@@ -33,6 +33,7 @@ export async function getClassSchedules(businessId: string) {
       rescheduleHoursBefore: classSchedules.rescheduleHoursBefore,
       createdAt: classSchedules.createdAt,
       serviceName: services.title,
+      serviceDescription: services.description,
       staffName: staffMembers.name,
       serviceDuration: services.durationMinutes,
     })

@@ -2,7 +2,15 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messageTemplates } from "@/lib/db/schema";
 
-type TemplateType = "BOOKING_CONFIRMED" | "BOOKING_OWNER" | "REMINDER" | "CANCELLATION" | "RESCHEDULE";
+type TemplateType =
+  | "BOOKING_CONFIRMED"
+  | "BOOKING_OWNER"
+  | "REMINDER"
+  | "CANCELLATION"
+  | "RESCHEDULE"
+  | "STAFF_NEW_BOOKING"
+  | "STAFF_CANCELLATION"
+  | "STAFF_RESCHEDULE";
 type TemplateChannel = "WHATSAPP" | "SMS";
 
 interface DefaultTemplate {
@@ -93,6 +101,54 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_he:
       "{customerName}, התור שלך ב-{businessName} שונה ל-{date} בשעה {time}. שירות: {service}.",
   },
+  {
+    type: "STAFF_NEW_BOOKING",
+    channel: "WHATSAPP",
+    body_en:
+      "📢 New booking assigned to you at {businessName}!\n\n👤 Customer: {customerName}\n📅 {date} at {time}\n💇 {service}",
+    body_he:
+      "📢 תור חדש שובץ אליך ב-{businessName}!\n\n👤 לקוח/ה: {customerName}\n📅 {date} בשעה {time}\n💇 {service}",
+  },
+  {
+    type: "STAFF_NEW_BOOKING",
+    channel: "SMS",
+    body_en:
+      "New booking: {customerName} at {businessName} on {date} at {time}. Service: {service}.",
+    body_he:
+      "תור חדש: {customerName} ב-{businessName} ב-{date} בשעה {time}. שירות: {service}.",
+  },
+  {
+    type: "STAFF_CANCELLATION",
+    channel: "WHATSAPP",
+    body_en:
+      "❌ Booking cancelled at {businessName}.\n\n👤 Customer: {customerName}\n📅 {date} at {time}\n💇 {service}",
+    body_he:
+      "❌ תור בוטל ב-{businessName}.\n\n👤 לקוח/ה: {customerName}\n📅 {date} בשעה {time}\n💇 {service}",
+  },
+  {
+    type: "STAFF_CANCELLATION",
+    channel: "SMS",
+    body_en:
+      "Cancelled: {customerName} at {businessName} on {date} at {time}. Service: {service}.",
+    body_he:
+      "ביטול: {customerName} ב-{businessName} ב-{date} בשעה {time}. שירות: {service}.",
+  },
+  {
+    type: "STAFF_RESCHEDULE",
+    channel: "WHATSAPP",
+    body_en:
+      "🔄 Booking rescheduled at {businessName}.\n\n👤 Customer: {customerName}\n📅 New time: {date} at {time}\n💇 {service}",
+    body_he:
+      "🔄 תור שונה ב-{businessName}.\n\n👤 לקוח/ה: {customerName}\n📅 מועד חדש: {date} בשעה {time}\n💇 {service}",
+  },
+  {
+    type: "STAFF_RESCHEDULE",
+    channel: "SMS",
+    body_en:
+      "Rescheduled: {customerName} at {businessName} to {date} at {time}. Service: {service}.",
+    body_he:
+      "שינוי תור: {customerName} ב-{businessName} ל-{date} בשעה {time}. שירות: {service}.",
+  },
 ];
 
 export const TEMPLATE_PLACEHOLDERS = [
@@ -126,7 +182,7 @@ export async function getOrCreateTemplates(businessId: string, locale: "en" | "h
 
   const toInsert = DEFAULT_TEMPLATES.map((tmpl) => ({
     businessId,
-    type: tmpl.type as "BOOKING_CONFIRMED" | "REMINDER" | "CANCELLATION" | "RESCHEDULE" | "OTP" | "MANUAL",
+    type: tmpl.type as TemplateType | "OTP" | "MANUAL",
     channel: tmpl.channel as "EMAIL" | "WHATSAPP" | "SMS",
     body: locale === "he" ? tmpl.body_he : tmpl.body_en,
     isActive: true,

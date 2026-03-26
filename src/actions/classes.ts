@@ -75,6 +75,7 @@ export async function createClass(input: {
   businessId: string;
   serviceId?: string;
   name: string;
+  description?: string | null;
   durationMinutes: number;
   maxParticipants: number;
   effectiveFrom: string;
@@ -94,15 +95,15 @@ export async function createClass(input: {
   }>;
 }): Promise<ActionResult<{ scheduleIds: string[]; serviceId: string }>> {
   const {
-    businessId, serviceId: existingServiceId, name,
+    businessId, serviceId: existingServiceId, name, description,
     durationMinutes, maxParticipants, effectiveFrom, effectiveUntil,
     calendarColor, price, depositAmount,
     paymentMode = "FREE", approvalType = "AUTO",
     cancelHoursBefore, rescheduleHoursBefore, slots,
   } = input;
 
-  if (!slots.length) {
-    return { success: false, error: "At least one time slot is required" };
+  if (!slots.length && existingServiceId) {
+    return { success: false, error: "At least one time slot is required when using an existing class type" };
   }
   for (const slot of slots) {
     if (!slot.daysOfWeek.length) {
@@ -141,6 +142,7 @@ export async function createClass(input: {
       .values({
         businessId,
         title: name.trim(),
+        description: description?.trim() || null,
         durationMinutes,
         isGroup: true,
         maxParticipants,
@@ -156,6 +158,11 @@ export async function createClass(input: {
       })
       .returning({ id: services.id });
     svcId = svc.id;
+
+    if (!slots.length) {
+      revalidatePath("/dashboard/classes");
+      return { success: true, data: { scheduleIds: [], serviceId: svcId } };
+    }
   }
 
   const svcData = await db.query.services.findFirst({
@@ -289,6 +296,7 @@ export async function updateClassSchedule(
   businessId: string,
   input: {
     title?: string;
+    description?: string | null;
     staffId?: string;
     daysOfWeek?: number[];
     startTime?: string;
@@ -348,7 +356,7 @@ export async function updateClassSchedule(
   await db.update(classSchedules).set(updates).where(eq(classSchedules.id, scheduleId));
 
   // Sync auto-managed service when relevant fields change
-  if (input.staffId || input.title || input.durationMinutes !== undefined || input.maxParticipants !== undefined || input.paymentMode || input.approvalType) {
+  if (input.staffId || input.title || input.description !== undefined || input.durationMinutes !== undefined || input.maxParticipants !== undefined || input.paymentMode || input.approvalType) {
     const svc = await db.query.services.findFirst({
       where: and(eq(services.id, schedule.serviceId), eq(services.businessId, businessId)),
       columns: { id: true, autoManaged: true },
@@ -357,6 +365,7 @@ export async function updateClassSchedule(
       const { serviceStaff } = await import("@/lib/db/schema");
       const svcUpdates: Record<string, unknown> = { updatedAt: new Date() };
       if (input.title !== undefined) svcUpdates.title = input.title || null;
+      if (input.description !== undefined) svcUpdates.description = input.description || null;
       if (input.durationMinutes !== undefined) svcUpdates.durationMinutes = input.durationMinutes;
       if (input.maxParticipants !== undefined) svcUpdates.maxParticipants = input.maxParticipants;
       if (input.paymentMode !== undefined) svcUpdates.paymentMode = input.paymentMode;
@@ -458,6 +467,37 @@ export async function permanentDeleteClassSchedule(
   revalidatePath("/dashboard/classes");
   revalidatePath("/dashboard/calendar");
 
+  return { success: true, data: undefined };
+}
+
+export async function deleteClassType(
+  serviceId: string,
+  businessId: string
+): Promise<ActionResult> {
+  const svc = await db.query.services.findFirst({
+    where: and(
+      eq(services.id, serviceId),
+      eq(services.businessId, businessId),
+      eq(services.autoManaged, true),
+      eq(services.isGroup, true),
+    ),
+    columns: { id: true },
+  });
+  if (!svc) return { success: false, error: "Class type not found" };
+
+  const hasSchedules = await db.select({ id: classSchedules.id })
+    .from(classSchedules)
+    .where(eq(classSchedules.serviceId, serviceId))
+    .limit(1);
+  if (hasSchedules.length > 0) {
+    return { success: false, error: "Cannot delete a class type that has scheduled classes" };
+  }
+
+  const { serviceStaff } = await import("@/lib/db/schema");
+  await db.delete(serviceStaff).where(eq(serviceStaff.serviceId, serviceId));
+  await db.delete(services).where(eq(services.id, serviceId));
+
+  revalidatePath("/dashboard/classes");
   return { success: true, data: undefined };
 }
 

@@ -19,6 +19,7 @@ export default async function ClassesPage() {
   const serializableServices = allServices.map((s) => ({
     id: s.id,
     title: s.title,
+    description: s.description,
     isGroup: s.isGroup,
     durationMinutes: s.durationMinutes,
     autoManaged: s.autoManaged,

@@ -20,6 +20,7 @@ export const staffMembers = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    phone: text("phone"),
     roleTitle: text("role_title"),
     imageUrl: text("image_url"),
     bio: text("bio"),

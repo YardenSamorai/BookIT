@@ -316,6 +316,7 @@ export async function createAppointment(
       variables.sessionsRemaining = String(activeCard.sessionsRemaining - 1);
     }
 
+    const { sendStaffNotification } = await import("@/lib/notifications/send-notification");
     const promises: Promise<void>[] = [];
 
     if (user?.phone) {
@@ -332,6 +333,8 @@ export async function createAppointment(
     if (biz?.ownerId) {
       promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
     }
+
+    promises.push(sendStaffNotification(businessId, staffId, "STAFF_NEW_BOOKING", variables));
 
     await Promise.all(promises);
   } catch { /* notification failure must not block booking */ }
@@ -511,29 +514,37 @@ export async function createManualAppointment(input: {
     performedBy: "BUSINESS",
   });
 
-  // Send WhatsApp/SMS notification to customer
+  // Send WhatsApp/SMS notification to customer + owner + staff
   try {
-    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const { sendBookingNotificationSafe, sendOwnerBookingNotification, sendStaffNotification } = await import("@/lib/notifications/send-notification");
     const [biz, staffMember] = await Promise.all([
-      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true } }),
+      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true, ownerId: true } }),
       db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
     ]);
     const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
     const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-    await sendBookingNotificationSafe({
+    const variables: Record<string, string> = {
+      customerName,
+      businessName: biz?.name || "",
+      date: dateStr,
+      time: timeStr,
+      service: service.title,
+      staff: staffMember?.name || "",
+    };
+
+    const promises: Promise<void>[] = [];
+    promises.push(sendBookingNotificationSafe({
       businessId,
       appointmentId: appointment.id,
       recipientPhone: phone,
       type: "BOOKING_CONFIRMED",
-      variables: {
-        customerName,
-        businessName: biz?.name || "",
-        date: dateStr,
-        time: timeStr,
-        service: service.title,
-        staff: staffMember?.name || "",
-      },
-    });
+      variables,
+    }));
+    if (biz?.ownerId) {
+      promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
+    }
+    promises.push(sendStaffNotification(businessId, staffId, "STAFF_NEW_BOOKING", variables));
+    await Promise.all(promises);
   } catch { /* notification failure must not block appointment creation */ }
 
   revalidatePath("/dashboard/calendar");
@@ -728,27 +739,35 @@ export async function enrollCustomerInClass(input: {
   });
 
   try {
-    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const { sendBookingNotificationSafe, sendOwnerBookingNotification, sendStaffNotification } = await import("@/lib/notifications/send-notification");
     const [biz, staffMember] = await Promise.all([
-      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true } }),
+      db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true, ownerId: true } }),
       db.query.staffMembers.findFirst({ where: eq(staffMembers.id, instance.staffId), columns: { name: true } }),
     ]);
     const dateStr = instance.startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
     const timeStr = instance.startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-    await sendBookingNotificationSafe({
+    const variables: Record<string, string> = {
+      customerName,
+      businessName: biz?.name || "",
+      date: dateStr,
+      time: timeStr,
+      service: service?.title || "",
+      staff: staffMember?.name || "",
+    };
+
+    const promises: Promise<void>[] = [];
+    promises.push(sendBookingNotificationSafe({
       businessId,
       appointmentId: appointment.id,
       recipientPhone: phone,
       type: "BOOKING_CONFIRMED",
-      variables: {
-        customerName,
-        businessName: biz?.name || "",
-        date: dateStr,
-        time: timeStr,
-        service: service?.title || "",
-        staff: staffMember?.name || "",
-      },
-    });
+      variables,
+    }));
+    if (biz?.ownerId) {
+      promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
+    }
+    promises.push(sendStaffNotification(businessId, instance.staffId, "STAFF_NEW_BOOKING", variables));
+    await Promise.all(promises);
   } catch { /* notification failure must not block enrollment */ }
 
   revalidatePath("/dashboard/calendar");
@@ -906,45 +925,50 @@ export async function cancelAppointment(
       .where(eq(customerPackages.id, appointment.customerPackageId));
   }
 
-  // Send cancellation WhatsApp notification (fire-and-forget)
+  // Send cancellation WhatsApp notification to customer + owner + staff (fire-and-forget)
   try {
-    const { sendBookingNotificationSafe } = await import("@/lib/notifications/send-notification");
+    const { sendBookingNotificationSafe, sendOwnerBookingNotification, sendStaffNotification } = await import("@/lib/notifications/send-notification");
     const customer = await db.query.customers.findFirst({
       where: eq(customers.id, appointment.customerId),
       columns: { userId: true },
     });
     if (customer) {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, customer.userId),
-        columns: { phone: true, name: true },
-      });
+      const [user, svc, cancelBiz] = await Promise.all([
+        db.query.users.findFirst({ where: eq(users.id, customer.userId), columns: { phone: true, name: true } }),
+        db.query.services.findFirst({ where: eq(services.id, appointment.serviceId), columns: { title: true } }),
+        db.query.businesses.findFirst({ where: eq(businesses.id, appointment.businessId), columns: { name: true, ownerId: true } }),
+      ]);
+      const dateStr = new Date(appointment.startTime).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+      const timeStr = new Date(appointment.startTime).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      const variables: Record<string, string> = {
+        customerName: user?.name || "",
+        businessName: cancelBiz?.name || "",
+        date: dateStr,
+        time: timeStr,
+        service: svc?.title || "",
+        staff: "",
+      };
+
       if (user?.phone) {
-        const svc = await db.query.services.findFirst({
-          where: eq(services.id, appointment.serviceId),
-          columns: { title: true },
-        });
-        const dateStr = new Date(appointment.startTime).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
-        const timeStr = new Date(appointment.startTime).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-        const cancelBiz = await db.query.businesses.findFirst({
-          where: eq(businesses.id, appointment.businessId),
-          columns: { name: true },
-        });
         sendBookingNotificationSafe({
           businessId: appointment.businessId,
           appointmentId,
           userId: customer.userId,
           recipientPhone: user.phone,
           type: "CANCELLATION",
-          variables: {
-            customerName: user.name || "",
-            businessName: cancelBiz?.name || "",
-            date: dateStr,
-            time: timeStr,
-            service: svc?.title || "",
-            staff: "",
-          },
+          variables,
         });
       }
+      if (cancelBiz?.ownerId) {
+        sendOwnerBookingNotification(appointment.businessId, cancelBiz.ownerId, {
+          ...variables,
+          customerName: user?.name || "Customer",
+        });
+      }
+      sendStaffNotification(appointment.businessId, appointment.staffId, "STAFF_CANCELLATION", {
+        ...variables,
+        customerName: user?.name || "Customer",
+      });
     }
   } catch { /* notification failure must not block cancellation */ }
 
@@ -1069,6 +1093,43 @@ export async function rescheduleAppointment(
     newValue: start.toISOString(),
     performedBy: "CUSTOMER",
   });
+
+  try {
+    const { sendBookingNotificationSafe, sendStaffNotification } = await import("@/lib/notifications/send-notification");
+    const customer = await db.query.customers.findFirst({
+      where: eq(customers.id, appointment.customerId),
+      columns: { userId: true },
+    });
+    if (customer) {
+      const [user, staffMember, biz] = await Promise.all([
+        db.query.users.findFirst({ where: eq(users.id, customer.userId), columns: { phone: true, name: true } }),
+        db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
+        db.query.businesses.findFirst({ where: eq(businesses.id, appointment.businessId), columns: { name: true } }),
+      ]);
+      const dateStr = start.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+      const timeStr = start.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      const variables: Record<string, string> = {
+        customerName: user?.name || "",
+        businessName: biz?.name || "",
+        date: dateStr,
+        time: timeStr,
+        service: service.title,
+        staff: staffMember?.name || "",
+      };
+
+      if (user?.phone) {
+        sendBookingNotificationSafe({
+          businessId: appointment.businessId,
+          appointmentId,
+          userId: customer.userId,
+          recipientPhone: user.phone,
+          type: "RESCHEDULE",
+          variables,
+        });
+      }
+      sendStaffNotification(appointment.businessId, staffId, "STAFF_RESCHEDULE", variables);
+    }
+  } catch { /* notification failure must not block reschedule */ }
 
   revalidatePath(`/b`);
   revalidatePath(`/dashboard`);

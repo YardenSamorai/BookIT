@@ -1,4 +1,4 @@
-import { eq, desc, sql, count, inArray } from "drizzle-orm";
+import { eq, desc, sql, count, inArray, and, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notificationLogs, customers, users, businesses } from "@/lib/db/schema";
 
@@ -34,9 +34,10 @@ export async function getNotificationStats(businessId: string) {
 }
 
 /**
- * Remove notification logs attributed to a business where the recipient
- * doesn't match any customer of that business (or the owner).
- * This fixes misattributed synced messages.
+ * Remove notification logs that were bulk-synced from Twilio (no userId, no appointmentId)
+ * rather than logged at send-time by the app. These are unreliable because the shared
+ * Twilio account can't distinguish which business triggered a message.
+ * Also removes logs where the recipient doesn't match any known customer/owner.
  */
 export async function cleanupMisattributedLogs(businessId: string) {
   function normalize(phone: string): string {
@@ -47,6 +48,21 @@ export async function cleanupMisattributedLogs(businessId: string) {
     return c;
   }
 
+  // 1) Remove synced-in orphans (no userId AND no appointmentId means the sync created them)
+  const orphanLogs = await db
+    .select({ id: notificationLogs.id })
+    .from(notificationLogs)
+    .where(
+      and(
+        eq(notificationLogs.businessId, businessId),
+        isNull(notificationLogs.userId),
+        isNull(notificationLogs.appointmentId)
+      )
+    );
+
+  const orphanIds = orphanLogs.map((l) => l.id);
+
+  // 2) Remove logs whose recipient doesn't match any customer/owner
   const custRows = await db
     .select({ phone: users.phone })
     .from(customers)
@@ -77,13 +93,15 @@ export async function cleanupMisattributedLogs(businessId: string) {
     .from(notificationLogs)
     .where(eq(notificationLogs.businessId, businessId));
 
-  const toDelete: string[] = [];
+  const unknownRecipientIds: string[] = [];
   for (const log of allLogs) {
     const normalized = normalize(log.recipient);
     if (!knownPhones.has(normalized)) {
-      toDelete.push(log.id);
+      unknownRecipientIds.push(log.id);
     }
   }
+
+  const toDelete = [...new Set([...orphanIds, ...unknownRecipientIds])];
 
   if (toDelete.length > 0) {
     for (let i = 0; i < toDelete.length; i += 50) {

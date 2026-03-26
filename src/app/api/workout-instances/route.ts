@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         maxParticipants: classInstances.maxParticipants,
         status: classInstances.status,
         serviceName: sql<string>`COALESCE(${classSchedules.title}, ${services.title})`.as("service_name"),
+        serviceDescription: services.description,
         staffName: staffMembers.name,
       })
       .from(classInstances)

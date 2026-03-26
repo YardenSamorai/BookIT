@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, users } from "@/lib/db/schema";
-import { sendWhatsAppText } from "@/lib/notifications/whatsapp";
+import { sendWhatsAppTemplate, getTemplateSid, buildTemplateVariables } from "@/lib/notifications/whatsapp";
 
 const rateLimitMap = new Map<string, number[]>();
 const MAX_TESTS = 3;
@@ -44,9 +44,22 @@ export async function POST() {
     return NextResponse.json({ error: "No phone number configured" }, { status: 400 });
   }
 
-  const testMessage = `🧪 הודעת בדיקה מ-BookIT!\n\nזוהי הודעת בדיקה מהעסק "${business?.name ?? "BookIT"}".\nאם קיבלת הודעה זו, החיבור ל-WhatsApp עובד כמו שצריך! ✅`;
+  const templateSid = getTemplateSid("BOOKING_CONFIRMED");
+  if (!templateSid) {
+    return NextResponse.json({ error: "No WhatsApp template configured" }, { status: 500 });
+  }
 
-  const result = await sendWhatsAppText(phone, testMessage);
+  const vars = {
+    customerName: "לקוח לדוגמה",
+    businessName: business?.name ?? "BookIT",
+    date: "01/04/2026",
+    time: "10:00",
+    service: "בדיקת חיבור",
+    staff: "צוות",
+  };
+
+  const contentVars = buildTemplateVariables("BOOKING_CONFIRMED", vars);
+  const result = await sendWhatsAppTemplate(phone, templateSid, contentVars);
 
   if (result.success) {
     return NextResponse.json({ ok: true });
