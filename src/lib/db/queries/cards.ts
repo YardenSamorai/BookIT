@@ -177,15 +177,21 @@ export async function findActiveCardsForService(
       snapshotRestoreOnNoShow: customerCards.snapshotRestoreOnNoShow,
     })
     .from(customerCards)
-    .innerJoin(
-      cardTemplateServices,
-      eq(customerCards.cardTemplateId, cardTemplateServices.cardTemplateId)
-    )
     .where(
       and(
         eq(customerCards.customerId, customerId),
-        eq(cardTemplateServices.serviceId, serviceId),
-        buildCardEligibilityConditions()
+        buildCardEligibilityConditions(),
+        or(
+          sql`EXISTS (
+            SELECT 1 FROM card_template_service cts
+            WHERE cts.card_template_id = ${customerCards.cardTemplateId}
+              AND cts.service_id = ${serviceId}::uuid
+          )`,
+          sql`NOT EXISTS (
+            SELECT 1 FROM card_template_service cts
+            WHERE cts.card_template_id = ${customerCards.cardTemplateId}
+          )`
+        )
       )
     )
     .orderBy(

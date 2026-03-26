@@ -1149,6 +1149,7 @@ export const translations = {
     "book.cap_full": "Full",
     "book.cap_available": "{n} spots available",
     "book.duration_min": "{n} min",
+    "book.registered": "Registered",
     "book.reserve_spot": "Reserve My Spot",
     "book.back_to_classes": "Back to Classes",
     "book.sessions_left": "{n} sessions left",
@@ -1216,6 +1217,20 @@ export const translations = {
     "portal.pending_alert": "You have payments pending",
     "portal.cancel_policy": "Cancellations must be made at least 24 hours before the appointment.",
     "portal.quick_actions": "Quick Actions",
+    "portal.status_confirmed": "Confirmed",
+    "portal.status_pending": "Pending Approval",
+    "portal.status_cancelled": "Not Approved",
+    "portal.status_completed": "Completed",
+    "portal.status_no_show": "No Show",
+
+    // ── User menu (public navbar) ──
+    "usermenu.profile": "Profile",
+    "usermenu.my_appointments": "My Appointments",
+    "usermenu.card": "Card",
+    "usermenu.logout": "Log Out",
+    "usermenu.morning": "Good morning",
+    "usermenu.afternoon": "Good afternoon",
+    "usermenu.evening": "Good evening",
 
     // ── Public Site ──
     "pub.login": "Log In",
@@ -2829,6 +2844,7 @@ export const translations = {
     "book.cap_full": "מלא",
     "book.cap_available": "{n} מקומות פנויים",
     "book.duration_min": "{n} דק׳",
+    "book.registered": "רשום/ה",
     "book.reserve_spot": "שריון מקום",
     "book.back_to_classes": "חזרה לשיעורים",
     "book.sessions_left": "נשארו {n} כניסות",
@@ -2896,6 +2912,20 @@ export const translations = {
     "portal.pending_alert": "יש לכם תשלומים ממתינים",
     "portal.cancel_policy": "ביטולים חייבים להתבצע לפחות 24 שעות לפני התור.",
     "portal.quick_actions": "פעולות מהירות",
+    "portal.status_confirmed": "מאושר",
+    "portal.status_pending": "ממתין לאישור",
+    "portal.status_cancelled": "לא מאושר",
+    "portal.status_completed": "הושלם",
+    "portal.status_no_show": "לא הגיע",
+
+    // ── User menu (public navbar) ──
+    "usermenu.profile": "פרופיל",
+    "usermenu.my_appointments": "התורים שלי",
+    "usermenu.card": "כרטיסיה",
+    "usermenu.logout": "התנתקות",
+    "usermenu.morning": "בוקר טוב",
+    "usermenu.afternoon": "צהריים טובים",
+    "usermenu.evening": "ערב טוב",
 
     // ── Public Site ──
     "pub.login": "התחברות",

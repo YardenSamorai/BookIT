@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { t, type Locale } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils/currencies";
 import type { InferSelectModel } from "drizzle-orm";
@@ -696,13 +696,62 @@ function ProductCarousel({
   opts: DisplayOpts;
 }) {
   const doubled = [...products, ...products];
+  const stripRef = useRef<HTMLDivElement>(null);
+  const touchState = useRef({ startX: 0, currentOffset: 0, dragging: false });
+  const resumeTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const pauseAnimation = useCallback(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const computed = getComputedStyle(el);
+    const matrix = new DOMMatrix(computed.transform);
+    touchState.current.currentOffset = matrix.m41;
+    el.style.animationPlayState = "paused";
+    el.style.transform = `translateX(${matrix.m41}px)`;
+  }, []);
+
+  const resumeAnimation = useCallback(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.style.transform = "";
+    el.style.animationPlayState = "running";
+  }, []);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    touchState.current.startX = e.touches[0].clientX;
+    touchState.current.dragging = true;
+    pauseAnimation();
+  }, [pauseAnimation]);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchState.current.dragging) return;
+    const el = stripRef.current;
+    if (!el) return;
+    const delta = e.touches[0].clientX - touchState.current.startX;
+    el.style.transform = `translateX(${touchState.current.currentOffset + delta}px)`;
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    touchState.current.dragging = false;
+    resumeTimer.current = setTimeout(resumeAnimation, 2000);
+  }, [resumeAnimation]);
+
+  const dur = Math.max(products.length * (SPEED_SECONDS_PER_ITEM[opts.carouselSpeed] ?? 2.5), 8);
 
   return (
     <div className="relative overflow-hidden">
       <div className="absolute inset-y-0 start-0 z-10 w-12 bg-gradient-to-r from-white to-transparent pointer-events-none sm:w-20 rtl:bg-gradient-to-l" />
       <div className="absolute inset-y-0 end-0 z-10 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none sm:w-20 rtl:bg-gradient-to-r" />
 
-      <div className="flex animate-marquee gap-4 sm:gap-6 py-2">
+      <div
+        ref={stripRef}
+        className="flex animate-marquee gap-4 sm:gap-6 py-2"
+        style={{ touchAction: "pan-y" }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         {doubled.map((product, i) => (
           <div key={`${product.id}-${i}`} className="w-56 shrink-0 sm:w-72">
             <ProductCard
@@ -724,7 +773,7 @@ function ProductCarousel({
           100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee ${Math.max(products.length * (SPEED_SECONDS_PER_ITEM[opts.carouselSpeed] ?? 2.5), 8)}s linear infinite;
+          animation: marquee ${dur}s linear infinite;
         }
         .animate-marquee:hover {
           animation-play-state: paused;

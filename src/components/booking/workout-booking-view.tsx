@@ -39,6 +39,7 @@ interface WorkoutInstance {
   serviceName: string;
   staffName: string;
   scheduleTitle: string | null;
+  isRegistered?: boolean;
 }
 
 interface WorkoutBookingViewProps {
@@ -484,7 +485,8 @@ export function WorkoutBookingView({
                                   inst.bookedCount >= inst.maxParticipants;
                                 const isExpired =
                                   new Date(inst.startTime) < new Date();
-                                const canBook = !isFull && !isExpired;
+                                const isRegistered = !!inst.isRegistered;
+                                const canBook = !isFull && !isExpired && !isRegistered;
                                 const cap = getCapacity(
                                   inst.bookedCount,
                                   inst.maxParticipants
@@ -512,27 +514,36 @@ export function WorkoutBookingView({
                                     }
                                     disabled={!canBook}
                                     className={`group w-full rounded-xl border p-3 text-start transition-all duration-150 ${
-                                      canBook
-                                        ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200"
-                                        : "border-transparent bg-gray-50/60 opacity-40"
+                                      isRegistered
+                                        ? "border-emerald-200 bg-emerald-50/50"
+                                        : canBook
+                                          ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200"
+                                          : "border-transparent bg-gray-50/60 opacity-40"
                                     }`}
                                     style={
-                                      canBook
+                                      isRegistered
                                         ? {
                                             borderInlineStartWidth: "3px",
-                                            borderInlineStartColor:
-                                              secondaryColor,
+                                            borderInlineStartColor: "#10b981",
                                           }
-                                        : undefined
+                                        : canBook
+                                          ? {
+                                              borderInlineStartWidth: "3px",
+                                              borderInlineStartColor:
+                                                secondaryColor,
+                                            }
+                                          : undefined
                                     }
                                   >
                                     <div className="mb-1.5 flex items-baseline gap-1">
                                       <span
                                         className="text-sm font-bold tabular-nums"
                                         style={{
-                                          color: canBook
-                                            ? secondaryColor
-                                            : "#9ca3af",
+                                          color: isRegistered
+                                            ? "#10b981"
+                                            : canBook
+                                              ? secondaryColor
+                                              : "#9ca3af",
                                         }}
                                       >
                                         {formatTime(inst.startTime)}
@@ -550,7 +561,13 @@ export function WorkoutBookingView({
                                     <p className="mt-0.5 text-xs text-gray-500 truncate">
                                       {inst.staffName} · {duration}′
                                     </p>
-                                    {capLabel && (
+                                    {isRegistered && (
+                                      <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                        <Check size={10} />
+                                        {t(k("book.registered"))}
+                                      </span>
+                                    )}
+                                    {!isRegistered && capLabel && (
                                       <span
                                         className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${getCapacityBadgeStyle(
                                           cap.level
@@ -559,7 +576,7 @@ export function WorkoutBookingView({
                                         {capLabel}
                                       </span>
                                     )}
-                                    {isExpired && !isFull && (
+                                    {isExpired && !isFull && !isRegistered && (
                                       <span className="mt-1.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
                                         —
                                       </span>
@@ -629,7 +646,8 @@ export function WorkoutBookingView({
                                 inst.bookedCount >= inst.maxParticipants;
                               const isExpired =
                                 new Date(inst.startTime) < new Date();
-                              const canBook = !isFull && !isExpired;
+                              const isRegistered = !!inst.isRegistered;
+                              const canBook = !isFull && !isExpired && !isRegistered;
                               const cap = getCapacity(
                                 inst.bookedCount,
                                 inst.maxParticipants
@@ -657,34 +675,45 @@ export function WorkoutBookingView({
                                   }
                                   disabled={!canBook}
                                   className={`group flex w-full items-center gap-3 rounded-xl border p-3.5 text-start transition-all duration-200 sm:gap-4 sm:rounded-2xl sm:p-4 ${
-                                    canBook
-                                      ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200 hover:-translate-y-px"
-                                      : "border-transparent bg-gray-50/60 opacity-40"
+                                    isRegistered
+                                      ? "border-emerald-200 bg-emerald-50/50"
+                                      : canBook
+                                        ? "border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-200 hover:-translate-y-px"
+                                        : "border-transparent bg-gray-50/60 opacity-40"
                                   }`}
                                   style={
-                                    canBook
+                                    isRegistered
                                       ? {
                                           borderInlineStartWidth: "3px",
-                                          borderInlineStartColor:
-                                            secondaryColor,
+                                          borderInlineStartColor: "#10b981",
                                         }
-                                      : undefined
+                                      : canBook
+                                        ? {
+                                            borderInlineStartWidth: "3px",
+                                            borderInlineStartColor:
+                                              secondaryColor,
+                                          }
+                                        : undefined
                                   }
                                 >
                                   <div
                                     className="flex shrink-0 flex-col items-center rounded-lg px-2.5 py-1.5 sm:rounded-xl sm:px-3 sm:py-2"
                                     style={{
-                                      backgroundColor: canBook
-                                        ? `${secondaryColor}0a`
-                                        : "#f5f5f5",
+                                      backgroundColor: isRegistered
+                                        ? "#d1fae510"
+                                        : canBook
+                                          ? `${secondaryColor}0a`
+                                          : "#f5f5f5",
                                     }}
                                   >
                                     <span
                                       className="text-sm font-bold tabular-nums leading-tight sm:text-base"
                                       style={{
-                                        color: canBook
-                                          ? secondaryColor
-                                          : "#9ca3af",
+                                        color: isRegistered
+                                          ? "#10b981"
+                                          : canBook
+                                            ? secondaryColor
+                                            : "#9ca3af",
                                       }}
                                     >
                                       {formatTime(inst.startTime)}
@@ -716,7 +745,13 @@ export function WorkoutBookingView({
                                     </p>
                                   </div>
 
-                                  {capLabel && (
+                                  {isRegistered && (
+                                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:text-[11px]">
+                                      <Check size={11} />
+                                      {t(k("book.registered"))}
+                                    </span>
+                                  )}
+                                  {!isRegistered && capLabel && (
                                     <span
                                       className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold sm:text-[11px] ${getCapacityBadgeStyle(
                                         cap.level
@@ -725,7 +760,7 @@ export function WorkoutBookingView({
                                       {capLabel}
                                     </span>
                                   )}
-                                  {isExpired && !isFull && (
+                                  {!isRegistered && isExpired && !isFull && (
                                     <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-400">
                                       —
                                     </span>

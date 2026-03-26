@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lte, count, sql } from "drizzle-orm";
+import { and, eq, gte, lte, count, sql, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   classInstances,
@@ -7,7 +7,9 @@ import {
   services,
   staffMembers,
   appointments,
+  customers,
 } from "@/lib/db/schema";
+import { auth } from "@/lib/auth/config";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -23,6 +25,37 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    let userRegisteredInstanceIds = new Set<string>();
+
+    if (userId) {
+      const customer = await db.query.customers.findFirst({
+        where: and(
+          eq(customers.businessId, businessId),
+          eq(customers.userId, userId)
+        ),
+        columns: { id: true },
+      });
+
+      if (customer) {
+        const userAppts = await db
+          .select({ classInstanceId: appointments.classInstanceId })
+          .from(appointments)
+          .where(
+            and(
+              eq(appointments.customerId, customer.id),
+              eq(appointments.status, "CONFIRMED"),
+              sql`${appointments.classInstanceId} IS NOT NULL`
+            )
+          );
+        userRegisteredInstanceIds = new Set(
+          userAppts.map((a) => a.classInstanceId!).filter(Boolean)
+        );
+      }
+    }
+
     const instances = await db
       .select({
         id: classInstances.id,
@@ -66,6 +99,7 @@ export async function GET(request: NextRequest) {
           startTime: new Date(inst.startTime).toISOString(),
           endTime: new Date(inst.endTime).toISOString(),
           bookedCount: result?.value ?? 0,
+          isRegistered: userRegisteredInstanceIds.has(inst.id),
         };
       })
     );

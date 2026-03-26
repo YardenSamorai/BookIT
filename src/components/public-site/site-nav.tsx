@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { Menu, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { User, CalendarCheck, CreditCard, LogOut } from "lucide-react";
 import type { SiteTheme } from "@/lib/themes/presets";
 import { t, type Locale } from "@/lib/i18n";
 
@@ -28,12 +28,117 @@ function getFirstName(name: string | null | undefined): string {
   return name.trim().split(/\s+/)[0];
 }
 
+function getGreetingKey(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "usermenu.morning";
+  if (hour < 17) return "usermenu.afternoon";
+  return "usermenu.evening";
+}
+
 const SECTION_NAV_MAP: Record<string, { href: string; labelKey: string }> = {
   about: { href: "#about", labelKey: "pub.about" },
   services: { href: "#services", labelKey: "section.services" },
   team: { href: "#team", labelKey: "pub.team" },
   contact: { href: "#contact", labelKey: "pub.contact_us" },
 };
+
+const USER_MENU_ITEMS = [
+  { key: "usermenu.profile", icon: User, tab: "profile" },
+  { key: "usermenu.my_appointments", icon: CalendarCheck, tab: "appointments" },
+  { key: "usermenu.card", icon: CreditCard, tab: "packages" },
+] as const;
+
+function UserMenuDropdown({
+  userName,
+  avatarSize = "md",
+  showGreeting = false,
+  accentColor,
+  textColorClass,
+  slug,
+  locale,
+}: {
+  userName: string | null | undefined;
+  avatarSize?: "sm" | "md";
+  showGreeting?: boolean;
+  accentColor: string;
+  textColorClass?: string;
+  slug: string;
+  locale: Locale;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const myAppointmentsUrl = `/b/${slug}/my-appointments`;
+  const greeting = t(locale, getGreetingKey() as Parameters<typeof t>[1]);
+  const firstName = getFirstName(userName);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [open]);
+
+  const sz = avatarSize === "sm" ? "size-6 text-[10px]" : "size-7 text-[11px]";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 transition-opacity hover:opacity-80"
+      >
+        {showGreeting && firstName && (
+          <span className={`text-sm font-medium ${textColorClass ?? ""}`}>
+            {greeting}, {firstName}
+          </span>
+        )}
+        <span
+          className={`flex items-center justify-center rounded-full font-bold text-white ${sz}`}
+          style={{ backgroundColor: accentColor }}
+        >
+          {getInitials(userName)}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute end-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
+          {USER_MENU_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <a
+                key={item.key}
+                href={`${myAppointmentsUrl}?tab=${item.tab}`}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <Icon size={16} className="shrink-0 text-gray-400" />
+                {t(locale, item.key as Parameters<typeof t>[1])}
+              </a>
+            );
+          })}
+          <div className="my-1 h-px bg-gray-100" />
+          <button
+            onClick={() => {
+              setOpen(false);
+              signOut({ callbackUrl: `/b/${slug}` });
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
+          >
+            <LogOut size={16} className="shrink-0" />
+            {t(locale, "usermenu.logout" as Parameters<typeof t>[1])}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SiteNav({
   businessName,
@@ -51,12 +156,10 @@ export function SiteNav({
       label: t(locale, SECTION_NAV_MAP[s].labelKey as Parameters<typeof t>[1]),
     }));
   const myAppointmentsUrl = `/b/${slug}/my-appointments`;
-  const myAppointmentsLabel = t(locale, "portal.login_title");
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user?.id;
   const userName = session?.user?.name;
 
-  const [mobileOpen, setMobileOpen] = useState(false);
   const isWhite = theme.preset.navStyle === "white";
   const isTransparent = theme.preset.navStyle === "transparent";
 
@@ -79,7 +182,7 @@ export function SiteNav({
       style={navBgStyle}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
-        <div className="flex items-center gap-3">
+        <a href={`/b/${slug}`} className="flex items-center gap-3 transition-opacity hover:opacity-80">
           {logoUrl && (
             <img
               src={logoUrl}
@@ -90,8 +193,9 @@ export function SiteNav({
           <span className={`text-base font-bold sm:text-lg ${textColor}`}>
             {businessName}
           </span>
-        </div>
+        </a>
 
+        {/* Desktop nav */}
         <div className="hidden items-center gap-6 md:flex">
           {NAV_LINKS.map((link) => (
             <a
@@ -103,20 +207,15 @@ export function SiteNav({
             </a>
           ))}
           {isLoggedIn ? (
-            <a
-              href={myAppointmentsUrl}
-              className="flex items-center gap-2 transition-opacity hover:opacity-80"
-            >
-              <span
-                className="flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                style={{ backgroundColor: theme.secondaryColor }}
-              >
-                {getInitials(userName)}
-              </span>
-              <span className={`text-sm font-medium ${textColor}`}>
-                {getFirstName(userName)}
-              </span>
-            </a>
+            <UserMenuDropdown
+              userName={userName}
+              avatarSize="md"
+              showGreeting
+              accentColor={theme.secondaryColor}
+              textColorClass={textColor}
+              slug={slug}
+              locale={locale}
+            />
           ) : (
             <a
               href={myAppointmentsUrl}
@@ -141,104 +240,22 @@ export function SiteNav({
           </a>
         </div>
 
+        {/* Mobile nav */}
         <div className="flex items-center gap-2 md:hidden">
           {isLoggedIn && (
-            <a
-              href={myAppointmentsUrl}
-              className="flex items-center gap-1.5"
-            >
-              <span
-                className="flex size-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                style={{ backgroundColor: theme.secondaryColor }}
-              >
-                {getInitials(userName)}
-              </span>
-            </a>
+            <UserMenuDropdown
+              userName={userName}
+              avatarSize="sm"
+              showGreeting
+              accentColor={theme.secondaryColor}
+              textColorClass={textColor}
+              slug={slug}
+              locale={locale}
+            />
           )}
-          <a
-            href={bookingUrl}
-            className={`px-3 py-1.5 text-xs ${theme.buttonClasses}`}
-            style={
-              theme.preset.buttonStyle === "outline"
-                ? { borderColor: theme.secondaryColor, color: theme.secondaryColor }
-                : { backgroundColor: theme.secondaryColor }
-            }
-          >
-            {t(locale, "pub.book")}
-          </a>
-          <button
-            type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className={`flex size-9 items-center justify-center rounded-lg transition-colors ${
-              isWhite
-                ? "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                : "text-white/80 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
         </div>
       </div>
 
-      {mobileOpen && (
-        <div
-          className={`px-4 pb-4 pt-2 md:hidden ${
-            isWhite ? "border-t border-gray-100 bg-white" : "border-t border-white/10"
-          }`}
-          style={isWhite ? {} : { backgroundColor: theme.primaryColor }}
-        >
-          <div className="flex flex-col gap-1">
-            {isLoggedIn && (
-              <a
-                href={myAppointmentsUrl}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${
-                  isWhite
-                    ? "bg-gray-50 text-gray-900"
-                    : "bg-white/10 text-white"
-                }`}
-              >
-                <span
-                  className="flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                  style={{ backgroundColor: theme.secondaryColor }}
-                >
-                  {getInitials(userName)}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{userName}</p>
-                  <p className={`text-[11px] ${isWhite ? "text-gray-500" : "text-white/60"}`}>
-                    {myAppointmentsLabel}
-                  </p>
-                </div>
-              </a>
-            )}
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className={`rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                  isWhite
-                    ? "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {link.label}
-              </a>
-            ))}
-            {!isLoggedIn && (
-              <a
-                href={myAppointmentsUrl}
-                onClick={() => setMobileOpen(false)}
-                className="mt-1 rounded-lg px-3 py-2.5 text-center text-sm font-medium text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: theme.secondaryColor }}
-              >
-                {t(locale, "pub.login")}
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </nav>
   );
 }

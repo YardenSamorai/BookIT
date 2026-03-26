@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useTransition, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -89,6 +89,22 @@ const TAB_I18N: Record<PortalTab, string> = {
   profile: "portal.tab_profile",
 };
 
+const STATUS_I18N: Record<string, string> = {
+  CONFIRMED: "portal.status_confirmed",
+  PENDING: "portal.status_pending",
+  CANCELLED: "portal.status_cancelled",
+  COMPLETED: "portal.status_completed",
+  NO_SHOW: "portal.status_no_show",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  CONFIRMED: "bg-emerald-100 text-emerald-700",
+  COMPLETED: "bg-emerald-100 text-emerald-700",
+  PENDING: "bg-amber-100 text-amber-700",
+  CANCELLED: "bg-red-100 text-red-700",
+  NO_SHOW: "bg-red-100 text-red-700",
+};
+
 // ─── Main Portal ──────────────────────────────────────────────────────────────
 
 export function CustomerPortal({
@@ -104,7 +120,18 @@ export function CustomerPortal({
 }: CustomerPortalProps) {
   const t = useT();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<PortalTab>("overview");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as PortalTab) || "overview";
+  const [activeTab, setActiveTab] = useState<PortalTab>(
+    TAB_KEYS.includes(initialTab) ? initialTab : "overview"
+  );
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab") as PortalTab;
+    if (tabParam && TAB_KEYS.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const needsOnboarding =
     isAuthenticated && user && (!user.name || user.name.trim().length < 2);
@@ -517,18 +544,11 @@ function OverviewTab({
                     })}
                   </p>
                 </div>
-                <Badge
-                  variant={
-                    apt.status === "CONFIRMED" || apt.status === "COMPLETED"
-                      ? "default"
-                      : apt.status === "CANCELLED"
-                        ? "destructive"
-                        : "outline"
-                  }
-                  className="shrink-0 text-[10px]"
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_COLORS[apt.status] ?? "bg-gray-100 text-gray-600"}`}
                 >
-                  {apt.status}
-                </Badge>
+                  {t(STATUS_I18N[apt.status] as Parameters<typeof t>[0]) ?? apt.status}
+                </span>
               </div>
             ))}
           </div>
@@ -678,14 +698,6 @@ function PortalAppointmentCard({
     onRefresh();
   }
 
-  const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-    CONFIRMED: "default",
-    PENDING: "outline",
-    CANCELLED: "destructive",
-    COMPLETED: "secondary",
-    NO_SHOW: "destructive",
-  };
-
   return (
     <>
       <div className="rounded-xl border bg-white p-4">
@@ -693,9 +705,11 @@ function PortalAppointmentCard({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <p className="font-semibold text-gray-900">{apt.serviceName}</p>
-              <Badge variant={STATUS_VARIANT[apt.status] ?? "secondary"}>
-                {apt.status}
-              </Badge>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_COLORS[apt.status] ?? "bg-gray-100 text-gray-600"}`}
+              >
+                {t(STATUS_I18N[apt.status] as Parameters<typeof t>[0]) ?? apt.status}
+              </span>
             </div>
             <div className="space-y-1 text-sm text-gray-500">
               <p>{apt.staffName}</p>
