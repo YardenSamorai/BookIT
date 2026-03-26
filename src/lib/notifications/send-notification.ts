@@ -179,13 +179,20 @@ export async function sendOwnerBookingNotification(
   variables: Record<string, string>
 ): Promise<void> {
   try {
-    const owner = await db.query.users.findFirst({
-      where: eq(users.id, ownerId),
-      columns: { phone: true, name: true },
-    });
+    const [owner, biz] = await Promise.all([
+      db.query.users.findFirst({
+        where: eq(users.id, ownerId),
+        columns: { phone: true, name: true },
+      }),
+      db.query.businesses.findFirst({
+        where: eq(businesses.id, businessId),
+        columns: { phone: true },
+      }),
+    ]);
 
-    if (!owner?.phone) {
-      console.log("Owner notification skipped: no phone number");
+    const ownerPhone = owner?.phone || biz?.phone;
+    if (!ownerPhone) {
+      console.log("Owner notification skipped: no phone on user or business");
       return;
     }
 
@@ -197,7 +204,7 @@ export async function sendOwnerBookingNotification(
 
     const ownerPayload: NotificationPayload = {
       businessId,
-      recipientPhone: owner.phone,
+      recipientPhone: ownerPhone,
       type: "BOOKING_OWNER",
       variables,
     };
@@ -207,7 +214,7 @@ export async function sendOwnerBookingNotification(
       const templateSid = getTemplateSid("BOOKING_OWNER");
       if (templateSid) {
         const contentVars = buildTemplateVariables("BOOKING_OWNER", variables);
-        const result = await sendWhatsAppTemplate(owner.phone, templateSid, contentVars);
+        const result = await sendWhatsAppTemplate(ownerPhone, templateSid, contentVars);
         await logNotification(ownerPayload, "WHATSAPP", `[Template: ${templateSid}] vars: ${JSON.stringify(contentVars)}`, result);
         waSuccess = result.success;
       }
@@ -221,7 +228,7 @@ export async function sendOwnerBookingNotification(
         locale
       );
       const rendered = renderTemplate(smsBody, variables);
-      const result = await sendSmsWithDetails(owner.phone, rendered);
+      const result = await sendSmsWithDetails(ownerPhone, rendered);
       await logNotification(ownerPayload, "SMS", rendered, result);
     }
   } catch (err) {
