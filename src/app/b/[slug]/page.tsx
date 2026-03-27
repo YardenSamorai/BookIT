@@ -42,6 +42,21 @@ export default async function PublicBusinessPage({ params }: Props) {
     notFound();
   }
 
+  if (data.business.subscriptionStatus === "CANCELLED") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold text-slate-800">
+            {t((data.business.language as Locale) || "he", "pub.site_suspended" as never)}
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            {t((data.business.language as Locale) || "he", "pub.site_suspended_desc" as never)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const locale = (data.business.language as Locale) || "he";
 
   return <PublicSite data={data} locale={locale} />;

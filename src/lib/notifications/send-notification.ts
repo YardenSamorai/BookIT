@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, notificationPreferences, notificationLogs, users, staffMembers, customers } from "@/lib/db/schema";
 import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
@@ -28,12 +28,35 @@ interface NotificationPayload {
 async function getBusinessInfo(businessId: string) {
   const biz = await db.query.businesses.findFirst({
     where: eq(businesses.id, businessId),
-    columns: { subscriptionPlan: true, language: true },
+    columns: { subscriptionPlan: true, subscriptionStatus: true, language: true, messageQuotaOverride: true },
   });
   return {
+    isCancelled: biz?.subscriptionStatus === "CANCELLED",
     plan: (biz?.subscriptionPlan as PlanType) ?? "FREE",
     locale: (biz?.language as "en" | "he") ?? "he",
+    messageQuotaOverride: biz?.messageQuotaOverride ?? null,
   };
+}
+
+async function isOverMessageQuota(businessId: string, plan: PlanType, quotaOverride: number | null): Promise<boolean> {
+  const quota = quotaOverride ?? getLimitsForPlan(plan).maxMonthlyMessages;
+  if (quota === Infinity || quota > 999999) return false;
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [result] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(notificationLogs)
+    .where(
+      and(
+        eq(notificationLogs.businessId, businessId),
+        eq(notificationLogs.status, "SENT"),
+        gte(notificationLogs.createdAt, monthStart)
+      )
+    );
+
+  return (result?.c ?? 0) >= quota;
 }
 
 async function getNotificationPrefs(businessId: string) {
@@ -84,12 +107,23 @@ export async function sendBookingNotification(
 ): Promise<WhatsAppResult> {
   console.log(`[Notification] Sending ${payload.type} to ${payload.recipientPhone}`);
 
-  const { plan, locale } = await getBusinessInfo(payload.businessId);
+  const { plan, locale, messageQuotaOverride, isCancelled } = await getBusinessInfo(payload.businessId);
+
+  if (isCancelled) {
+    console.log("[Notification] Blocked: business account is suspended");
+    return { success: false, error: "ACCOUNT_SUSPENDED" };
+  }
+
   const limits = getLimitsForPlan(plan);
 
   if (!limits.whatsappNotifications) {
     console.log("[Notification] Blocked by plan limits");
     return { success: false, error: "PLAN_NOT_ALLOWED" };
+  }
+
+  if (await isOverMessageQuota(payload.businessId, plan, messageQuotaOverride)) {
+    console.log("[Notification] Blocked: monthly message quota exceeded");
+    return { success: false, error: "QUOTA_EXCEEDED" };
   }
 
   const prefs = await getNotificationPrefs(payload.businessId);

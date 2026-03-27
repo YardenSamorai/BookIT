@@ -19,6 +19,13 @@ import {
 import { t, isRtl, type Locale } from "@/lib/i18n";
 import { MobileNav } from "./components/mobile-nav";
 import { StickyMobileCta } from "./components/sticky-mobile-cta";
+import {
+  DashboardMockup,
+  SiteMockup,
+  CrmMockup,
+  WhatsAppMockup,
+  OpsMockup,
+} from "./components/dashboard-mockup";
 
 const LOCALE: Locale = "he";
 
@@ -49,6 +56,7 @@ const featureBlocks = [
     icon: Paintbrush,
     color: "text-blue-600",
     bgColor: "bg-blue-50",
+    mockup: "site" as const,
   },
   {
     titleKey: "landing.feat_crm_title",
@@ -62,6 +70,7 @@ const featureBlocks = [
     icon: UserCheck,
     color: "text-emerald-600",
     bgColor: "bg-emerald-50",
+    mockup: "crm" as const,
   },
   {
     titleKey: "landing.feat_wa_title",
@@ -75,6 +84,7 @@ const featureBlocks = [
     icon: MessageCircle,
     color: "text-green-600",
     bgColor: "bg-green-50",
+    mockup: "whatsapp" as const,
   },
   {
     titleKey: "landing.feat_ops_title",
@@ -88,8 +98,16 @@ const featureBlocks = [
     icon: CalendarDays,
     color: "text-slate-700",
     bgColor: "bg-slate-100",
+    mockup: "ops" as const,
   },
 ];
+
+const mockupComponents = {
+  site: SiteMockup,
+  crm: CrmMockup,
+  whatsapp: WhatsAppMockup,
+  ops: OpsMockup,
+};
 
 const steps = [
   {
@@ -128,10 +146,10 @@ const differentiators = [
 ];
 
 const starterFeatures = [
-  t(LOCALE, "landing.plan_staff" as never).replace("{count}", "5"),
-  t(LOCALE, "landing.plan_services" as never).replace("{count}", "20"),
-  t(LOCALE, "landing.plan_bookings" as never).replace("{count}", "500"),
-  t(LOCALE, "landing.plan_cards" as never).replace("{count}", "10"),
+  t(LOCALE, "landing.plan_staff" as never).replace("{count}", "3"),
+  t(LOCALE, "landing.plan_services" as never).replace("{count}", "15"),
+  t(LOCALE, "landing.plan_bookings" as never).replace("{count}", "150"),
+  t(LOCALE, "landing.plan_cards" as never).replace("{count}", "5"),
   T("landing.plan_themes_basic"),
 ];
 
@@ -236,13 +254,9 @@ export default function MarketingPage() {
             </div>
           </div>
 
-          {/* Product screenshot placeholder */}
-          <div className="mx-auto mt-14 max-w-4xl">
-            <div className="aspect-video overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-              <div className="flex h-full items-center justify-center text-slate-400">
-                <CalendarDays className="size-16 opacity-30" />
-              </div>
-            </div>
+          {/* Product dashboard preview */}
+          <div className="mx-auto mt-14 max-w-5xl">
+            <DashboardMockup />
           </div>
         </div>
       </section>
@@ -302,15 +316,12 @@ export default function MarketingPage() {
                   </ul>
                 </div>
 
-                {/* Screenshot placeholder */}
+                {/* Feature mockup */}
                 <div className="flex-1">
-                  <div className="aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
-                    <div className="flex h-full items-center justify-center">
-                      <block.icon
-                        className={`size-12 opacity-20 ${block.color}`}
-                      />
-                    </div>
-                  </div>
+                  {(() => {
+                    const MockupComponent = mockupComponents[block.mockup];
+                    return <MockupComponent />;
+                  })()}
                 </div>
               </div>
             </div>
@@ -398,6 +409,16 @@ export default function MarketingPage() {
                 </p>
               </div>
 
+              <div className="mt-5">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold tracking-tight text-slate-900">₪79</span>
+                  <span className="text-sm text-slate-500">{T("landing.plan_per_month")}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {T("landing.plan_yearly_note").replace("{amount}", "₪790")}
+                </p>
+              </div>
+
               <ul className="mt-7 flex-1 space-y-3">
                 {starterFeatures.map((feat) => (
                   <li key={feat} className="flex items-start gap-3">
@@ -427,6 +448,16 @@ export default function MarketingPage() {
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   {T("landing.plan_pro_desc")}
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold tracking-tight text-slate-900">₪149</span>
+                  <span className="text-sm text-slate-500">{T("landing.plan_per_month")}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {T("landing.plan_yearly_note").replace("{amount}", "₪1,490")}
                 </p>
               </div>
 
@@ -524,13 +555,25 @@ export default function MarketingPage() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-slate-400">
-            <span>{T("landing.built_in_israel")}</span>
-            <span>&middot;</span>
-            <span>
-              &copy; {new Date().getFullYear()} BookIT.{" "}
-              {T("landing.footer_rights")}
-            </span>
+          <div className="flex flex-col items-center gap-2 text-sm text-slate-400 sm:flex-row sm:gap-4">
+            <div className="flex items-center gap-4">
+              <Link href="/terms" className="transition-colors hover:text-slate-600">
+                {T("landing.footer_terms")}
+              </Link>
+              <span>&middot;</span>
+              <Link href="/privacy" className="transition-colors hover:text-slate-600">
+                {T("landing.footer_privacy")}
+              </Link>
+            </div>
+            <span className="hidden sm:inline">&middot;</span>
+            <div className="flex items-center gap-4">
+              <span>{T("landing.built_in_israel")}</span>
+              <span>&middot;</span>
+              <span>
+                &copy; {new Date().getFullYear()} BookIT.{" "}
+                {T("landing.footer_rights")}
+              </span>
+            </div>
           </div>
         </div>
       </footer>

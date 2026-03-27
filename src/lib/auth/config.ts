@@ -22,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.businessId = user.businessId;
       }
 
-      if (token.role === "BUSINESS_OWNER" && !token.businessId) {
+      if (token.role !== "SUPER_ADMIN" && token.role === "BUSINESS_OWNER" && !token.businessId) {
         const business = await db.query.businesses.findFirst({
           where: eq(businesses.ownerId, token.id as string),
           columns: { id: true },

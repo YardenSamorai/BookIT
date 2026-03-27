@@ -1,6 +1,6 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, notificationPreferences, users } from "@/lib/db/schema";
+import { businesses, notificationPreferences, notificationLogs, users } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getNotificationLogs, getNotificationStats, cleanupMisattributedLogs } from "@/lib/db/queries/notifications";
 import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
@@ -14,21 +14,35 @@ export default async function MessagesPage() {
 
   await cleanupMisattributedLogs(businessId);
 
-  const [business, logs, stats, notifPrefs] = await Promise.all([
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+  const [business, logs, stats, notifPrefs, sentThisMonth] = await Promise.all([
     db.query.businesses.findFirst({
       where: eq(businesses.id, businessId),
-      columns: { language: true, subscriptionPlan: true, phone: true },
+      columns: { language: true, subscriptionPlan: true, phone: true, messageQuotaOverride: true },
     }),
     getNotificationLogs(businessId, 500),
     getNotificationStats(businessId),
     db.query.notificationPreferences.findFirst({
       where: eq(notificationPreferences.businessId, businessId),
     }),
+    db
+      .select({ c: count() })
+      .from(notificationLogs)
+      .where(
+        and(
+          eq(notificationLogs.businessId, businessId),
+          eq(notificationLogs.status, "SENT"),
+          gte(notificationLogs.createdAt, monthStart)
+        )
+      )
+      .then(([r]) => r?.c ?? 0),
   ]);
 
   const locale = (business?.language ?? "he") as Locale;
   const plan = (business?.subscriptionPlan as PlanType) ?? "FREE";
   const limits = getLimitsForPlan(plan);
+  const messageQuota = business?.messageQuotaOverride ?? limits.maxMonthlyMessages;
 
   const templates = await getOrCreateTemplates(businessId, locale as "en" | "he");
 
@@ -115,6 +129,7 @@ export default async function MessagesPage() {
         locale={locale}
         phoneToName={phoneToName}
         waConfig={waConfig}
+        quota={{ used: sentThisMonth, limit: messageQuota }}
       />
     </div>
   );

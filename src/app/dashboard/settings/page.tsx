@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses } from "@/lib/db/schema";
+import { businesses, calendarConnections, staffMembers } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessHours } from "@/lib/db/queries/business-hours";
 import { t, type Locale } from "@/lib/i18n";
@@ -10,11 +10,18 @@ import { SettingsTabs } from "@/components/settings/settings-tabs";
 export default async function SettingsPage() {
   const { businessId } = await requireBusinessOwner();
 
-  const [business, hours] = await Promise.all([
+  const [business, hours, calConnections, staff] = await Promise.all([
     db.query.businesses.findFirst({
       where: eq(businesses.id, businessId),
     }),
     getBusinessHours(businessId),
+    db.query.calendarConnections.findMany({
+      where: eq(calendarConnections.businessId, businessId),
+    }),
+    db.query.staffMembers.findMany({
+      where: eq(staffMembers.businessId, businessId),
+      columns: { id: true, name: true },
+    }),
   ]);
 
   if (!business) {
@@ -23,13 +30,25 @@ export default async function SettingsPage() {
 
   const locale = (business.language ?? "he") as Locale;
 
+  const calendarData = calConnections.map((c) => ({
+    id: c.id,
+    staffId: c.staffId,
+    googleEmail: c.googleEmail,
+    createdAt: c.createdAt,
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={t(locale, "settings.title")}
         description={t(locale, "settings.subtitle")}
       />
-      <SettingsTabs business={business} hours={hours} />
+      <SettingsTabs
+        business={business}
+        hours={hours}
+        calendarConnections={calendarData}
+        staff={staff}
+      />
     </div>
   );
 }

@@ -10,6 +10,10 @@ export default async function OnboardingPage() {
     redirect("/login");
   }
 
+  if (session.user.role === "SUPER_ADMIN") {
+    redirect("/admin");
+  }
+
   const existing = await getBusinessByOwnerId(session.user.id);
   if (existing) {
     redirect("/dashboard");

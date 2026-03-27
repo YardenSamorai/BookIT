@@ -78,9 +78,11 @@ export const staffBlockedSlots = pgTable(
     startTime: timestamp("start_time", { withTimezone: true }).notNull(),
     endTime: timestamp("end_time", { withTimezone: true }).notNull(),
     reason: text("reason"),
+    googleEventId: text("google_event_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("staff_blocked_idx").on(table.staffId, table.startTime, table.endTime),
+    index("staff_blocked_gcal_idx").on(table.googleEventId),
   ]
 );

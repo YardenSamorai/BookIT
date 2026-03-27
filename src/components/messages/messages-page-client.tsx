@@ -82,6 +82,7 @@ interface Props {
   locale: string;
   phoneToName?: Record<string, string>;
   waConfig?: WaConfig;
+  quota?: { used: number; limit: number };
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -142,6 +143,7 @@ export function MessagesPageClient({
   locale,
   phoneToName = {},
   waConfig,
+  quota,
 }: Props) {
   const t = useT();
   const uiLocale = useLocale();
@@ -151,8 +153,49 @@ export function MessagesPageClient({
     ? Object.values(waConfig.templates).filter(Boolean).length
     : 0;
 
+  const quotaPct = quota && quota.limit > 0 && quota.limit < 999999
+    ? Math.min(100, Math.round((quota.used / quota.limit) * 100))
+    : null;
+
   return (
     <div className="space-y-6">
+      {/* ─── Quota Banner ─── */}
+      {quota && quota.limit < 999999 && (
+        <Card className={`border ${quotaPct !== null && quotaPct >= 90 ? "border-red-200 bg-red-50/50" : quotaPct !== null && quotaPct >= 70 ? "border-amber-200 bg-amber-50/50" : ""}`}>
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700">
+                  {t("msg.quota_title" as never)}
+                </span>
+                <span className="text-sm tabular-nums text-slate-600">
+                  <strong>{quota.used}</strong> / {quota.limit}
+                </span>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-slate-200">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    quotaPct !== null && quotaPct >= 90
+                      ? "bg-red-500"
+                      : quotaPct !== null && quotaPct >= 70
+                        ? "bg-amber-400"
+                        : "bg-blue-500"
+                  }`}
+                  style={{ width: `${quotaPct ?? 0}%` }}
+                />
+              </div>
+              {quotaPct !== null && quotaPct >= 90 && (
+                <p className="text-xs text-red-600 font-medium">
+                  {quota.used >= quota.limit
+                    ? t("msg.quota_exhausted" as never)
+                    : t("msg.quota_almost" as never)}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ─── Stats Row ─── */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

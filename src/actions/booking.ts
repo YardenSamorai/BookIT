@@ -18,6 +18,11 @@ import {
 import { bookingSchema, type BookingInput } from "@/validators/booking";
 import { findActiveCardsForService } from "@/lib/db/queries/cards";
 import { mutateCardSessions } from "@/lib/cards/ledger";
+import {
+  pushEventToGoogle,
+  updateGoogleEvent,
+  deleteGoogleEvent,
+} from "@/lib/calendar/google-sync";
 import type { ActionResult } from "@/types";
 
 async function findActivePackage(customerId: string, serviceId: string) {
@@ -339,6 +344,8 @@ export async function createAppointment(
     await Promise.all(promises);
   } catch { /* notification failure must not block booking */ }
 
+  pushEventToGoogle(appointment.id).catch(() => {});
+
   revalidatePath(`/b`);
   return { success: true, data: { appointmentId: appointment.id } };
 }
@@ -546,6 +553,8 @@ export async function createManualAppointment(input: {
     promises.push(sendStaffNotification(businessId, staffId, "STAFF_NEW_BOOKING", variables));
     await Promise.all(promises);
   } catch { /* notification failure must not block appointment creation */ }
+
+  pushEventToGoogle(appointment.id).catch(() => {});
 
   revalidatePath("/dashboard/calendar");
   revalidatePath("/dashboard/appointments");
@@ -770,6 +779,8 @@ export async function enrollCustomerInClass(input: {
     await Promise.all(promises);
   } catch { /* notification failure must not block enrollment */ }
 
+  pushEventToGoogle(appointment.id).catch(() => {});
+
   revalidatePath("/dashboard/calendar");
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/classes");
@@ -972,6 +983,8 @@ export async function cancelAppointment(
     }
   } catch { /* notification failure must not block cancellation */ }
 
+  deleteGoogleEvent(appointmentId).catch(() => {});
+
   revalidatePath(`/b`);
   revalidatePath(`/dashboard`);
   return { success: true, data: undefined };
@@ -1130,6 +1143,8 @@ export async function rescheduleAppointment(
       sendStaffNotification(appointment.businessId, staffId, "STAFF_RESCHEDULE", variables);
     }
   } catch { /* notification failure must not block reschedule */ }
+
+  updateGoogleEvent(appointmentId).catch(() => {});
 
   revalidatePath(`/b`);
   revalidatePath(`/dashboard`);

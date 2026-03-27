@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getPublicBusinessData } from "@/lib/db/queries/public-site";
 import { BookingWizard } from "@/components/booking/booking-wizard";
 import { getDir, type Locale } from "@/lib/i18n";
@@ -16,6 +16,10 @@ export default async function BookingPage({ params, searchParams }: Props) {
   const data = await getPublicBusinessData(slug);
 
   if (!data) notFound();
+
+  if (data.business.subscriptionStatus === "CANCELLED") {
+    redirect(`/b/${slug}`);
+  }
 
   const activeServices = data.services.filter((s) => s.isActive);
   const activeStaff = data.staff.filter((s) => s.isActive);

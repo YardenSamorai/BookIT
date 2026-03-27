@@ -44,6 +44,8 @@ export const businesses = pgTable(
     subscriptionStatus: subscriptionStatusEnum("subscription_status")
       .notNull()
       .default("ACTIVE"),
+    messageQuotaOverride: integer("message_quota_override"),
+    brandingRemoved: boolean("branding_removed").notNull().default(false),
     published: boolean("published").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

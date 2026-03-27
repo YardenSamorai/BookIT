@@ -8,6 +8,7 @@ interface SiteFooterProps {
   theme: SiteTheme;
   socialLinks?: SocialLinks;
   locale: Locale;
+  removeBranding?: boolean;
 }
 
 const SOCIAL_ICONS: Record<string, React.ElementType> = {
@@ -31,7 +32,7 @@ const SOCIAL_LABELS: Record<string, string> = {
   website: "Website",
 };
 
-export function SiteFooter({ businessName, theme, socialLinks = {}, locale }: SiteFooterProps) {
+export function SiteFooter({ businessName, theme, socialLinks = {}, locale, removeBranding = false }: SiteFooterProps) {
   const year = new Date().getFullYear();
 
   const links = Object.entries(socialLinks)
@@ -66,9 +67,11 @@ export function SiteFooter({ businessName, theme, socialLinks = {}, locale }: Si
         <p className="text-sm text-gray-500">
           &copy; {year} {businessName}. {t(locale, "pub.all_rights")}
         </p>
-        <p className="mt-1 text-xs text-gray-400">
-          {t(locale, "pub.powered_by")}
-        </p>
+        {!removeBranding && (
+          <p className="mt-1 text-xs text-gray-400">
+            {t(locale, "pub.powered_by")}
+          </p>
+        )}
       </div>
     </footer>
   );

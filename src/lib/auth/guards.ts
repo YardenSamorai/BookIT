@@ -43,6 +43,23 @@ export async function requireCustomer() {
   return session;
 }
 
+export async function requireSuperAdmin() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  if (session.user.role !== "SUPER_ADMIN") {
+    redirect("/login");
+  }
+
+  return {
+    session,
+    userId: session.user.id,
+  };
+}
+
 export async function getOptionalSession() {
   return await auth();
 }

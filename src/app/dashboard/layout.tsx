@@ -7,6 +7,7 @@ import { getBusinessByOwnerId } from "@/lib/db/queries/business";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { SuspendedScreen } from "@/components/dashboard/suspended-screen";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getDir, type Locale } from "@/lib/i18n";
 
@@ -21,10 +22,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  if (session.user.role === "SUPER_ADMIN") {
+    redirect("/admin");
+  }
+
   const business = session.user.businessId
     ? await db.query.businesses.findFirst({
         where: eq(businesses.id, session.user.businessId),
-        columns: { name: true, slug: true, language: true },
+        columns: { name: true, slug: true, language: true, subscriptionStatus: true },
       })
     : await getBusinessByOwnerId(session.user.id);
 
@@ -33,6 +38,10 @@ export default async function DashboardLayout({
   }
 
   const locale = ((business as { language?: string }).language ?? "he") as Locale;
+
+  if ((business as { subscriptionStatus?: string }).subscriptionStatus === "CANCELLED") {
+    return <SuspendedScreen locale={locale} />;
+  }
 
   return (
     <LocaleProvider locale={locale}>

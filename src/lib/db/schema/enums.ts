@@ -4,6 +4,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "BUSINESS_OWNER",
   "CUSTOMER",
   "BOTH",
+  "SUPER_ADMIN",
 ]);
 
 export const businessTypeEnum = pgEnum("business_type", [
@@ -213,4 +214,11 @@ export const activityActorTypeEnum = pgEnum("activity_actor_type", [
   "SYSTEM",
   "STAFF",
   "CUSTOMER",
+]);
+
+export const billingStatusEnum = pgEnum("billing_status", [
+  "PENDING",
+  "PAID",
+  "OVERDUE",
+  "WAIVED",
 ]);
