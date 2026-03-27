@@ -137,7 +137,7 @@ function SubdomainRow({ request }: { request: SubdomainRequest }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const status = request.subdomainStatus;
-  const domain = process.env.NEXT_PUBLIC_APP_DOMAIN || "bookit.co.il";
+  const domain = (process.env.NEXT_PUBLIC_APP_DOMAIN || "bookit.co.il").replace(/^www\./, "");
 
   function handleApprove() {
     startTransition(async () => {

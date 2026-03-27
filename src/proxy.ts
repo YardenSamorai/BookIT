@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "localhost:3000";
+const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || "localhost:3000").replace(/^www\./, "");
 
 function getSubdomain(hostname: string): string | null {
   const baseDomain = APP_DOMAIN.split(":")[0];

@@ -24,7 +24,7 @@ interface Props {
   slug: string;
 }
 
-const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "bookit.co.il";
+const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || "bookit.co.il").replace(/^www\./, "");
 
 export function SubdomainSettings({ currentSubdomain, status, slug }: Props) {
   const t = useT();
