@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { put } from "@vercel/blob";
 import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth/config";
 import { ALLOWED_IMAGE_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/storage/types";
+
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,9 +21,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
+      )
+    ) {
       return NextResponse.json(
-        { error: `Invalid file type. Allowed: ${ALLOWED_IMAGE_TYPES.join(", ")}` },
+        {
+          error: `Invalid file type. Allowed: ${ALLOWED_IMAGE_TYPES.join(", ")}`,
+        },
         { status: 400 }
       );
     }
@@ -41,22 +48,16 @@ export async function POST(request: NextRequest) {
       "image/svg+xml": "svg",
     };
     const ext = extMap[file.type] ?? "png";
-    const fileName = `${nanoid()}.${ext}`;
+    const fileName = `${folder}/${nanoid()}.${ext}`;
 
-    const uploadDir = join(process.cwd(), "public", "uploads", folder);
-    await mkdir(uploadDir, { recursive: true });
+    const blob = await put(fileName, file, {
+      access: "public",
+      contentType: file.type,
+    });
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(join(uploadDir, fileName), buffer);
-
-    const publicUrl = `/uploads/${folder}/${fileName}`;
-
-    return NextResponse.json({ url: publicUrl, key: `${folder}/${fileName}` });
-  } catch {
-    return NextResponse.json(
-      { error: "Upload failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ url: blob.url, key: fileName });
+  } catch (e) {
+    console.error("Upload error:", e);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
