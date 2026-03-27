@@ -298,7 +298,7 @@ export async function getAdminBusinessDetail(businessId: string) {
       brandingRemoved: biz.brandingRemoved,
       createdAt: biz.createdAt,
     },
-    owner,
+    owner: owner ?? null,
     messages: {
       sent: msgStats?.total ?? 0,
       quota,
