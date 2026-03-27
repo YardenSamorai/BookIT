@@ -21,12 +21,13 @@ import { useT } from "@/lib/i18n/locale-context";
 interface Props {
   currentSubdomain: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | null;
+  rejectReason: string | null;
   slug: string;
 }
 
 const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || "bookit.co.il").replace(/^www\./, "");
 
-export function SubdomainSettings({ currentSubdomain, status, slug }: Props) {
+export function SubdomainSettings({ currentSubdomain, status, rejectReason, slug }: Props) {
   const t = useT();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -134,6 +135,11 @@ export function SubdomainSettings({ currentSubdomain, status, slug }: Props) {
                 {t("subdomain.rejected" as never)}
               </span>
             </div>
+            {rejectReason && (
+              <p className="mt-2 text-xs text-red-700 whitespace-pre-line">
+                {rejectReason}
+              </p>
+            )}
           </div>
         )}
 

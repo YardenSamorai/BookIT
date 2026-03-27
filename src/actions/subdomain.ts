@@ -64,6 +64,8 @@ export async function requestSubdomain(subdomain: string) {
     .set({
       customSubdomain: clean,
       subdomainStatus: "PENDING",
+      subdomainRejectReason: null,
+      subdomainRequestedAt: new Date(),
       updatedAt: new Date(),
     })
     .where(eq(businesses.id, businessId));
@@ -111,10 +113,12 @@ export async function getSubdomainRequests() {
       slug: businesses.slug,
       customSubdomain: businesses.customSubdomain,
       subdomainStatus: businesses.subdomainStatus,
+      subdomainRejectReason: businesses.subdomainRejectReason,
+      subdomainRequestedAt: businesses.subdomainRequestedAt,
       updatedAt: businesses.updatedAt,
     })
     .from(businesses)
-    .where(isNotNull(businesses.customSubdomain))
+    .where(isNotNull(businesses.subdomainStatus))
     .orderBy(businesses.updatedAt);
 }
 
@@ -134,14 +138,14 @@ export async function approveSubdomain(businessId: string) {
   return { success: true };
 }
 
-export async function rejectSubdomain(businessId: string) {
+export async function rejectSubdomain(businessId: string, reason?: string) {
   await requireSuperAdmin();
 
   await db
     .update(businesses)
     .set({
-      customSubdomain: null,
       subdomainStatus: "REJECTED",
+      subdomainRejectReason: reason || null,
       updatedAt: new Date(),
     })
     .where(eq(businesses.id, businessId));

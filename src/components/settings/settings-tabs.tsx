@@ -51,6 +51,7 @@ export function SettingsTabs({ business, hours, calendarConnections, staff }: Se
         <SubdomainSettings
           currentSubdomain={business.customSubdomain}
           status={business.subdomainStatus}
+          rejectReason={business.subdomainRejectReason}
           slug={business.slug}
         />
       </TabsContent>

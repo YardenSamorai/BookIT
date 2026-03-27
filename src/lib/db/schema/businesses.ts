@@ -49,6 +49,8 @@ export const businesses = pgTable(
     brandingRemoved: boolean("branding_removed").notNull().default(false),
     customSubdomain: text("custom_subdomain"),
     subdomainStatus: subdomainStatusEnum("subdomain_status"),
+    subdomainRejectReason: text("subdomain_reject_reason"),
+    subdomainRequestedAt: timestamp("subdomain_requested_at", { withTimezone: true }),
     published: boolean("published").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
