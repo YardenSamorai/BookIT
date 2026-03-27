@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GeneralSettingsForm } from "./general-settings-form";
 import { HoursSettingsForm } from "./hours-settings-form";
 import { IntegrationsTab } from "./integrations-tab";
+import { SubdomainSettings } from "./subdomain-settings";
 import { useT } from "@/lib/i18n/locale-context";
 import { Link2 } from "lucide-react";
 import type { InferSelectModel } from "drizzle-orm";
@@ -45,8 +46,13 @@ export function SettingsTabs({ business, hours, calendarConnections, staff }: Se
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="general" className="mt-6">
+      <TabsContent value="general" className="mt-6 space-y-6">
         <GeneralSettingsForm business={business} />
+        <SubdomainSettings
+          currentSubdomain={business.customSubdomain}
+          status={business.subdomainStatus}
+          slug={business.slug}
+        />
       </TabsContent>
 
       <TabsContent value="hours" className="mt-6">

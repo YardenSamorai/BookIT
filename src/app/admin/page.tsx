@@ -5,6 +5,7 @@ import {
   UserPlus,
   AlertTriangle,
   TrendingUp,
+  TicketCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +15,14 @@ import {
   getBusinessesNeedingAttention,
   getAdminBusinessList,
 } from "@/actions/admin";
+import { getTicketStats } from "@/actions/tickets";
 
 export default async function AdminDashboardPage() {
-  const [stats, attention, allBiz] = await Promise.all([
+  const [stats, attention, allBiz, ticketStats] = await Promise.all([
     getAdminDashboardStats(),
     getBusinessesNeedingAttention(),
     getAdminBusinessList(),
+    getTicketStats(),
   ]);
 
   const topConsumers = [...allBiz]
@@ -118,10 +121,26 @@ export default async function AdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {attention.overdue.length === 0 ? (
+            {attention.overdue.length === 0 && ticketStats.open === 0 ? (
               <p className="text-sm text-muted-foreground">הכל תקין, אין פריטים שדורשים תשומת לב.</p>
             ) : (
               <div className="space-y-2">
+                {ticketStats.open > 0 && (
+                  <Link
+                    href="/admin/tickets"
+                    className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 transition-colors hover:bg-amber-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      <TicketCheck className="size-4 text-amber-600" />
+                      <span className="text-sm font-medium text-amber-800">
+                        {ticketStats.open} טיקטים פתוחים
+                      </span>
+                    </div>
+                    <Badge className="bg-amber-600 text-xs">
+                      לטיפול
+                    </Badge>
+                  </Link>
+                )}
                 {attention.overdue.map((item) => (
                   <Link
                     key={item.id}

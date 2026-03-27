@@ -233,7 +233,7 @@ export default function MarketingPage() {
               {T("landing.hero_title")}
             </h1>
 
-            <p className="mt-5 text-base leading-relaxed text-slate-500 sm:text-lg">
+            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-500 sm:text-lg">
               {T("landing.hero_subtitle")}
             </p>
 

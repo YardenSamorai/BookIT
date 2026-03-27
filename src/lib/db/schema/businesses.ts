@@ -13,6 +13,7 @@ import {
   businessTypeEnum,
   subscriptionPlanEnum,
   subscriptionStatusEnum,
+  subdomainStatusEnum,
 } from "./enums";
 import { users } from "./users";
 
@@ -46,12 +47,15 @@ export const businesses = pgTable(
       .default("ACTIVE"),
     messageQuotaOverride: integer("message_quota_override"),
     brandingRemoved: boolean("branding_removed").notNull().default(false),
+    customSubdomain: text("custom_subdomain"),
+    subdomainStatus: subdomainStatusEnum("subdomain_status"),
     published: boolean("published").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("business_slug_idx").on(table.slug),
+    uniqueIndex("business_subdomain_idx").on(table.customSubdomain),
     index("business_owner_idx").on(table.ownerId),
   ]
 );

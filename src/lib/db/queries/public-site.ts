@@ -18,9 +18,19 @@ import {
 import { getBusinessRatingStats } from "./reviews";
 
 export const getPublicBusinessData = cache(async function getPublicBusinessData(slug: string) {
-  const business = await db.query.businesses.findFirst({
+  let business = await db.query.businesses.findFirst({
     where: eq(businesses.slug, slug),
   });
+
+  // Fallback: try matching by approved custom subdomain
+  if (!business) {
+    business = await db.query.businesses.findFirst({
+      where: and(
+        eq(businesses.customSubdomain, slug),
+        eq(businesses.subdomainStatus, "APPROVED"),
+      ),
+    });
+  }
 
   if (!business || !business.published) return null;
 

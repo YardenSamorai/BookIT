@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Building2, CalendarDays, TicketCheck, Globe } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,8 @@ import {
 const navItems = [
   { title: "דשבורד", href: "/admin", icon: LayoutDashboard },
   { title: "עסקים", href: "/admin/businesses", icon: Building2 },
+  { title: "טיקטים", href: "/admin/tickets", icon: TicketCheck },
+  { title: "סאב-דומיינים", href: "/admin/subdomains", icon: Globe },
 ];
 
 export function AdminSidebar() {

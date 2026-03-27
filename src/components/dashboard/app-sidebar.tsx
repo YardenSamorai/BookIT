@@ -19,6 +19,7 @@ import {
   BarChart3,
   Repeat,
   MessageSquare,
+  LifeBuoy,
 } from "lucide-react";
 import {
   Sidebar,
@@ -113,6 +114,7 @@ export function AppSidebar({ businessSlug }: { businessSlug?: string }) {
     { title: t("dash.messages" as Parameters<typeof t>[0]), href: "/dashboard/messages", icon: MessageSquare },
     { title: t("dash.site_editor"), href: "/dashboard/site-editor", icon: PaintBucket },
     { title: t("dash.settings"), href: "/dashboard/settings", icon: Settings },
+    { title: t("dash.tickets" as never), href: "/dashboard/tickets", icon: LifeBuoy },
   ];
 
   return (

@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { SuspendedScreen } from "@/components/dashboard/suspended-screen";
+import { ReportBugButton } from "@/components/dashboard/report-bug-button";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getDir, type Locale } from "@/lib/i18n";
 
@@ -56,6 +57,7 @@ export default async function DashboardLayout({
             />
             <main className="flex-1 p-6">{children}</main>
           </SidebarInset>
+          <ReportBugButton />
         </SidebarProvider>
       </div>
     </LocaleProvider>

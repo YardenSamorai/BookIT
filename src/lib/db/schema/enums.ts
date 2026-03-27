@@ -222,3 +222,26 @@ export const billingStatusEnum = pgEnum("billing_status", [
   "OVERDUE",
   "WAIVED",
 ]);
+
+// ── Subdomain ──
+
+export const subdomainStatusEnum = pgEnum("subdomain_status", [
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+]);
+
+// ── Support Tickets ──
+
+export const ticketStatusEnum = pgEnum("ticket_status", [
+  "OPEN",
+  "IN_PROGRESS",
+  "RESOLVED",
+  "CLOSED",
+]);
+
+export const ticketPriorityEnum = pgEnum("ticket_priority", [
+  "LOW",
+  "MEDIUM",
+  "HIGH",
+]);
