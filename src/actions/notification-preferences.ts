@@ -12,6 +12,7 @@ export async function updateNotificationPreferences(input: {
   smsBookingEnabled: boolean;
   reminderHoursBefore: number;
   reminderHoursBefore2: number | null;
+  notificationPhones?: string[];
 }): Promise<ActionResult> {
   const { businessId } = await requireBusinessOwner();
 
@@ -20,6 +21,10 @@ export async function updateNotificationPreferences(input: {
     columns: { id: true },
   });
 
+  const cleanedPhones = (input.notificationPhones ?? [])
+    .map((p) => p.replace(/[\s\-()]/g, "").trim())
+    .filter((p) => p.length >= 9);
+
   const values = {
     whatsappEnabled: input.whatsappEnabled,
     smsBookingEnabled: input.smsBookingEnabled,
@@ -27,6 +32,7 @@ export async function updateNotificationPreferences(input: {
     reminderHoursBefore2: input.reminderHoursBefore2 && input.reminderHoursBefore2 > 0
       ? input.reminderHoursBefore2
       : null,
+    notificationPhones: cleanedPhones,
     updatedAt: new Date(),
   };
 

@@ -43,6 +43,13 @@
       "when": 1774830000000,
       "tag": "0005_unified_class_creation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774620587519,
+      "tag": "0006_add-notification-phones",
+      "breakpoints": true
     }
   ]
 }

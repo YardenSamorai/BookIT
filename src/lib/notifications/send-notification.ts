@@ -171,7 +171,8 @@ export async function sendBookingNotificationSafe(
 }
 
 /**
- * Send notification to the business owner when a new booking is made.
+ * Send notification to the business owner (and any additional configured phones)
+ * when a new booking is made.
  */
 export async function sendOwnerBookingNotification(
   businessId: string,
@@ -190,46 +191,55 @@ export async function sendOwnerBookingNotification(
       }),
     ]);
 
-    const ownerPhone = owner?.phone || biz?.phone;
-    if (!ownerPhone) {
-      console.log("Owner notification skipped: no phone on user or business");
-      return;
-    }
-
     const { plan, locale } = await getBusinessInfo(businessId);
     const limits = getLimitsForPlan(plan);
     if (!limits.whatsappNotifications) return;
 
     const prefs = await getNotificationPrefs(businessId);
 
-    const ownerPayload: NotificationPayload = {
-      businessId,
-      recipientPhone: ownerPhone,
-      type: "BOOKING_OWNER",
-      variables,
-    };
-
-    let waSuccess = false;
-    if (prefs.whatsappEnabled) {
-      const templateSid = getTemplateSid("BOOKING_OWNER");
-      if (templateSid) {
-        const contentVars = buildTemplateVariables("BOOKING_OWNER", variables);
-        const result = await sendWhatsAppTemplate(ownerPhone, templateSid, contentVars);
-        await logNotification(ownerPayload, "WHATSAPP", `[Template: ${templateSid}] vars: ${JSON.stringify(contentVars)}`, result);
-        waSuccess = result.success;
-      }
+    const extraPhones: string[] = (prefs as { notificationPhones?: string[] }).notificationPhones ?? [];
+    const ownerPhone = owner?.phone || biz?.phone;
+    const allPhones = new Set<string>();
+    if (ownerPhone) allPhones.add(ownerPhone);
+    for (const p of extraPhones) {
+      if (p.length >= 9) allPhones.add(p);
     }
 
-    if (prefs.smsBookingEnabled || !waSuccess) {
-      const smsBody = await getTemplateForNotification(
+    if (allPhones.size === 0) {
+      console.log("Owner notification skipped: no phone numbers configured");
+      return;
+    }
+
+    for (const phone of allPhones) {
+      const payload: NotificationPayload = {
         businessId,
-        "BOOKING_OWNER",
-        "SMS",
-        locale
-      );
-      const rendered = renderTemplate(smsBody, variables);
-      const result = await sendSmsWithDetails(ownerPhone, rendered);
-      await logNotification(ownerPayload, "SMS", rendered, result);
+        recipientPhone: phone,
+        type: "BOOKING_OWNER",
+        variables,
+      };
+
+      let waSuccess = false;
+      if (prefs.whatsappEnabled) {
+        const templateSid = getTemplateSid("BOOKING_OWNER");
+        if (templateSid) {
+          const contentVars = buildTemplateVariables("BOOKING_OWNER", variables);
+          const result = await sendWhatsAppTemplate(phone, templateSid, contentVars);
+          await logNotification(payload, "WHATSAPP", `[Template: ${templateSid}] vars: ${JSON.stringify(contentVars)}`, result);
+          waSuccess = result.success;
+        }
+      }
+
+      if (prefs.smsBookingEnabled || !waSuccess) {
+        const smsBody = await getTemplateForNotification(
+          businessId,
+          "BOOKING_OWNER",
+          "SMS",
+          locale
+        );
+        const rendered = renderTemplate(smsBody, variables);
+        const result = await sendSmsWithDetails(phone, rendered);
+        await logNotification(payload, "SMS", rendered, result);
+      }
     }
   } catch (err) {
     console.error("Owner notification failed:", err);

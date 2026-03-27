@@ -7,6 +7,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import {
   notificationChannelEnum,
@@ -30,6 +31,7 @@ export const notificationPreferences = pgTable(
     emailEnabled: boolean("email_enabled").notNull().default(true),
     smsEnabled: boolean("sms_enabled").notNull().default(false),
     smsBookingEnabled: boolean("sms_booking_enabled").notNull().default(false),
+    notificationPhones: jsonb("notification_phones").$type<string[]>().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

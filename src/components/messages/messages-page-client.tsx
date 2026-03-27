@@ -42,6 +42,8 @@ import {
   Bell,
   Clock,
   Shield,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import type { InferSelectModel } from "drizzle-orm";
 import type { notificationLogs, messageTemplates } from "@/lib/db/schema";
@@ -54,6 +56,7 @@ interface NotificationPrefs {
   smsBookingEnabled: boolean;
   reminderHoursBefore: number;
   reminderHoursBefore2: number;
+  notificationPhones: string[];
 }
 
 interface Stats {
@@ -784,6 +787,22 @@ function SettingsTab({
   const [smsBookingEnabled, setSmsBookingEnabled] = useState(prefs.smsBookingEnabled);
   const [reminderHours, setReminderHours] = useState(prefs.reminderHoursBefore);
   const [reminderHours2, setReminderHours2] = useState(prefs.reminderHoursBefore2);
+  const [notifPhones, setNotifPhones] = useState<string[]>(prefs.notificationPhones);
+  const [newPhone, setNewPhone] = useState("");
+
+  function addPhone() {
+    const cleaned = newPhone.replace(/[\s\-()]/g, "").trim();
+    if (cleaned.length < 9) return;
+    if (notifPhones.includes(cleaned)) return;
+    setNotifPhones([...notifPhones, cleaned]);
+    setNewPhone("");
+    setSaved(false);
+  }
+
+  function removePhone(idx: number) {
+    setNotifPhones(notifPhones.filter((_, i) => i !== idx));
+    setSaved(false);
+  }
 
   function handleSave() {
     setSaved(false);
@@ -793,6 +812,7 @@ function SettingsTab({
         smsBookingEnabled,
         reminderHoursBefore: reminderHours,
         reminderHoursBefore2: reminderHours2 > 0 ? reminderHours2 : null,
+        notificationPhones: notifPhones,
       });
       setSaved(true);
     });
@@ -913,7 +933,7 @@ function SettingsTab({
         </CardContent>
       </Card>
 
-      {/* Reminders */}
+      {/* Reminders & Phones */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -922,6 +942,57 @@ function SettingsTab({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Extra notification phones */}
+          <div className="space-y-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">{t("msg.settings_extra_phones" as never)}</Label>
+              <p className="text-xs text-muted-foreground">{t("msg.settings_extra_phones_desc" as never)}</p>
+            </div>
+
+            {notifPhones.length > 0 && (
+              <div className="space-y-2">
+                {notifPhones.map((phone, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="flex flex-1 items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+                      <Phone className="size-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono" dir="ltr">{phone}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                      onClick={() => removePhone(idx)}
+                      disabled={pending}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                type="tel"
+                dir="ltr"
+                placeholder="+972501234567"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPhone(); } }}
+                className="max-w-[220px] font-mono"
+                disabled={pending}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addPhone}
+                disabled={pending || newPhone.replace(/[\s\-()]/g, "").trim().length < 9}
+              >
+                <Plus className="me-1 size-3" />
+                {t("common.add")}
+              </Button>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">{t("settings.notif_reminder_hours" as never)}</Label>
             <p className="text-xs text-muted-foreground">{t("settings.notif_reminder_desc" as never)}</p>

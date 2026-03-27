@@ -37,6 +37,7 @@ export default async function MessagesPage() {
     smsBookingEnabled: notifPrefs?.smsBookingEnabled ?? false,
     reminderHoursBefore: notifPrefs?.reminderHoursBefore ?? 24,
     reminderHoursBefore2: notifPrefs?.reminderHoursBefore2 ?? 0,
+    notificationPhones: (notifPrefs?.notificationPhones as string[] | null) ?? [],
   };
 
   const uniquePhones = [...new Set(logs.map((l) => l.recipient).filter(Boolean))];
