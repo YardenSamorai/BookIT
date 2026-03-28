@@ -427,34 +427,31 @@ export function AppointmentDetail({ appointment }: AppointmentDetailProps) {
               {/* Timeline line */}
               <div className="absolute start-[7px] top-2 bottom-2 w-px bg-border" />
 
-              {appointment.logs.map((log) => (
-                <div key={log.id} className="relative flex gap-4 pb-6 last:pb-0">
-                  <div className="relative z-10 mt-1.5 size-[15px] shrink-0 rounded-full border-2 border-border bg-background" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">
-                      {logActionLabel(log.action, t)}
-                    </div>
-                    {(log.oldValue || log.newValue) && (
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        {log.oldValue && (
-                          <span>{log.oldValue}</span>
-                        )}
-                        {log.oldValue && log.newValue && " → "}
-                        {log.newValue && (
-                          <span className="font-medium">{log.newValue}</span>
-                        )}
+              {appointment.logs.map((log) => {
+                const fmtOld = formatLogValue(log.action, log.oldValue, dtLocale, t);
+                const fmtNew = formatLogValue(log.action, log.newValue, dtLocale, t);
+
+                return (
+                  <div key={log.id} className="relative flex gap-4 pb-6 last:pb-0">
+                    <div className="relative z-10 mt-1.5 size-[15px] shrink-0 rounded-full border-2 border-border bg-background" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium">
+                        {logActionLabel(log.action, t)}
                       </div>
-                    )}
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>
-                        {t("apt.performed_by")} {log.performedBy}
-                      </span>
-                      <span>·</span>
-                      <span>{formatRelative(log.createdAt)}</span>
+                      {(fmtOld || fmtNew) && (
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          {fmtOld && <span>{fmtOld}</span>}
+                          {fmtOld && fmtNew && " → "}
+                          {fmtNew && <span className="font-medium">{fmtNew}</span>}
+                        </div>
+                      )}
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {performedByLabel(log.performedBy, t)} · {formatRelative(log.createdAt)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -489,7 +486,64 @@ function logActionLabel(
       return t("apt.log_cancelled");
     case "STATUS_CHANGE":
       return t("apt.log_status");
+    case "RESCHEDULED":
+      return t("apt.log_rescheduled");
     default:
       return action;
   }
+}
+
+function performedByLabel(
+  value: string,
+  t: (key: any) => string
+): string {
+  switch (value) {
+    case "CUSTOMER":
+      return t("apt.performed_customer");
+    case "BUSINESS":
+      return t("apt.performed_business");
+    default:
+      return value;
+  }
+}
+
+const STATUS_DISPLAY: Record<string, string> = {
+  PENDING: "dash.status_pending",
+  CONFIRMED: "dash.status_confirmed",
+  COMPLETED: "dash.status_completed",
+  CANCELLED: "dash.status_cancelled",
+  NO_SHOW: "dash.status_no_show",
+};
+
+function formatLogValue(
+  action: string,
+  value: string | null,
+  dtLocale: string,
+  t: (key: any, vars?: any) => string
+): string | null {
+  if (!value) return null;
+
+  if (action === "RESCHEDULED") {
+    try {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString(dtLocale, {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        }) + ", " + d.toLocaleTimeString(dtLocale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      }
+    } catch { /* fall through */ }
+  }
+
+  if (action === "STATUS_CHANGE" || action === "CREATED" || action === "CANCELLED") {
+    const key = STATUS_DISPLAY[value];
+    if (key) return t(key);
+  }
+
+  return value;
 }
