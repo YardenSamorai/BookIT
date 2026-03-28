@@ -497,11 +497,13 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
             </span>
             <Separator orientation="vertical" className="h-5" />
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={isPending}>
-                  <RefreshCw className="size-3 me-1" />
-                  {t("cust.bulk_status")}
-                </Button>
+              <DropdownMenuTrigger
+                render={
+                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled={isPending} />
+                }
+              >
+                <RefreshCw className="size-3 me-1" />
+                {t("cust.bulk_status")}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {LIFECYCLE_STATUSES.map((s) => (
