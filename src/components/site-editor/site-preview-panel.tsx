@@ -599,33 +599,42 @@ function PreviewSection({
           {typeof c.subtitle === "string" && c.subtitle && (
             <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
           )}
-          {isMarquee ? (
-            <div className="relative overflow-hidden">
-              <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-4 bg-gradient-to-r from-white to-transparent" />
-              <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-4 bg-gradient-to-l from-white to-transparent" />
-              <div className="preview-gallery-marquee flex gap-1 py-1">
-                {[...galleryImages, ...galleryImages].map((img: { url: string; caption: string }, i: number) => (
-                  <img key={i} src={img.url} alt={img.caption} className={cn("h-12 w-16 shrink-0 object-cover", r)} />
+          {isMarquee ? (() => {
+            const rowCount = Math.max(1, Math.min(galCols, Math.ceil(galleryImages.length / 2)));
+            const rows: { url: string; caption: string }[][] = Array.from({ length: rowCount }, () => []);
+            galleryImages.forEach((img: { url: string; caption: string }, i: number) => { rows[i % rowCount].push(img); });
+            return (
+              <div className="space-y-1">
+                {rows.map((rowImgs, ri) => (
+                  <div key={ri} className="relative overflow-hidden">
+                    <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-3 bg-gradient-to-r from-white to-transparent" />
+                    <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-3 bg-gradient-to-l from-white to-transparent" />
+                    <div className={`pgm-row-${ri} flex gap-0.5`}>
+                      {[...rowImgs, ...rowImgs].map((img, i) => (
+                        <img key={i} src={img.url} alt={img.caption} className={cn("h-10 w-14 shrink-0 object-cover", r)} />
+                      ))}
+                    </div>
+                    <style>{`
+                      @keyframes pgm-${ri} {
+                        0% { transform: translateX(0); }
+                        100% { transform: translateX(${ri % 2 === 1 ? "50%" : "-50%"}); }
+                      }
+                      .pgm-row-${ri} {
+                        animation: pgm-${ri} ${Math.max(rowImgs.length * 2, 5)}s linear infinite;
+                      }
+                      [dir="rtl"] .pgm-row-${ri} {
+                        animation-name: pgm-rtl-${ri};
+                      }
+                      @keyframes pgm-rtl-${ri} {
+                        0% { transform: translateX(0); }
+                        100% { transform: translateX(${ri % 2 === 1 ? "-50%" : "50%"}); }
+                      }
+                    `}</style>
+                  </div>
                 ))}
               </div>
-              <style>{`
-                @keyframes preview-gal-marquee {
-                  0% { transform: translateX(0); }
-                  100% { transform: translateX(-50%); }
-                }
-                .preview-gallery-marquee {
-                  animation: preview-gal-marquee ${Math.max(galleryImages.length * 2, 6)}s linear infinite;
-                }
-                [dir="rtl"] .preview-gallery-marquee {
-                  animation-name: preview-gal-marquee-rtl;
-                }
-                @keyframes preview-gal-marquee-rtl {
-                  0% { transform: translateX(0); }
-                  100% { transform: translateX(50%); }
-                }
-              `}</style>
-            </div>
-          ) : isCarousel ? (
+            );
+          })() : isCarousel ? (
             <div className="flex gap-1 overflow-hidden">
               {galleryImages.slice(0, 4).map((img: { url: string; caption: string }, i: number) => (
                 <img key={i} src={img.url} alt={img.caption} className={cn("h-14 w-20 shrink-0 object-cover", r)} />

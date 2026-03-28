@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useMemo } from "react";
 import type { SiteTheme } from "@/lib/themes/presets";
 import { t, type Locale } from "@/lib/i18n";
 import { AnimatedStagger } from "./animated-section";
@@ -69,7 +69,7 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
         </div>
 
         {marquee ? (
-          <GalleryMarquee images={images} theme={theme} speed={speed} />
+          <GalleryMarquee images={images} theme={theme} speed={speed} columns={columns} layout={layout} />
         ) : layout === "masonry" ? (
           <AnimatedStagger className={`mt-8 columns-3 gap-2 space-y-2 sm:mt-12 sm:columns-2 sm:gap-4 sm:space-y-4 ${columns >= 3 ? "lg:columns-3" : ""}`}>
             {images.map((img, i) => (
@@ -88,14 +88,63 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
   );
 }
 
+function splitIntoRows(images: GalleryImage[], rowCount: number): GalleryImage[][] {
+  const rows: GalleryImage[][] = Array.from({ length: rowCount }, () => []);
+  images.forEach((img, i) => {
+    rows[i % rowCount].push(img);
+  });
+  return rows;
+}
+
 function GalleryMarquee({
   images,
   theme,
   speed,
+  columns,
+  layout,
 }: {
   images: GalleryImage[];
   theme: SiteTheme;
   speed: string;
+  columns: number;
+  layout: string;
+}) {
+  const rowCount = Math.max(1, Math.min(columns, Math.ceil(images.length / 2)));
+  const rows = useMemo(() => splitIntoRows(images, rowCount), [images, rowCount]);
+  const secsPerItem = SPEED_MAP[speed] ?? 3;
+  const isMasonry = layout === "masonry";
+
+  return (
+    <div className="mt-8 space-y-2 sm:mt-12 sm:space-y-3">
+      {rows.map((rowImages, rowIdx) => (
+        <MarqueeRow
+          key={rowIdx}
+          images={rowImages}
+          theme={theme}
+          secsPerItem={secsPerItem}
+          reverse={rowIdx % 2 === 1}
+          isMasonry={isMasonry}
+          rowIdx={rowIdx}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MarqueeRow({
+  images,
+  theme,
+  secsPerItem,
+  reverse,
+  isMasonry,
+  rowIdx,
+}: {
+  images: GalleryImage[];
+  theme: SiteTheme;
+  secsPerItem: number;
+  reverse: boolean;
+  isMasonry: boolean;
+  rowIdx: number;
 }) {
   const doubled = [...images, ...images];
   const stripRef = useRef<HTMLDivElement>(null);
@@ -139,46 +188,50 @@ function GalleryMarquee({
     resumeTimer.current = setTimeout(resumeAnimation, 2000);
   }, [resumeAnimation]);
 
-  const secsPerItem = SPEED_MAP[speed] ?? 3;
   const dur = Math.max(images.length * secsPerItem, 8);
+  const animId = `gal-marquee-${rowIdx}`;
+  const animIdRtl = `gal-marquee-rtl-${rowIdx}`;
+  const stripClass = `gal-strip-${rowIdx}`;
+
+  const heightClass = isMasonry && rowIdx % 2 === 1 ? "h-44 sm:h-56" : "h-40 sm:h-52";
 
   return (
-    <div className="relative mt-8 overflow-hidden sm:mt-12">
-      <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-12 bg-gradient-to-r from-white to-transparent sm:w-20 rtl:bg-gradient-to-l" />
-      <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-12 bg-gradient-to-l from-white to-transparent sm:w-20 rtl:bg-gradient-to-r" />
+    <div className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-8 bg-gradient-to-r from-white to-transparent sm:w-16 rtl:bg-gradient-to-l" />
+      <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-8 bg-gradient-to-l from-white to-transparent sm:w-16 rtl:bg-gradient-to-r" />
 
       <div
         ref={stripRef}
-        className="gallery-marquee-strip flex gap-3 py-2 sm:gap-5"
+        className={`${stripClass} flex gap-2 sm:gap-3`}
         style={{ touchAction: "pan-y" }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         {doubled.map((img, i) => (
-          <div key={`${img.url}-${i}`} className="w-52 shrink-0 sm:w-72">
+          <div key={`${img.url}-${i}`} className={`shrink-0 ${heightClass} aspect-square`}>
             <GalleryItem image={img} theme={theme} />
           </div>
         ))}
       </div>
 
       <style>{`
-        @keyframes gallery-marquee {
+        @keyframes ${animId} {
           0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          100% { transform: translateX(${reverse ? "50%" : "-50%"}); }
         }
-        .gallery-marquee-strip {
-          animation: gallery-marquee ${dur}s linear infinite;
+        .${stripClass} {
+          animation: ${animId} ${dur}s linear infinite;
         }
-        .gallery-marquee-strip:hover {
+        .${stripClass}:hover {
           animation-play-state: paused;
         }
-        [dir="rtl"] .gallery-marquee-strip {
-          animation-name: gallery-marquee-rtl;
+        [dir="rtl"] .${stripClass} {
+          animation-name: ${animIdRtl};
         }
-        @keyframes gallery-marquee-rtl {
+        @keyframes ${animIdRtl} {
           0% { transform: translateX(0); }
-          100% { transform: translateX(50%); }
+          100% { transform: translateX(${reverse ? "-50%" : "50%"}); }
         }
       `}</style>
     </div>
@@ -187,8 +240,8 @@ function GalleryMarquee({
 
 function GalleryItem({ image, theme }: { image: GalleryImage; theme: SiteTheme }) {
   return (
-    <div className={`group relative overflow-hidden ${theme.radius.lg} ${theme.card} ${theme.cardHover} transition-all`}>
-      <div className="relative aspect-square overflow-hidden">
+    <div className={`group relative size-full overflow-hidden ${theme.radius.lg} ${theme.card} ${theme.cardHover} transition-all`}>
+      <div className="relative size-full overflow-hidden">
         <img
           src={image.url}
           alt={image.caption}
