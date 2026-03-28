@@ -295,6 +295,7 @@ export async function getAdminBusinessDetail(businessId: string) {
       plan: biz.subscriptionPlan,
       status: biz.subscriptionStatus,
       messageQuotaOverride: biz.messageQuotaOverride,
+      galleryQuotaOverride: biz.galleryQuotaOverride,
       brandingRemoved: biz.brandingRemoved,
       createdAt: biz.createdAt,
     },
@@ -324,6 +325,7 @@ export async function getAdminBusinessDetail(businessId: string) {
       bookings: { used: bookingCount?.c ?? 0, limit: limits.maxBookingsPerMonth },
       cardTemplates: { used: cardTemplateCount?.c ?? 0, limit: limits.maxCardTemplates },
       products: { used: productCount?.c ?? 0, limit: limits.maxProducts },
+      galleryImages: { used: 0, limit: biz.galleryQuotaOverride ?? limits.maxGalleryImages },
     },
   };
 }
@@ -388,6 +390,24 @@ export async function setMessageQuotaOverride(
     .update(businesses)
     .set({
       messageQuotaOverride: quota,
+      updatedAt: new Date(),
+    })
+    .where(eq(businesses.id, businessId));
+
+  revalidatePath(`/admin/businesses/${businessId}`);
+  return { success: true };
+}
+
+export async function setGalleryQuotaOverride(
+  businessId: string,
+  quota: number | null
+): Promise<ActionResult> {
+  await requireSuperAdmin();
+
+  await db
+    .update(businesses)
+    .set({
+      galleryQuotaOverride: quota,
       updatedAt: new Date(),
     })
     .where(eq(businesses.id, businessId));

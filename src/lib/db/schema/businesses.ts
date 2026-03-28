@@ -46,6 +46,7 @@ export const businesses = pgTable(
       .notNull()
       .default("ACTIVE"),
     messageQuotaOverride: integer("message_quota_override"),
+    galleryQuotaOverride: integer("gallery_quota_override"),
     brandingRemoved: boolean("branding_removed").notNull().default(false),
     customSubdomain: text("custom_subdomain"),
     subdomainStatus: subdomainStatusEnum("subdomain_status"),

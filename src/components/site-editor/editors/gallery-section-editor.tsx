@@ -23,9 +23,8 @@ interface GalleryImage {
 interface GallerySectionEditorProps {
   content: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
+  maxImages?: number;
 }
-
-const MAX_IMAGES = 50;
 
 function parseImages(raw: unknown): GalleryImage[] {
   if (!Array.isArray(raw)) return [];
@@ -50,7 +49,7 @@ const SPEED_LABELS = {
   fast: "gallery_editor.speed_fast",
 } as const;
 
-export function GallerySectionEditor({ content, onChange }: GallerySectionEditorProps) {
+export function GallerySectionEditor({ content, onChange, maxImages = 50 }: GallerySectionEditorProps) {
   const t = useT();
   const rawImages = content.images;
   const images = useMemo(() => parseImages(rawImages), [rawImages]);
@@ -74,7 +73,7 @@ export function GallerySectionEditor({ content, onChange }: GallerySectionEditor
   };
 
   const addImage = () => {
-    if (images.length >= MAX_IMAGES) return;
+    if (images.length >= maxImages) return;
     updateImages([...images, { url: "", caption: "" }]);
   };
 
@@ -172,7 +171,7 @@ export function GallerySectionEditor({ content, onChange }: GallerySectionEditor
             variant="outline"
             size="sm"
             onClick={addImage}
-            disabled={images.length >= MAX_IMAGES}
+            disabled={images.length >= maxImages}
           >
             <Plus className="me-1 size-4" />
             {t("gallery_editor.add_image")}

@@ -1,0 +1,1 @@
+ALTER TABLE "business" ADD COLUMN "gallery_quota_override" integer;

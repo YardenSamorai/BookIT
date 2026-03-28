@@ -26,6 +26,7 @@ import {
   changeBusinessStatus,
   toggleBusinessBranding,
   setMessageQuotaOverride,
+  setGalleryQuotaOverride,
   createBillingRecord,
   updateBillingRecord,
 } from "@/actions/admin";
@@ -38,6 +39,7 @@ interface BusinessDetailData {
     plan: string;
     status: string;
     messageQuotaOverride: number | null;
+    galleryQuotaOverride: number | null;
     brandingRemoved: boolean;
     createdAt: Date;
   };
@@ -71,6 +73,7 @@ interface BusinessDetailData {
     bookings: { used: number; limit: number };
     cardTemplates: { used: number; limit: number };
     products: { used: number; limit: number };
+    galleryImages: { used: number; limit: number };
   };
 }
 
@@ -95,6 +98,15 @@ const SMS_PACKAGES = [
   { label: "1,500", desc: "Pro", value: 1500 },
   { label: "3,000", desc: "פרימיום", value: 3000 },
   { label: "∞", desc: "ללא הגבלה", value: 999999 },
+];
+
+const GALLERY_PACKAGES = [
+  { label: "ברירת מחדל", desc: "לפי חבילה", value: null },
+  { label: "10", desc: "FREE", value: 10 },
+  { label: "25", desc: "Starter", value: 25 },
+  { label: "50", desc: "Pro", value: 50 },
+  { label: "100", desc: "מורחב", value: 100 },
+  { label: "∞", desc: "ללא הגבלה", value: 999 },
 ];
 
 const tabs = [
@@ -394,6 +406,45 @@ function OverviewTab({
           </p>
         </CardContent>
       </Card>
+
+      <Card className="sm:col-span-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">מכסת תמונות גלריה</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {GALLERY_PACKAGES.map((pkg) => {
+              const isActive =
+                (pkg.value === null && !biz.galleryQuotaOverride) ||
+                pkg.value === biz.galleryQuotaOverride;
+              return (
+                <button
+                  key={pkg.label}
+                  disabled={pending || isActive}
+                  onClick={() => {
+                    startTransition(async () => {
+                      await setGalleryQuotaOverride(biz.id, pkg.value);
+                      onSaved();
+                    });
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                    isActive
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{pkg.label}</span>
+                  <span className="text-[10px] text-muted-foreground">{pkg.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            מכסה נוכחית: <strong>{data.usage.galleryImages.limit >= 999 ? "∞" : data.usage.galleryImages.limit}</strong> תמונות
+            {biz.galleryQuotaOverride ? " (דריסה ידנית)" : " (ברירת מחדל לפי חבילה)"}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -670,6 +721,7 @@ function LimitsTab({ data }: { data: BusinessDetailData }) {
     { label: "תורים / חודש", ...data.usage.bookings },
     { label: "תבניות כרטיסיות", ...data.usage.cardTemplates },
     { label: "מוצרים", ...data.usage.products },
+    { label: "תמונות גלריה", ...data.usage.galleryImages },
   ];
 
   return (

@@ -38,6 +38,7 @@ interface SiteEditorShellProps {
   staff: StaffMember[];
   hours: HoursRow[];
   products: Product[];
+  maxGalleryImages?: number;
 }
 
 const DEFAULT_SECTIONS: SiteSection[] = [
@@ -87,6 +88,7 @@ export function SiteEditorShell({
   staff,
   hours,
   products: productList,
+  maxGalleryImages = 50,
 }: SiteEditorShellProps) {
   const t = useT();
 
@@ -215,7 +217,7 @@ export function SiteEditorShell({
             onToggleEnabled={(index, enabled) => updateSection(index, { enabled })}
             onContentChange={updateSectionContent}
             onMove={moveSection}
-            extraEditorProps={{ products: productList, staff, services: serviceList, coverImageUrl: brand.coverImageUrl }}
+            extraEditorProps={{ products: productList, staff, services: serviceList, coverImageUrl: brand.coverImageUrl, maxGalleryImages }}
           />
         );
       case "details":

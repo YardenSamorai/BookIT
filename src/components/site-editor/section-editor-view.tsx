@@ -92,7 +92,7 @@ export function SectionEditorView({
       case "team":
         return <TeamSectionEditor {...editorProps} staffCount={(extraEditorProps?.staff as unknown[] ?? []).length} />;
       case "gallery":
-        return <GallerySectionEditor {...editorProps} />;
+        return <GallerySectionEditor {...editorProps} maxImages={(extraEditorProps?.maxGalleryImages as number) ?? 50} />;
       case "testimonials":
         return <TestimonialsSectionEditor {...editorProps} />;
       case "cta_banner":

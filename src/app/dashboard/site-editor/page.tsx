@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { businesses, siteConfigs, services, staffMembers, products } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessHours } from "@/lib/db/queries/business-hours";
+import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
 import { t, type Locale } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
 import { SiteEditorShell } from "@/components/site-editor/site-editor-shell";
@@ -37,6 +38,9 @@ export default async function SiteEditorPage() {
   const activeStaff = staffList.filter((s) => s.isActive);
   const activeProducts = productList.filter((p) => p.isVisible);
 
+  const planLimits = getLimitsForPlan(business.subscriptionPlan as PlanType);
+  const maxGalleryImages = business.galleryQuotaOverride ?? planLimits.maxGalleryImages;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -50,6 +54,7 @@ export default async function SiteEditorPage() {
         staff={activeStaff}
         hours={hours}
         products={activeProducts}
+        maxGalleryImages={maxGalleryImages}
       />
     </div>
   );
