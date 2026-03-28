@@ -16,6 +16,7 @@ import { SiteReviews } from "./site-reviews";
 import { SiteFooter } from "./site-footer";
 import { SiteNav } from "./site-nav";
 import { WhatsAppButton } from "./whatsapp-button";
+import { UpcomingAppointmentBar } from "./upcoming-appointment-bar";
 import { AnimatedSection } from "./animated-section";
 
 interface PublicSiteProps {
@@ -225,6 +226,13 @@ export function PublicSite({ data, locale, basePath }: PublicSiteProps) {
       {socialLinks.whatsapp && (
         <WhatsAppButton phone={socialLinks.whatsapp} locale={locale} />
       )}
+
+      <UpcomingAppointmentBar
+        businessId={business.id}
+        myAppointmentsUrl={`${resolvedBase}/my-appointments`}
+        secondaryColor={business.secondaryColor}
+        locale={locale}
+      />
     </div>
   );
 }

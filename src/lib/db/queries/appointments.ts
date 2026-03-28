@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, lt, ne, isNull } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, lt, ne, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { appointments, appointmentLogs, services, staffMembers, businesses, customers, users } from "@/lib/db/schema";
 
@@ -29,6 +29,34 @@ export async function getCustomerAppointments(userId: string) {
     .innerJoin(businesses, eq(appointments.businessId, businesses.id))
     .where(eq(customers.userId, userId))
     .orderBy(desc(appointments.startTime));
+}
+
+export async function getNextUpcomingAppointment(userId: string, businessId: string) {
+  const now = new Date();
+  const rows = await db
+    .select({
+      id: appointments.id,
+      startTime: appointments.startTime,
+      endTime: appointments.endTime,
+      serviceName: services.title,
+      staffName: staffMembers.name,
+    })
+    .from(appointments)
+    .innerJoin(customers, eq(appointments.customerId, customers.id))
+    .innerJoin(services, eq(appointments.serviceId, services.id))
+    .innerJoin(staffMembers, eq(appointments.staffId, staffMembers.id))
+    .where(
+      and(
+        eq(customers.userId, userId),
+        eq(appointments.businessId, businessId),
+        gte(appointments.startTime, now),
+        ne(appointments.status, "CANCELLED")
+      )
+    )
+    .orderBy(asc(appointments.startTime))
+    .limit(1);
+
+  return rows[0] ?? null;
 }
 
 export async function getBusinessAppointments(businessId: string) {
