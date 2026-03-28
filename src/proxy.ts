@@ -49,14 +49,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Business booking site: {slug}.domain.com → rewrite to /b/*
+  // Business booking site: {slug}.domain.com → rewrite to /b/{slug}/*
   if (subdomain && subdomain !== "www") {
     const url = request.nextUrl.clone();
-    url.pathname = `/b${pathname === "/" ? "" : pathname}`;
-
-    const response = NextResponse.rewrite(url);
-    response.headers.set("x-business-slug", subdomain);
-    return response;
+    url.pathname = `/b/${subdomain}${pathname === "/" ? "" : pathname}`;
+    return NextResponse.rewrite(url);
   }
 
   // Root domain: no rewrite needed, serves /(marketing)/* pages
