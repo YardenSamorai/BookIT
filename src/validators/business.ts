@@ -3,6 +3,7 @@ import { BUSINESS_TYPES } from "@/lib/utils/constants";
 
 export const businessInfoSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(80),
+  displayName: z.string().max(80).optional().or(z.literal("")),
   type: z.enum(BUSINESS_TYPES),
   phone: z.string().max(50).optional().or(z.literal("")),
   email: z.string().email("Invalid email").optional().or(z.literal("")),

@@ -26,6 +26,7 @@ export const businesses = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
+    displayName: text("display_name"),
     type: businessTypeEnum("type").notNull(),
     logoUrl: text("logo_url"),
     coverImageUrl: text("cover_image_url"),

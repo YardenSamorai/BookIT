@@ -23,6 +23,7 @@ export async function updateBusinessInfo(
     .update(businesses)
     .set({
       name: parsed.data.name,
+      displayName: parsed.data.displayName || null,
       type: parsed.data.type,
       phone: parsed.data.phone || null,
       email: parsed.data.email || null,

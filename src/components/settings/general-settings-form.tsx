@@ -45,6 +45,7 @@ export function GeneralSettingsForm({ business }: GeneralSettingsFormProps) {
 
   const [form, setForm] = useState({
     name: business.name,
+    displayName: business.displayName ?? "",
     type: business.type,
     phone: business.phone ?? "",
     email: business.email ?? "",
@@ -92,6 +93,18 @@ export function GeneralSettingsForm({ business }: GeneralSettingsFormProps) {
                 onChange={(e) => update({ name: e.target.value })}
                 disabled={loading}
               />
+            </FormField>
+
+            <FormField label={t("settings.display_name")}>
+              <Input
+                value={form.displayName}
+                onChange={(e) => update({ displayName: e.target.value })}
+                placeholder={form.name}
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("settings.display_name_hint")}
+              </p>
             </FormField>
 
             <FormField label={t("settings.business_type")}>

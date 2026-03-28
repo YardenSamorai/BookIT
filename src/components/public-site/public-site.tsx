@@ -56,7 +56,7 @@ export function PublicSite({ data, locale, basePath }: PublicSiteProps) {
         <link rel="stylesheet" href={googleFontUrl} />
       )}
       <SiteNav
-        businessName={business.name}
+        businessName={business.displayName || business.name}
         slug={business.slug}
         logoUrl={business.logoUrl}
         bookingUrl={bookingUrl}

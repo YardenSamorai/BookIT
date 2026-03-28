@@ -652,6 +652,8 @@ export const translations = {
     "subdomain.error_taken": "This subdomain is already taken",
 
     "settings.business_name": "Business Name",
+    "settings.display_name": "Display Name",
+    "settings.display_name_hint": "Shown in the navigation bar instead of the business name. Leave empty to use the business name.",
     "settings.language": "Site Language",
     "settings.language_desc": "Choose the language for your public site and dashboard.",
     "settings.lang_en": "English",
@@ -2779,6 +2781,8 @@ export const translations = {
     "subdomain.error_taken": "סאב-דומיין זה כבר תפוס",
 
     "settings.business_name": "שם העסק",
+    "settings.display_name": "שם תצוגה",
+    "settings.display_name_hint": "מוצג בסרגל הניווט במקום שם העסק. השאירו ריק כדי להשתמש בשם העסק.",
     "settings.language": "שפת האתר",
     "settings.language_desc": "בחרו את השפה לאתר הציבורי וללוח הבקרה.",
     "settings.lang_en": "English (אנגלית)",
