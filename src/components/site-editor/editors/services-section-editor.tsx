@@ -86,7 +86,7 @@ export function ServicesSectionEditor({ content, onChange, services = [] }: Serv
               {{ grid: t("svc_editor.grid"), list: t("svc_editor.list"), compact: t("svc_editor.compact") }[(content.card_layout as string) ?? "grid"] ?? t("svc_editor.grid")}
             </span>
           </SelectTrigger>
-          <SelectContent position="popper" sideOffset={4}>
+          <SelectContent position="popper">
             <SelectItem value="grid">{t("svc_editor.grid")}</SelectItem>
             <SelectItem value="list">{t("svc_editor.list")}</SelectItem>
             <SelectItem value="compact">{t("svc_editor.compact")}</SelectItem>
@@ -121,7 +121,7 @@ export function ServicesSectionEditor({ content, onChange, services = [] }: Serv
           <SelectTrigger>
             <span>{primaryCount === 0 ? t("svc_editor.show_all" as any) : primaryCount}</span>
           </SelectTrigger>
-          <SelectContent position="popper" sideOffset={4}>
+          <SelectContent position="popper">
             <SelectItem value="0">{t("svc_editor.show_all" as any)}</SelectItem>
             {orderedServices.map((_, i) => (
               <SelectItem key={i + 1} value={String(i + 1)}>
