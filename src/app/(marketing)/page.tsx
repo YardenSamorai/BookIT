@@ -160,6 +160,7 @@ const proFeatures = [
   T("landing.plan_cards_unlimited"),
   T("landing.plan_themes_all"),
   T("landing.plan_branding"),
+  T("landing.plan_subdomain"),
 ];
 
 const allPlansInclude = [
