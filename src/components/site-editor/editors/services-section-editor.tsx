@@ -6,8 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ColorPicker } from "@/components/onboarding/color-picker";
-import { ChevronRight, ChevronUp, ChevronDown, Star } from "lucide-react";
+import { ChevronRight, ChevronUp, ChevronDown, Star, X } from "lucide-react";
 import { reorderServices } from "@/actions/site-editor";
+import { SERVICE_ICON_CATEGORIES, getServiceIcon } from "@/lib/service-icons";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -38,6 +44,17 @@ export function ServicesSectionEditor({ content, onChange, services = [] }: Serv
   }, [services]);
 
   const primaryCount = (content.primary_count as number) ?? 0;
+  const serviceIcons = (content.service_icons as Record<string, string>) ?? {};
+
+  const setServiceIcon = useCallback((serviceId: string, iconName: string | null) => {
+    const next = { ...serviceIcons };
+    if (iconName) {
+      next[serviceId] = iconName;
+    } else {
+      delete next[serviceId];
+    }
+    onChange({ service_icons: next });
+  }, [serviceIcons, onChange]);
 
   const moveService = useCallback((fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= orderedServices.length) return;
@@ -132,13 +149,14 @@ export function ServicesSectionEditor({ content, onChange, services = [] }: Serv
         </Select>
       </div>
 
-      {/* Service order — compact cards */}
+      {/* Service order + icon selection */}
       {orderedServices.length > 0 && (
         <div className="space-y-2">
           <Label>{t("svc_editor.service_order" as any)}</Label>
           <div className="grid grid-cols-2 gap-1.5">
             {orderedServices.map((svc, idx) => {
               const isPrimary = primaryCount > 0 && idx < primaryCount;
+              const IconComp = getServiceIcon(serviceIcons[svc.id]);
               return (
                 <div
                   key={svc.id}
@@ -148,9 +166,20 @@ export function ServicesSectionEditor({ content, onChange, services = [] }: Serv
                       : "border-border bg-background"
                   } ${isPending ? "opacity-60 pointer-events-none" : ""}`}
                 >
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
-                    {idx + 1}
-                  </span>
+                  <Popover>
+                    <PopoverTrigger
+                      className="flex size-6 shrink-0 items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                      title="בחר אייקון"
+                    >
+                      {IconComp ? <IconComp className="size-3.5" /> : <span className="text-[9px] font-bold">{idx + 1}</span>}
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 max-h-72 overflow-y-auto p-2" side="bottom" align="start">
+                      <ServiceIconPicker
+                        current={serviceIcons[svc.id]}
+                        onSelect={(name) => setServiceIcon(svc.id, name)}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {isPrimary && <Star className="size-3 shrink-0 fill-primary text-primary" />}
                   <span className="flex-1 truncate font-medium">{svc.title}</span>
                   <div className="flex shrink-0 flex-col opacity-0 transition-opacity group-hover:opacity-100">
@@ -215,6 +244,49 @@ export function ServicesSectionEditor({ content, onChange, services = [] }: Serv
           </div>
         </div>
       </details>
+    </div>
+  );
+}
+
+function ServiceIconPicker({
+  current,
+  onSelect,
+}: {
+  current?: string;
+  onSelect: (name: string | null) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {current && (
+        <button
+          onClick={() => onSelect(null)}
+          className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+        >
+          <X className="size-3" />
+          הסר אייקון
+        </button>
+      )}
+      {SERVICE_ICON_CATEGORIES.map((cat) => (
+        <div key={cat.label_en}>
+          <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{cat.label_he}</p>
+          <div className="grid grid-cols-6 gap-1">
+            {cat.icons.map(({ name, label_he, Icon }) => (
+              <button
+                key={name}
+                onClick={() => onSelect(name)}
+                title={label_he}
+                className={`flex size-8 items-center justify-center rounded-md transition-colors ${
+                  current === name
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="size-4" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Clock, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { formatPrice } from "@/lib/utils/currencies";
 import { t, type Locale } from "@/lib/i18n";
 import { AnimatedStagger } from "./animated-section";
+import { getServiceIcon } from "@/lib/service-icons";
 
 type Service = InferSelectModel<typeof services>;
 
@@ -59,6 +60,8 @@ export function SiteServices({
     ? serviceList.slice(0, primaryCount)
     : serviceList;
   const hiddenCount = hasSplit ? serviceList.length - primaryCount : 0;
+
+  const serviceIcons = (content.service_icons as Record<string, string>) ?? {};
 
   const customTitleColor = content.title_color as string | undefined;
   const customSubtitleColor = content.subtitle_color as string | undefined;
@@ -113,6 +116,7 @@ export function SiteServices({
                 bookingUrl={`${bookingUrl}?service=${svc.id}`}
                 locale={locale}
                 colors={colors}
+                iconName={serviceIcons[svc.id]}
               />
             ))}
           </AnimatedStagger>
@@ -146,6 +150,7 @@ export function SiteServices({
                   bookingUrl={`${bookingUrl}?service=${svc.id}`}
                   locale={locale}
                   colors={colors}
+                  iconName={serviceIcons[svc.id]}
               />
             ))}
             </AnimatedStagger>
@@ -154,6 +159,7 @@ export function SiteServices({
                 <ServiceCard
                   key={svc.id}
                   service={svc}
+                  iconName={serviceIcons[svc.id]}
                   theme={theme}
                   currency={currency}
                   showPrices={showPrices}
@@ -202,6 +208,7 @@ function ServiceCard({
   bookingUrl,
   locale,
   colors,
+  iconName,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -211,6 +218,7 @@ function ServiceCard({
   bookingUrl: string;
   locale: Locale;
   colors: SvcColors;
+  iconName?: string;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -220,11 +228,13 @@ function ServiceCard({
         ? t(locale, "pub.contact_price")
         : t(locale, "pub.on_site");
 
+  const IconComp = getServiceIcon(iconName);
+
   return (
     <div
       className={`group relative flex flex-col overflow-hidden ${theme.radius.lg} ${theme.card} ${theme.cardHover} transition-all`}
     >
-      {svc.imageUrl && (
+      {svc.imageUrl ? (
         <div className="relative h-44 overflow-hidden">
           <img
             src={svc.imageUrl}
@@ -240,7 +250,11 @@ function ServiceCard({
             </span>
           )}
         </div>
-      )}
+      ) : IconComp ? (
+        <div className="flex h-44 items-center justify-center" style={{ backgroundColor: `${theme.secondaryColor}10` }}>
+          <IconComp className="size-16" style={{ color: theme.secondaryColor }} />
+        </div>
+      ) : null}
 
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-start justify-between">
@@ -297,6 +311,7 @@ function ServiceListItem({
   bookingUrl,
   locale,
   colors,
+  iconName,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -306,6 +321,7 @@ function ServiceListItem({
   bookingUrl: string;
   locale: Locale;
   colors: SvcColors;
+  iconName?: string;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -313,17 +329,26 @@ function ServiceListItem({
       ? t(locale, "common.free")
       : t(locale, "pub.on_site");
 
+  const IconComp = getServiceIcon(iconName);
+
   return (
     <div
       className={`flex items-center gap-4 p-4 ${theme.radius.md} ${theme.card} ${theme.cardHover} transition-all`}
     >
-      {svc.imageUrl && (
+      {svc.imageUrl ? (
         <img
           src={svc.imageUrl}
           alt={svc.title}
           className={`size-20 shrink-0 object-cover ${theme.imageRadius}`}
         />
-      )}
+      ) : IconComp ? (
+        <div
+          className={`flex size-20 shrink-0 items-center justify-center ${theme.imageRadius}`}
+          style={{ backgroundColor: `${theme.secondaryColor}15` }}
+        >
+          <IconComp className="size-10" style={{ color: theme.secondaryColor }} />
+        </div>
+      ) : null}
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-base font-semibold" style={{ color: colors.H }}>{svc.title}</h3>
         {svc.description && (
@@ -359,6 +384,7 @@ function ServiceMobileCard({
   bookingUrl,
   locale,
   colors,
+  iconName,
 }: {
   service: Service;
   theme: SiteTheme;
@@ -368,6 +394,7 @@ function ServiceMobileCard({
   bookingUrl: string;
   locale: Locale;
   colors: SvcColors;
+  iconName?: string;
 }) {
   const priceDisplay = svc.price
     ? formatPrice(svc.price, currency)
@@ -376,6 +403,8 @@ function ServiceMobileCard({
       : svc.paymentMode === "CONTACT_FOR_PRICE"
         ? t(locale, "pub.contact_price")
         : t(locale, "pub.on_site");
+
+  const IconComp = getServiceIcon(iconName);
 
   return (
     <a
@@ -388,6 +417,13 @@ function ServiceMobileCard({
           alt={svc.title}
           className={`size-16 shrink-0 object-cover ${theme.imageRadius}`}
         />
+      ) : IconComp ? (
+        <div
+          className={`flex size-16 shrink-0 items-center justify-center ${theme.imageRadius}`}
+          style={{ backgroundColor: `${theme.secondaryColor}15` }}
+        >
+          <IconComp className="size-8" style={{ color: theme.secondaryColor }} />
+        </div>
       ) : (
         <div
           className={`flex size-16 shrink-0 items-center justify-center ${theme.imageRadius} text-lg font-bold text-white`}
