@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo, useState } from "react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import type { SiteTheme } from "@/lib/themes/presets";
 import { t, type Locale } from "@/lib/i18n";
 import { AnimatedStagger } from "./animated-section";
@@ -34,6 +35,8 @@ const SPEED_MAP: Record<string, number> = { slow: 5, normal: 3, fast: 1.5 };
 
 export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteGalleryProps) {
   const images = parseImages(content.images);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   if (images.length === 0) return null;
 
   const title = (content.title as string) || t(locale, "pub.our_work");
@@ -50,6 +53,8 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
       : columns === 4
         ? "grid-cols-3 sm:grid-cols-2 lg:grid-cols-4"
         : "grid-cols-3 sm:grid-cols-2 lg:grid-cols-3";
+
+  const openImage = (idx: number) => setLightboxIndex(idx);
 
   return (
     <section
@@ -70,21 +75,29 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
         </div>
 
         {marquee ? (
-          <GalleryMarquee images={images} theme={theme} speed={speed} columns={columns} layout={layout} alternateDir={alternateDir} />
+          <GalleryMarquee images={images} theme={theme} speed={speed} columns={columns} layout={layout} alternateDir={alternateDir} onImageClick={openImage} />
         ) : layout === "masonry" ? (
           <AnimatedStagger className={`mt-8 columns-3 gap-2 space-y-2 sm:mt-12 sm:columns-2 sm:gap-4 sm:space-y-4 ${columns >= 3 ? "lg:columns-3" : ""}`}>
             {images.map((img, i) => (
-              <GalleryItem key={i} image={img} theme={theme} />
+              <GalleryItem key={i} image={img} theme={theme} onClick={() => openImage(i)} />
             ))}
           </AnimatedStagger>
         ) : (
           <AnimatedStagger className={`mt-8 grid gap-2 sm:mt-12 sm:gap-4 ${colClass}`}>
             {images.map((img, i) => (
-              <GalleryItem key={i} image={img} theme={theme} />
+              <GalleryItem key={i} image={img} theme={theme} onClick={() => openImage(i)} />
             ))}
           </AnimatedStagger>
         )}
       </div>
+
+      {lightboxIndex !== null && (
+        <GalleryLightbox
+          images={images}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </section>
   );
 }
@@ -104,6 +117,7 @@ function GalleryMarquee({
   columns,
   layout,
   alternateDir,
+  onImageClick,
 }: {
   images: GalleryImage[];
   theme: SiteTheme;
@@ -111,6 +125,7 @@ function GalleryMarquee({
   columns: number;
   layout: string;
   alternateDir: boolean;
+  onImageClick?: (index: number) => void;
 }) {
   const rowCount = Math.max(1, Math.min(columns, Math.ceil(images.length / 2)));
   const rows = useMemo(() => splitIntoRows(images, rowCount), [images, rowCount]);
@@ -123,11 +138,13 @@ function GalleryMarquee({
         <MarqueeRow
           key={rowIdx}
           images={rowImages}
+          allImages={images}
           theme={theme}
           secsPerItem={secsPerItem}
           reverse={alternateDir ? rowIdx % 2 === 1 : false}
           isMasonry={isMasonry}
           rowIdx={rowIdx}
+          onImageClick={onImageClick}
         />
       ))}
     </div>
@@ -136,18 +153,22 @@ function GalleryMarquee({
 
 function MarqueeRow({
   images,
+  allImages,
   theme,
   secsPerItem,
   reverse,
   isMasonry,
   rowIdx,
+  onImageClick,
 }: {
   images: GalleryImage[];
+  allImages: GalleryImage[];
   theme: SiteTheme;
   secsPerItem: number;
   reverse: boolean;
   isMasonry: boolean;
   rowIdx: number;
+  onImageClick?: (index: number) => void;
 }) {
   const copies = Math.max(4, Math.ceil(16 / images.length));
   const repeated = useMemo(() => {
@@ -219,11 +240,14 @@ function MarqueeRow({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {repeated.map((img, i) => (
-          <div key={`${img.url}-${i}`} className={`shrink-0 ${heightClass} aspect-square`}>
-            <GalleryItem image={img} theme={theme} />
-          </div>
-        ))}
+        {repeated.map((img, i) => {
+          const originalIdx = allImages.findIndex((a) => a.url === img.url);
+          return (
+            <div key={`${img.url}-${i}`} className={`shrink-0 ${heightClass} aspect-square`}>
+              <GalleryItem image={img} theme={theme} onClick={onImageClick && originalIdx >= 0 ? () => onImageClick(originalIdx) : undefined} />
+            </div>
+          );
+        })}
       </div>
 
       <style>{`
@@ -249,9 +273,12 @@ function MarqueeRow({
   );
 }
 
-function GalleryItem({ image, theme }: { image: GalleryImage; theme: SiteTheme }) {
+function GalleryItem({ image, theme, onClick }: { image: GalleryImage; theme: SiteTheme; onClick?: () => void }) {
   return (
-    <div className={`group relative size-full overflow-hidden ${theme.radius.lg} ${theme.card} ${theme.cardHover} transition-all`}>
+    <div
+      className={`group relative size-full overflow-hidden ${theme.radius.lg} ${theme.card} ${theme.cardHover} transition-all ${onClick ? "cursor-pointer" : ""}`}
+      onClick={onClick}
+    >
       <div className="relative size-full overflow-hidden">
         <img
           src={image.url}
@@ -265,6 +292,129 @@ function GalleryItem({ image, theme }: { image: GalleryImage; theme: SiteTheme }
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function GalleryLightbox({
+  images,
+  initialIndex,
+  onClose,
+}: {
+  images: GalleryImage[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const touchRef = useRef({ startX: 0, startY: 0, swiping: false });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const current = images[index];
+  const hasNext = index < images.length - 1;
+  const hasPrev = index > 0;
+
+  const goNext = useCallback(() => {
+    if (hasNext) setIndex((i) => i + 1);
+  }, [hasNext]);
+
+  const goPrev = useCallback(() => {
+    if (hasPrev) setIndex((i) => i - 1);
+  }, [hasPrev]);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchRef.current.startX = e.touches[0].clientX;
+    touchRef.current.startY = e.touches[0].clientY;
+    touchRef.current.swiping = true;
+  }, []);
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchRef.current.swiping) return;
+    touchRef.current.swiping = false;
+    const dx = e.changedTouches[0].clientX - touchRef.current.startX;
+    const dy = e.changedTouches[0].clientY - touchRef.current.startY;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx < 0) {
+      // Swiped left → in RTL that means "prev", in LTR "next"
+      const isRtl = document.documentElement.dir === "rtl";
+      isRtl ? goPrev() : goNext();
+    } else {
+      const isRtl = document.documentElement.dir === "rtl";
+      isRtl ? goNext() : goPrev();
+    }
+  }, [goNext, goPrev]);
+
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") onClose();
+    if (e.key === "ArrowRight") {
+      document.documentElement.dir === "rtl" ? goPrev() : goNext();
+    }
+    if (e.key === "ArrowLeft") {
+      document.documentElement.dir === "rtl" ? goNext() : goPrev();
+    }
+  }, [onClose, goNext, goPrev]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={onKeyDown}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      tabIndex={0}
+      autoFocus
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute end-4 top-4 z-10 flex size-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+      >
+        <X className="size-6" />
+      </button>
+
+      {/* Counter */}
+      <div className="absolute top-4 start-4 z-10 rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+        {index + 1} / {images.length}
+      </div>
+
+      {/* Previous button (desktop) */}
+      {hasPrev && (
+        <button
+          onClick={goPrev}
+          className="absolute start-4 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:flex"
+        >
+          <ChevronLeft className="size-6 rtl:rotate-180" />
+        </button>
+      )}
+
+      {/* Next button (desktop) */}
+      {hasNext && (
+        <button
+          onClick={goNext}
+          className="absolute end-4 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:flex"
+        >
+          <ChevronRight className="size-6 rtl:rotate-180" />
+        </button>
+      )}
+
+      {/* Image */}
+      <div className="flex max-h-[85vh] max-w-[90vw] items-center justify-center sm:max-w-[80vw]">
+        <img
+          src={current.url}
+          alt={current.caption}
+          className="max-h-[85vh] max-w-full rounded-lg object-contain"
+          draggable={false}
+        />
+      </div>
+
+      {/* Caption */}
+      {current.caption && (
+        <div className="absolute bottom-6 inset-x-0 text-center">
+          <p className="mx-auto max-w-md rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-sm">
+            {current.caption}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
