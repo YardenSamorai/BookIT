@@ -194,7 +194,7 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
         </div>
 
         {images.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {images.map((img, index) => (
               <GalleryThumb
                 key={index}
@@ -266,7 +266,7 @@ function GalleryThumb({
 
       {img.url ? (
         <div
-          className="relative aspect-square cursor-pointer overflow-hidden rounded-lg border"
+          className="relative aspect-square cursor-pointer overflow-hidden rounded-md border"
           onClick={() => inputRef.current?.click()}
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
@@ -275,37 +275,30 @@ function GalleryThumb({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRemove(index); }}
-            className="absolute end-1 top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute end-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-white opacity-0 transition-opacity group-hover:opacity-100"
           >
-            <X className="size-3" />
+            <X className="size-2.5" />
           </button>
           {uploading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <Loader2 className="size-5 animate-spin text-white" />
+              <Loader2 className="size-4 animate-spin text-white" />
             </div>
           )}
         </div>
       ) : (
         <div
-          className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 transition-colors hover:border-primary/50 hover:bg-muted/50"
+          className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 transition-colors hover:border-primary/50 hover:bg-muted/50"
           onClick={() => inputRef.current?.click()}
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
         >
           {uploading ? (
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
           ) : (
-            <ImagePlus className="size-5 text-muted-foreground/50" />
+            <ImagePlus className="size-4 text-muted-foreground/50" />
           )}
         </div>
       )}
-
-      <Input
-        value={img.caption}
-        onChange={(e) => onUpdate(index, { caption: e.target.value })}
-        placeholder={t("gallery_editor.caption_ph")}
-        className="mt-1 h-7 text-xs"
-      />
     </div>
   );
 }
