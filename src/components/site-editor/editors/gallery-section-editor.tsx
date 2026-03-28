@@ -57,6 +57,7 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
   const marquee = content.marquee === true;
   const layout = (content.layout as string) ?? "grid";
   const speed = (content.marquee_speed as string) ?? "normal";
+  const alternateDir = content.marquee_alternate !== false;
 
   const updateImages = (next: GalleryImage[]) => {
     onChange({ images: next });
@@ -145,22 +146,35 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
       </div>
 
       {marquee && (
-        <div className="space-y-2">
-          <Label>{t("gallery_editor.speed")}</Label>
-          <Select
-            value={speed}
-            onValueChange={(v) => v && onChange({ marquee_speed: v })}
-          >
-            <SelectTrigger>
-              <span>{t((SPEED_LABELS as Record<string, string>)[speed] as any ?? "gallery_editor.speed_normal")}</span>
-            </SelectTrigger>
-            <SelectContent position="popper">
-              <SelectItem value="slow">{t("gallery_editor.speed_slow")}</SelectItem>
-              <SelectItem value="normal">{t("gallery_editor.speed_normal")}</SelectItem>
-              <SelectItem value="fast">{t("gallery_editor.speed_fast")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <>
+          <div className="space-y-2">
+            <Label>{t("gallery_editor.speed")}</Label>
+            <Select
+              value={speed}
+              onValueChange={(v) => v && onChange({ marquee_speed: v })}
+            >
+              <SelectTrigger>
+                <span>{t((SPEED_LABELS as Record<string, string>)[speed] as any ?? "gallery_editor.speed_normal")}</span>
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="slow">{t("gallery_editor.speed_slow")}</SelectItem>
+                <SelectItem value="normal">{t("gallery_editor.speed_normal")}</SelectItem>
+                <SelectItem value="fast">{t("gallery_editor.speed_fast")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>{t("gallery_editor.alternate_dir" as any)}</Label>
+              <p className="text-xs text-muted-foreground">{t("gallery_editor.alternate_dir_desc" as any)}</p>
+            </div>
+            <Switch
+              checked={alternateDir}
+              onCheckedChange={(checked) => onChange({ marquee_alternate: checked })}
+            />
+          </div>
+        </>
       )}
 
       <div className="space-y-3">

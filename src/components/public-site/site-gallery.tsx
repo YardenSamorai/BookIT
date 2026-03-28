@@ -42,6 +42,7 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
   const layout = (content.layout as string) || "grid";
   const marquee = content.marquee === true;
   const speed = (content.marquee_speed as string) || "normal";
+  const alternateDir = content.marquee_alternate !== false;
 
   const colClass =
     columns === 2
@@ -69,7 +70,7 @@ export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteG
         </div>
 
         {marquee ? (
-          <GalleryMarquee images={images} theme={theme} speed={speed} columns={columns} layout={layout} />
+          <GalleryMarquee images={images} theme={theme} speed={speed} columns={columns} layout={layout} alternateDir={alternateDir} />
         ) : layout === "masonry" ? (
           <AnimatedStagger className={`mt-8 columns-3 gap-2 space-y-2 sm:mt-12 sm:columns-2 sm:gap-4 sm:space-y-4 ${columns >= 3 ? "lg:columns-3" : ""}`}>
             {images.map((img, i) => (
@@ -102,12 +103,14 @@ function GalleryMarquee({
   speed,
   columns,
   layout,
+  alternateDir,
 }: {
   images: GalleryImage[];
   theme: SiteTheme;
   speed: string;
   columns: number;
   layout: string;
+  alternateDir: boolean;
 }) {
   const rowCount = Math.max(1, Math.min(columns, Math.ceil(images.length / 2)));
   const rows = useMemo(() => splitIntoRows(images, rowCount), [images, rowCount]);
@@ -122,7 +125,7 @@ function GalleryMarquee({
           images={rowImages}
           theme={theme}
           secsPerItem={secsPerItem}
-          reverse={rowIdx % 2 === 1}
+          reverse={alternateDir ? rowIdx % 2 === 1 : false}
           isMasonry={isMasonry}
           rowIdx={rowIdx}
         />
@@ -146,7 +149,15 @@ function MarqueeRow({
   isMasonry: boolean;
   rowIdx: number;
 }) {
-  const doubled = [...images, ...images];
+  const copies = Math.max(4, Math.ceil(16 / images.length));
+  const repeated = useMemo(() => {
+    const arr: GalleryImage[] = [];
+    for (let c = 0; c < copies; c++) arr.push(...images);
+    return arr;
+  }, [images, copies]);
+
+  const pct = (100 / copies).toFixed(6);
+
   const stripRef = useRef<HTMLDivElement>(null);
   const touchState = useRef({ startX: 0, currentOffset: 0, dragging: false });
   const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -208,7 +219,7 @@ function MarqueeRow({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {doubled.map((img, i) => (
+        {repeated.map((img, i) => (
           <div key={`${img.url}-${i}`} className={`shrink-0 ${heightClass} aspect-square`}>
             <GalleryItem image={img} theme={theme} />
           </div>
@@ -218,7 +229,7 @@ function MarqueeRow({
       <style>{`
         @keyframes ${animId} {
           0% { transform: translateX(0); }
-          100% { transform: translateX(${reverse ? "50%" : "-50%"}); }
+          100% { transform: translateX(${reverse ? `${pct}%` : `-${pct}%`}); }
         }
         .${stripClass} {
           animation: ${animId} ${dur}s linear infinite;
@@ -231,7 +242,7 @@ function MarqueeRow({
         }
         @keyframes ${animIdRtl} {
           0% { transform: translateX(0); }
-          100% { transform: translateX(${reverse ? "-50%" : "50%"}); }
+          100% { transform: translateX(${reverse ? `-${pct}%` : `${pct}%`}); }
         }
       `}</style>
     </div>

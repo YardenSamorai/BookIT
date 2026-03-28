@@ -575,6 +575,7 @@ function PreviewSection({
       const galLayout = (c.layout as string) || "grid";
       const isCarousel = galLayout === "carousel";
       const isMarquee = c.marquee === true;
+      const altDir = c.marquee_alternate !== false;
       const maxShow = galCols * 2;
 
       if (galleryImages.length === 0) {
@@ -605,33 +606,40 @@ function PreviewSection({
             galleryImages.forEach((img: { url: string; caption: string }, i: number) => { rows[i % rowCount].push(img); });
             return (
               <div className="space-y-1">
-                {rows.map((rowImgs, ri) => (
-                  <div key={ri} className="relative overflow-hidden">
-                    <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-3 bg-gradient-to-r from-white to-transparent" />
-                    <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-3 bg-gradient-to-l from-white to-transparent" />
-                    <div className={`pgm-row-${ri} flex gap-0.5`}>
-                      {[...rowImgs, ...rowImgs].map((img, i) => (
-                        <img key={i} src={img.url} alt={img.caption} className={cn("h-10 w-14 shrink-0 object-cover", r)} />
-                      ))}
+                {rows.map((rowImgs, ri) => {
+                  const copies = Math.max(4, Math.ceil(12 / rowImgs.length));
+                  const repeated: typeof rowImgs = [];
+                  for (let c = 0; c < copies; c++) repeated.push(...rowImgs);
+                  const pct = (100 / copies).toFixed(6);
+                  const rev = altDir ? ri % 2 === 1 : false;
+                  return (
+                    <div key={ri} className="relative overflow-hidden">
+                      <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-3 bg-gradient-to-r from-white to-transparent" />
+                      <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-3 bg-gradient-to-l from-white to-transparent" />
+                      <div className={`pgm-row-${ri} flex gap-0.5`}>
+                        {repeated.map((img, i) => (
+                          <img key={i} src={img.url} alt={img.caption} className={cn("h-10 w-14 shrink-0 object-cover", r)} />
+                        ))}
+                      </div>
+                      <style>{`
+                        @keyframes pgm-${ri} {
+                          0% { transform: translateX(0); }
+                          100% { transform: translateX(${rev ? `${pct}%` : `-${pct}%`}); }
+                        }
+                        .pgm-row-${ri} {
+                          animation: pgm-${ri} ${Math.max(rowImgs.length * 2, 5)}s linear infinite;
+                        }
+                        [dir="rtl"] .pgm-row-${ri} {
+                          animation-name: pgm-rtl-${ri};
+                        }
+                        @keyframes pgm-rtl-${ri} {
+                          0% { transform: translateX(0); }
+                          100% { transform: translateX(${rev ? `-${pct}%` : `${pct}%`}); }
+                        }
+                      `}</style>
                     </div>
-                    <style>{`
-                      @keyframes pgm-${ri} {
-                        0% { transform: translateX(0); }
-                        100% { transform: translateX(${ri % 2 === 1 ? "50%" : "-50%"}); }
-                      }
-                      .pgm-row-${ri} {
-                        animation: pgm-${ri} ${Math.max(rowImgs.length * 2, 5)}s linear infinite;
-                      }
-                      [dir="rtl"] .pgm-row-${ri} {
-                        animation-name: pgm-rtl-${ri};
-                      }
-                      @keyframes pgm-rtl-${ri} {
-                        0% { transform: translateX(0); }
-                        100% { transform: translateX(${ri % 2 === 1 ? "-50%" : "50%"}); }
-                      }
-                    `}</style>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })() : isCarousel ? (

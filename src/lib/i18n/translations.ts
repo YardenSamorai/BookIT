@@ -1290,6 +1290,8 @@ export const translations = {
     "gallery_editor.speed_slow": "Slow",
     "gallery_editor.speed_normal": "Normal",
     "gallery_editor.speed_fast": "Fast",
+    "gallery_editor.alternate_dir": "Alternating row direction",
+    "gallery_editor.alternate_dir_desc": "Odd rows scroll one way, even rows the other",
 
     // ── Testimonials Editor ──
     "testimonial_editor.title": "Section Title",
@@ -3258,6 +3260,8 @@ export const translations = {
     "gallery_editor.speed_slow": "איטי",
     "gallery_editor.speed_normal": "רגיל",
     "gallery_editor.speed_fast": "מהיר",
+    "gallery_editor.alternate_dir": "כיוון מנוגד בין שורות",
+    "gallery_editor.alternate_dir_desc": "שורות אי-זוגיות גוללות לכיוון אחד וזוגיות לכיוון השני",
 
     // ── Testimonials Editor ──
     "testimonial_editor.title": "כותרת הסקציה",
