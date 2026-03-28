@@ -119,18 +119,20 @@ export async function getAvailability(opts: {
       );
       const bizHour = bizHours.find((h) => h.dayOfWeek === dayOfWeek);
 
-      const workStart = schedule?.isActive
-        ? schedule.startTime
-        : bizHour?.isOpen
-          ? bizHour.startTime
-          : null;
-      const workEnd = schedule?.isActive
-        ? schedule.endTime
-        : bizHour?.isOpen
-          ? bizHour.endTime
-          : null;
+      if (!bizHour?.isOpen) continue;
 
-      if (!workStart || !workEnd) continue;
+      let workStart: string | null;
+      let workEnd: string | null;
+
+      if (schedule?.isActive) {
+        workStart = maxTime(schedule.startTime, bizHour.startTime);
+        workEnd = minTime(schedule.endTime, bizHour.endTime);
+      } else {
+        workStart = bizHour.startTime;
+        workEnd = bizHour.endTime;
+      }
+
+      if (!workStart || !workEnd || workStart >= workEnd) continue;
 
       const isOnTimeOff = timeOffRows.some(
         (to) =>
@@ -377,4 +379,12 @@ function parseTimeToDate(dateStr: string, timeStr: string): Date {
 
 function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60 * 1000);
+}
+
+function maxTime(a: string, b: string): string {
+  return a > b ? a : b;
+}
+
+function minTime(a: string, b: string): string {
+  return a < b ? a : b;
 }

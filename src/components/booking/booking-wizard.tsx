@@ -94,11 +94,22 @@ function BookingWizardInner({
   const workoutsOnly = hasWorkouts && !hasRegularServices;
   const showToggle = hasWorkouts && hasRegularServices;
 
+  function getStaffForServiceId(svcId: string) {
+    if (!svcId) return staff;
+    const svcStaff = serviceStaffMap[svcId];
+    if (!svcStaff || svcStaff.length === 0) return staff;
+    const set = new Set(svcStaff);
+    return staff.filter((s) => set.has(s.id));
+  }
+
+  const initialStaff = initialServiceId ? getStaffForServiceId(initialServiceId) : [];
+  const autoSkipInitial = initialServiceId && initialStaff.length === 1;
+
   const [mode, setMode] = useState<BookingMode>(workoutsOnly ? "workout" : "appointment");
-  const [step, setStep] = useState(initialServiceId ? 1 : 0);
+  const [step, setStep] = useState(autoSkipInitial ? 2 : initialServiceId ? 1 : 0);
   const [booking, setBooking] = useState<BookingState>({
     serviceId: initialServiceId ?? "",
-    staffId: "",
+    staffId: autoSkipInitial ? initialStaff[0].id : "",
     date: "",
     startTime: "",
     notes: "",
@@ -237,8 +248,15 @@ function BookingWizardInner({
                   currency={currency}
                   secondaryColor={secondaryColor}
                   onSelect={(id) => {
-                    update({ serviceId: id, staffId: "", date: "", startTime: "" });
-                    next();
+                    const eligible = getStaffForServiceId(id);
+                    if (eligible.length === 1) {
+                      update({ serviceId: id, staffId: eligible[0].id, date: "", startTime: "" });
+                      slideDir.current = dir === "rtl" ? -1 : 1;
+                      setStep(2);
+                    } else {
+                      update({ serviceId: id, staffId: "", date: "", startTime: "" });
+                      next();
+                    }
                   }}
                 />
               )}
@@ -273,7 +291,14 @@ function BookingWizardInner({
                     update({ date, startTime });
                     next();
                   }}
-                  onBack={back}
+                  onBack={() => {
+                    if (staffForService.length === 1) {
+                      slideDir.current = dir === "rtl" ? 1 : -1;
+                      setStep(0);
+                    } else {
+                      back();
+                    }
+                  }}
                 />
               )}
 
