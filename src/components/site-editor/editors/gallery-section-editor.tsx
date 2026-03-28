@@ -25,7 +25,7 @@ interface GallerySectionEditorProps {
   onChange: (patch: Record<string, unknown>) => void;
 }
 
-const MAX_IMAGES = 8;
+const MAX_IMAGES = 15;
 
 function parseImages(raw: unknown): GalleryImage[] {
   if (!Array.isArray(raw)) return [];
