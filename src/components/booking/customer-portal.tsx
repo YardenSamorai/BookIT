@@ -68,6 +68,7 @@ interface CustomerPortalProps {
   packages: CustomerPackageRow[];
   cards: CustomerCardRow[];
   slug: string;
+  basePath?: string;
   businessName: string;
   secondaryColor: string;
   primaryColor: string;
@@ -114,10 +115,12 @@ export function CustomerPortal({
   packages,
   cards,
   slug,
+  basePath,
   businessName,
   secondaryColor,
   primaryColor,
 }: CustomerPortalProps) {
+  const resolvedBase = basePath ?? `/b/${slug}`;
   const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -162,7 +165,7 @@ export function CustomerPortal({
         </h2>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: `/b/${slug}/my-appointments` })}
+          onClick={() => signOut({ callbackUrl: `${resolvedBase}/my-appointments` })}
           className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
         >
           <LogOut className="size-3.5" />
@@ -210,7 +213,7 @@ export function CustomerPortal({
               appointments={appointments}
               packages={packages}
               cards={cards}
-              slug={slug}
+              basePath={resolvedBase}
               secondaryColor={secondaryColor}
               onNavigate={setActiveTab}
             />
@@ -218,7 +221,7 @@ export function CustomerPortal({
           {activeTab === "appointments" && (
             <AppointmentsTab
               appointments={appointments}
-              slug={slug}
+              basePath={resolvedBase}
               secondaryColor={secondaryColor}
             />
           )}
@@ -357,7 +360,7 @@ function OverviewTab({
   appointments,
   packages,
   cards,
-  slug,
+  basePath,
   secondaryColor,
   onNavigate,
 }: {
@@ -365,7 +368,7 @@ function OverviewTab({
   appointments: Appointment[];
   packages: CustomerPackageRow[];
   cards: CustomerCardRow[];
-  slug: string;
+  basePath: string;
   secondaryColor: string;
   onNavigate: (tab: PortalTab) => void;
 }) {
@@ -479,7 +482,7 @@ function OverviewTab({
         </h3>
         <div className="grid grid-cols-3 gap-2">
           <a
-            href={`/b/${slug}#services`}
+            href={`${basePath}/#services`}
             className="flex flex-col items-center gap-1.5 rounded-xl border bg-white p-3 text-center transition-colors hover:bg-gray-50"
           >
             <CalendarPlus className="size-5" style={{ color: secondaryColor }} />
@@ -562,11 +565,11 @@ function OverviewTab({
 
 function AppointmentsTab({
   appointments,
-  slug,
+  basePath,
   secondaryColor,
 }: {
   appointments: Appointment[];
-  slug: string;
+  basePath: string;
   secondaryColor: string;
 }) {
   const t = useT();
@@ -587,7 +590,7 @@ function AppointmentsTab({
         <CalendarCheck className="size-10 text-gray-300" />
         <p className="mt-3 font-medium text-gray-500">{t("myapt.no_appointments")}</p>
         <a
-          href={`/b/${slug}#services`}
+          href={`${basePath}/#services`}
           className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
           style={{ backgroundColor: secondaryColor }}
         >
@@ -647,7 +650,7 @@ function AppointmentsTab({
 
       <div className="pt-2 text-center">
         <a
-          href={`/b/${slug}#services`}
+          href={`${basePath}/#services`}
           className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
           style={{ backgroundColor: secondaryColor }}
         >

@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getPublicBusinessData } from "@/lib/db/queries/public-site";
 import { BookingWizard } from "@/components/booking/booking-wizard";
 import { getDir, type Locale } from "@/lib/i18n";
 import { ArrowRight } from "lucide-react";
+
+const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || "localhost:3000").replace(/^www\./, "").split(":")[0];
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -17,8 +20,13 @@ export default async function BookingPage({ params, searchParams }: Props) {
 
   if (!data) notFound();
 
+  const headersList = await headers();
+  const host = (headersList.get("host") || "").split(":")[0];
+  const isSubdomain = host !== APP_DOMAIN && host !== `www.${APP_DOMAIN}` && host.endsWith(APP_DOMAIN);
+  const basePath = isSubdomain ? "" : `/b/${slug}`;
+
   if (data.business.subscriptionStatus === "CANCELLED") {
-    redirect(`/b/${slug}`);
+    redirect(basePath || "/");
   }
 
   const activeServices = data.services.filter((s) => s.isActive);
@@ -38,7 +46,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
       <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex items-center gap-3 px-4 py-3 md:px-8">
           <Link
-            href={`/b/${slug}`}
+            href={basePath || "/"}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-600 active:scale-95"
           >
             <ArrowRight className={`size-4 ${dir === "ltr" ? "rotate-180" : ""}`} />

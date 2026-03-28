@@ -11,6 +11,7 @@ interface SiteNavProps {
   slug: string;
   logoUrl?: string | null;
   bookingUrl?: string;
+  basePath?: string;
   theme: SiteTheme;
   locale: Locale;
   enabledSections?: string[];
@@ -54,7 +55,7 @@ function UserMenuDropdown({
   showGreeting = false,
   accentColor,
   textColorClass,
-  slug,
+  basePath,
   locale,
 }: {
   userName: string | null | undefined;
@@ -62,12 +63,12 @@ function UserMenuDropdown({
   showGreeting?: boolean;
   accentColor: string;
   textColorClass?: string;
-  slug: string;
+  basePath: string;
   locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const myAppointmentsUrl = `/b/${slug}/my-appointments`;
+  const myAppointmentsUrl = `${basePath}/my-appointments`;
   const greeting = t(locale, getGreetingKey() as Parameters<typeof t>[1]);
   const firstName = getFirstName(userName);
 
@@ -127,7 +128,7 @@ function UserMenuDropdown({
           <button
             onClick={() => {
               setOpen(false);
-              signOut({ callbackUrl: `/b/${slug}` });
+              signOut({ callbackUrl: basePath || "/" });
             }}
             className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
           >
@@ -145,17 +146,19 @@ export function SiteNav({
   slug,
   logoUrl,
   bookingUrl = "#services",
+  basePath,
   theme,
   locale,
   enabledSections,
 }: SiteNavProps) {
+  const resolvedBase = basePath ?? `/b/${slug}`;
   const NAV_LINKS = (enabledSections ?? Object.keys(SECTION_NAV_MAP))
     .filter((s) => SECTION_NAV_MAP[s])
     .map((s) => ({
       href: SECTION_NAV_MAP[s].href,
       label: t(locale, SECTION_NAV_MAP[s].labelKey as Parameters<typeof t>[1]),
     }));
-  const myAppointmentsUrl = `/b/${slug}/my-appointments`;
+  const myAppointmentsUrl = `${resolvedBase}/my-appointments`;
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user?.id;
   const userName = session?.user?.name;
@@ -182,7 +185,7 @@ export function SiteNav({
       style={navBgStyle}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
-        <a href={`/b/${slug}`} className="flex items-center gap-3 transition-opacity hover:opacity-80">
+        <a href={resolvedBase || "/"} className="flex items-center gap-3 transition-opacity hover:opacity-80">
           {logoUrl && (
             <img
               src={logoUrl}
@@ -213,7 +216,7 @@ export function SiteNav({
               showGreeting
               accentColor={theme.secondaryColor}
               textColorClass={textColor}
-              slug={slug}
+              basePath={resolvedBase}
               locale={locale}
             />
           ) : (
@@ -249,7 +252,7 @@ export function SiteNav({
               showGreeting
               accentColor={theme.secondaryColor}
               textColorClass={textColor}
-              slug={slug}
+              basePath={resolvedBase}
               locale={locale}
             />
           )}

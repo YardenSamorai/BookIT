@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/lib/auth/config";
 import { db } from "@/lib/db";
@@ -17,18 +18,25 @@ import { t, getDir, type Locale } from "@/lib/i18n";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { ArrowRight } from "lucide-react";
 
+const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || "localhost:3000").replace(/^www\./, "").split(":")[0];
+
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
 export default async function MyAppointmentsPage({ params }: Props) {
   const { slug } = await params;
-  const [session, data] = await Promise.all([
+  const [session, data, headersList] = await Promise.all([
     auth(),
     getPublicBusinessData(slug),
+    headers(),
   ]);
 
   if (!data) notFound();
+
+  const host = (headersList.get("host") || "").split(":")[0];
+  const isSubdomain = host !== APP_DOMAIN && host !== `www.${APP_DOMAIN}` && host.endsWith(APP_DOMAIN);
+  const basePath = isSubdomain ? "" : `/b/${slug}`;
 
   const isAuthenticated = !!session?.user?.id;
   let businessAppointments: Awaited<ReturnType<typeof getCustomerAppointments>> = [];
@@ -93,7 +101,7 @@ export default async function MyAppointmentsPage({ params }: Props) {
       >
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <Link
-            href={`/b/${slug}`}
+            href={basePath || "/"}
             className="flex size-8 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
           >
             <ArrowRight className={`size-4 ${dir === "ltr" ? "rotate-180" : ""}`} />
@@ -115,6 +123,7 @@ export default async function MyAppointmentsPage({ params }: Props) {
               packages={customerPkgs}
               cards={customerCardsList}
               slug={slug}
+              basePath={basePath}
               businessName={data.business.name}
               secondaryColor={data.business.secondaryColor}
               primaryColor={data.business.primaryColor}

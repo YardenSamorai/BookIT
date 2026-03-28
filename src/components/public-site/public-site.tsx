@@ -21,12 +21,14 @@ import { AnimatedSection } from "./animated-section";
 interface PublicSiteProps {
   data: PublicBusinessData;
   locale: Locale;
+  basePath?: string;
 }
 
-export function PublicSite({ data, locale }: PublicSiteProps) {
+export function PublicSite({ data, locale, basePath }: PublicSiteProps) {
   const { business, services, staff, hours, siteConfig, products, reviews, ratingStats, cardTemplates } = data;
   const sections = siteConfig?.sections ?? [];
-  const bookingUrl = `/b/${business.slug}/book`;
+  const resolvedBase = basePath ?? `/b/${business.slug}`;
+  const bookingUrl = `${resolvedBase}/book`;
   const socialLinks = siteConfig?.socialLinks ?? {};
 
   const fontId = siteConfig?.fontFamily as string | null;
@@ -57,6 +59,7 @@ export function PublicSite({ data, locale }: PublicSiteProps) {
         slug={business.slug}
         logoUrl={business.logoUrl}
         bookingUrl={bookingUrl}
+        basePath={resolvedBase}
         theme={theme}
         locale={locale}
         enabledSections={enabledSections.map((s) => s.type)}

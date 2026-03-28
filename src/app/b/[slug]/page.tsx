@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getPublicBusinessData } from "@/lib/db/queries/public-site";
 import { PublicSite } from "@/components/public-site/public-site";
 import { t, type Locale } from "@/lib/i18n";
+
+const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || "localhost:3000").replace(/^www\./, "").split(":")[0];
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -59,5 +62,10 @@ export default async function PublicBusinessPage({ params }: Props) {
 
   const locale = (data.business.language as Locale) || "he";
 
-  return <PublicSite data={data} locale={locale} />;
+  const headersList = await headers();
+  const host = (headersList.get("host") || "").split(":")[0];
+  const isSubdomain = host !== APP_DOMAIN && host !== `www.${APP_DOMAIN}` && host.endsWith(APP_DOMAIN);
+  const basePath = isSubdomain ? "" : `/b/${slug}`;
+
+  return <PublicSite data={data} locale={locale} basePath={basePath} />;
 }
