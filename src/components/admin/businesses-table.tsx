@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
-import { Search, ExternalLink, Power, PowerOff } from "lucide-react";
+import { Search, ExternalLink, Power, PowerOff, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   changeBusinessPlan,
@@ -21,6 +21,13 @@ interface BusinessRow {
   messages: { sent: number; quota: number };
   billingStatus: string | null;
 }
+
+type SortKey = "name" | "owner" | "plan" | "status" | "messages" | "billing" | "createdAt";
+type SortDir = "asc" | "desc";
+
+const PLAN_ORDER: Record<string, number> = { FREE: 0, STARTER: 1, PRO: 2 };
+const STATUS_ORDER: Record<string, number> = { CANCELLED: 0, PAST_DUE: 1, ACTIVE: 2 };
+const BILLING_ORDER: Record<string, number> = { OVERDUE: 0, PENDING: 1, PAID: 2, WAIVED: 3 };
 
 const PLAN_STYLES: Record<string, string> = {
   FREE: "bg-slate-100 text-slate-600",
@@ -41,14 +48,32 @@ const BILLING_STYLES: Record<string, string> = {
   WAIVED: "bg-slate-100 text-slate-600",
 };
 
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <ArrowUpDown className="size-3 opacity-0 group-hover:opacity-40 transition-opacity" />;
+  return dir === "asc"
+    ? <ArrowUp className="size-3 text-blue-600" />
+    : <ArrowDown className="size-3 text-blue-600" />;
+}
+
 export function BusinessesTable({ businesses }: { businesses: BusinessRow[] }) {
   const [search, setSearch] = useState("");
   const [planFilter, setPlanFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pending, startTransition] = useTransition();
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "createdAt" ? "desc" : "asc");
+    }
+  }
+
   const filtered = useMemo(() => {
-    return businesses.filter((biz) => {
+    const list = businesses.filter((biz) => {
       if (planFilter && biz.plan !== planFilter) return false;
       if (statusFilter && biz.status !== statusFilter) return false;
       if (search) {
@@ -61,7 +86,47 @@ export function BusinessesTable({ businesses }: { businesses: BusinessRow[] }) {
       }
       return true;
     });
-  }, [businesses, search, planFilter, statusFilter]);
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "name":
+          cmp = a.name.localeCompare(b.name, "he");
+          break;
+        case "owner":
+          cmp = (a.owner?.name ?? "").localeCompare(b.owner?.name ?? "", "he");
+          break;
+        case "plan":
+          cmp = (PLAN_ORDER[a.plan] ?? 0) - (PLAN_ORDER[b.plan] ?? 0);
+          break;
+        case "status":
+          cmp = (STATUS_ORDER[a.status] ?? 0) - (STATUS_ORDER[b.status] ?? 0);
+          break;
+        case "messages":
+          cmp = a.messages.sent - b.messages.sent;
+          break;
+        case "billing":
+          cmp = (BILLING_ORDER[a.billingStatus ?? ""] ?? 99) - (BILLING_ORDER[b.billingStatus ?? ""] ?? 99);
+          break;
+        case "createdAt":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return list;
+  }, [businesses, search, planFilter, statusFilter, sortKey, sortDir]);
+
+  const columns: { key: SortKey; label: string }[] = [
+    { key: "name", label: "שם העסק" },
+    { key: "owner", label: "בעלים" },
+    { key: "plan", label: "חבילה" },
+    { key: "status", label: "סטטוס" },
+    { key: "messages", label: "הודעות" },
+    { key: "billing", label: "חיוב" },
+    { key: "createdAt", label: "נוצר" },
+  ];
 
   return (
     <div className="space-y-4">
@@ -104,13 +169,18 @@ export function BusinessesTable({ businesses }: { businesses: BusinessRow[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-slate-50 text-right">
-              <th className="px-4 py-3 font-medium text-muted-foreground">שם העסק</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">בעלים</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">חבילה ▾</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">סטטוס ▾</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">הודעות</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">חיוב</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">נוצר</th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => toggleSort(col.key)}
+                  className="group cursor-pointer select-none px-4 py-3 font-medium text-muted-foreground transition-colors hover:text-slate-900"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {col.label}
+                    <SortIcon active={sortKey === col.key} dir={sortDir} />
+                  </span>
+                </th>
+              ))}
               <th className="px-4 py-3 font-medium text-muted-foreground" />
             </tr>
           </thead>
