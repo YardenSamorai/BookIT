@@ -574,6 +574,7 @@ function PreviewSection({
       const galCols = Math.min(4, Math.max(2, Number(c.columns ?? 2)));
       const galLayout = (c.layout as string) || "grid";
       const isCarousel = galLayout === "carousel";
+      const isMarquee = c.marquee === true;
       const maxShow = galCols * 2;
 
       if (galleryImages.length === 0) {
@@ -598,7 +599,33 @@ function PreviewSection({
           {typeof c.subtitle === "string" && c.subtitle && (
             <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
           )}
-          {isCarousel ? (
+          {isMarquee ? (
+            <div className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-4 bg-gradient-to-r from-white to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-4 bg-gradient-to-l from-white to-transparent" />
+              <div className="preview-gallery-marquee flex gap-1 py-1">
+                {[...galleryImages, ...galleryImages].map((img: { url: string; caption: string }, i: number) => (
+                  <img key={i} src={img.url} alt={img.caption} className={cn("h-12 w-16 shrink-0 object-cover", r)} />
+                ))}
+              </div>
+              <style>{`
+                @keyframes preview-gal-marquee {
+                  0% { transform: translateX(0); }
+                  100% { transform: translateX(-50%); }
+                }
+                .preview-gallery-marquee {
+                  animation: preview-gal-marquee ${Math.max(galleryImages.length * 2, 6)}s linear infinite;
+                }
+                [dir="rtl"] .preview-gallery-marquee {
+                  animation-name: preview-gal-marquee-rtl;
+                }
+                @keyframes preview-gal-marquee-rtl {
+                  0% { transform: translateX(0); }
+                  100% { transform: translateX(50%); }
+                }
+              `}</style>
+            </div>
+          ) : isCarousel ? (
             <div className="flex gap-1 overflow-hidden">
               {galleryImages.slice(0, 4).map((img: { url: string; caption: string }, i: number) => (
                 <img key={i} src={img.url} alt={img.caption} className={cn("h-14 w-20 shrink-0 object-cover", r)} />
@@ -620,7 +647,7 @@ function PreviewSection({
               ))}
             </div>
           )}
-          {galleryImages.length > maxShow && (
+          {!isMarquee && galleryImages.length > maxShow && (
             <p className="mt-1 text-center text-[7px] text-gray-400">
               {t("pub.n_more", { n: galleryImages.length - maxShow })}
             </p>
