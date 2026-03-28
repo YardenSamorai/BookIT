@@ -894,6 +894,20 @@ export async function cancelAppointment(
     return { success: false, error: "Cannot cancel a completed appointment" };
   }
 
+  if (cancelledBy === "CUSTOMER") {
+    const service = await db.query.services.findFirst({
+      where: eq(services.id, appointment.serviceId),
+      columns: { cancelHoursBefore: true },
+    });
+    const minHours = service?.cancelHoursBefore;
+    if (minHours && minHours > 0) {
+      const hoursUntil = (new Date(appointment.startTime).getTime() - Date.now()) / 3_600_000;
+      if (hoursUntil < minHours) {
+        return { success: false, error: `CANCEL_TOO_LATE:${minHours}` };
+      }
+    }
+  }
+
   await db
     .update(appointments)
     .set({
@@ -1014,7 +1028,8 @@ export async function cancelAppointment(
 export async function rescheduleAppointment(
   appointmentId: string,
   newStartTime: string,
-  newStaffId?: string
+  newStaffId?: string,
+  rescheduledBy?: "CUSTOMER" | "BUSINESS"
 ): Promise<ActionResult> {
   const appointment = await db.query.appointments.findFirst({
     where: eq(appointments.id, appointmentId),
@@ -1031,6 +1046,16 @@ export async function rescheduleAppointment(
   const service = await db.query.services.findFirst({
     where: eq(services.id, appointment.serviceId),
   });
+
+  if (rescheduledBy === "CUSTOMER" && service?.rescheduleHoursBefore) {
+    const minHours = service.rescheduleHoursBefore;
+    if (minHours > 0) {
+      const hoursUntil = (new Date(appointment.startTime).getTime() - Date.now()) / 3_600_000;
+      if (hoursUntil < minHours) {
+        return { success: false, error: `RESCHEDULE_TOO_LATE:${minHours}` };
+      }
+    }
+  }
 
   if (!service) {
     return { success: false, error: "Service not found" };
@@ -1336,4 +1361,132 @@ function parseImportDateTime(dateStr: string, timeStr: string): Date | null {
   } catch {
     return null;
   }
+}
+
+export async function createRecurringAppointments(input: {
+  businessId: string;
+  customerPhone: string;
+  customerName: string;
+  serviceId: string;
+  staffId: string;
+  firstStartTime: string;
+  intervalWeeks: 1 | 2;
+  count: number;
+  notes?: string;
+  customerCardId?: string;
+}): Promise<ActionResult<{ appointmentIds: string[]; skipped: number }>> {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  await requireBusinessOwner();
+
+  const { businessId, customerPhone, customerName, serviceId, staffId, firstStartTime, intervalWeeks, count, notes, customerCardId } = input;
+
+  if (!customerPhone?.trim() || !customerName?.trim()) {
+    return { success: false, error: "Customer name and phone are required" };
+  }
+
+  if (count < 2 || count > 52) {
+    return { success: false, error: "Count must be between 2 and 52" };
+  }
+
+  const { users } = await import("@/lib/db/schema");
+  const phone = customerPhone.replace(/[\s\-()]/g, "");
+  let user = await db.query.users.findFirst({
+    where: eq(users.phone, phone),
+    columns: { id: true },
+  });
+  if (!user) {
+    const [created] = await db
+      .insert(users)
+      .values({ name: customerName.trim(), phone, role: "CUSTOMER" })
+      .returning({ id: users.id });
+    user = created;
+  }
+
+  const customerId = await findOrCreateCustomer(businessId, user.id);
+
+  const service = await db.query.services.findFirst({
+    where: and(eq(services.id, serviceId), eq(services.businessId, businessId)),
+  });
+  if (!service) return { success: false, error: "Service not found" };
+
+  const durationMs = service.durationMinutes * 60 * 1000;
+  const intervalMs = intervalWeeks * 7 * 24 * 60 * 60 * 1000;
+
+  const business = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { defaultBufferMin: true },
+  });
+  const bufferMin = service.bufferMinutes ?? business?.defaultBufferMin ?? 0;
+
+  const seriesId = crypto.randomUUID();
+
+  const createdIds: string[] = [];
+  let skipped = 0;
+
+  for (let i = 0; i < count; i++) {
+    const startTime = new Date(new Date(firstStartTime).getTime() + i * intervalMs);
+    const endTime = new Date(startTime.getTime() + durationMs);
+
+    if (startTime.getTime() < Date.now() - 60_000) {
+      skipped++;
+      continue;
+    }
+
+    const bufferedStart = new Date(startTime.getTime() - bufferMin * 60 * 1000);
+    const bufferedEnd = new Date(endTime.getTime() + bufferMin * 60 * 1000);
+
+    const conflicts = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.staffId, staffId),
+          ne(appointments.status, "CANCELLED"),
+          lt(appointments.startTime, bufferedEnd),
+          gte(appointments.endTime, bufferedStart)
+        )
+      )
+      .limit(1);
+
+    if (conflicts.length > 0) {
+      skipped++;
+      continue;
+    }
+
+    const paymentStatus = service.paymentMode === "FREE"
+      ? "FREE" as const
+      : "ON_SITE" as const;
+
+    const [appointment] = await db
+      .insert(appointments)
+      .values({
+        businessId,
+        customerId,
+        serviceId,
+        staffId,
+        startTime,
+        endTime,
+        status: "CONFIRMED",
+        paymentStatus,
+        paymentAmount: service.paymentMode === "FREE" ? null : (service.price || null),
+        notes: notes || null,
+        seriesId,
+        source: "DASHBOARD",
+      })
+      .returning({ id: appointments.id });
+
+    createdIds.push(appointment.id);
+
+    await db.insert(appointmentLogs).values({
+      appointmentId: appointment.id,
+      action: "CREATED",
+      newValue: "CONFIRMED",
+      performedBy: "BUSINESS",
+    });
+  }
+
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/appointments");
+  revalidatePath("/dashboard");
+  return { success: true, data: { appointmentIds: createdIds, skipped } };
 }

@@ -47,6 +47,7 @@ interface Appointment {
   notes: string | null;
   serviceName: string;
   serviceDuration: number;
+  cancelHoursBefore: number | null;
   staffName: string;
   businessName: string;
   businessSlug: string;
@@ -615,16 +616,22 @@ function AppointmentsTab({
             {t("myapt.upcoming")}
           </h3>
           <div className="space-y-3">
-            {upcoming.map((apt) => (
-              <PortalAppointmentCard
-                key={apt.id}
-                appointment={apt}
-                secondaryColor={secondaryColor}
-                dateLocale={dateLocale}
-                canCancel
-                onRefresh={() => router.refresh()}
-              />
-            ))}
+            {upcoming.map((apt) => {
+              const minHours = apt.cancelHoursBefore ?? 0;
+              const hoursUntil = (new Date(apt.startTime).getTime() - Date.now()) / 3_600_000;
+              const canCancelApt = minHours <= 0 || hoursUntil >= minHours;
+              return (
+                <PortalAppointmentCard
+                  key={apt.id}
+                  appointment={apt}
+                  secondaryColor={secondaryColor}
+                  dateLocale={dateLocale}
+                  canCancel={canCancelApt}
+                  cancelPolicyHours={minHours > 0 ? minHours : undefined}
+                  onRefresh={() => router.refresh()}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -667,12 +674,14 @@ function PortalAppointmentCard({
   secondaryColor,
   dateLocale,
   canCancel,
+  cancelPolicyHours,
   onRefresh,
 }: {
   appointment: Appointment;
   secondaryColor: string;
   dateLocale: string;
   canCancel?: boolean;
+  cancelPolicyHours?: number;
   onRefresh: () => void;
 }) {
   const t = useT();
@@ -695,10 +704,12 @@ function PortalAppointmentCard({
 
   async function handleCancel() {
     setCancelling(true);
-    await cancelAppointment(apt.id, "CUSTOMER");
-    setCancelOpen(false);
+    const result = await cancelAppointment(apt.id, "CUSTOMER");
     setCancelling(false);
-    onRefresh();
+    if (result.success) {
+      setCancelOpen(false);
+      onRefresh();
+    }
   }
 
   return (
@@ -722,15 +733,21 @@ function PortalAppointmentCard({
             </div>
           </div>
 
-          {canCancel && apt.status !== "CANCELLED" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setCancelOpen(true)}
-            >
-              {t("common.cancel")}
-            </Button>
+          {apt.status !== "CANCELLED" && (
+            canCancel ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setCancelOpen(true)}
+              >
+                {t("common.cancel")}
+              </Button>
+            ) : cancelPolicyHours ? (
+              <span className="text-xs text-muted-foreground max-w-[140px] text-end leading-tight">
+                {t("portal.cancel_too_late", { hours: String(cancelPolicyHours) })}
+              </span>
+            ) : null
           )}
         </div>
       </div>

@@ -15,6 +15,7 @@ export async function getCustomerAppointments(userId: string) {
       serviceId: appointments.serviceId,
       serviceName: services.title,
       serviceDuration: services.durationMinutes,
+      cancelHoursBefore: services.cancelHoursBefore,
       staffId: appointments.staffId,
       staffName: staffMembers.name,
       businessId: appointments.businessId,

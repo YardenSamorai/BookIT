@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
-import { createManualAppointment } from "@/actions/booking";
+import { createManualAppointment, createRecurringAppointments } from "@/actions/booking";
 import { searchCustomers } from "@/actions/customers";
 import {
   CalendarPlus,
@@ -26,6 +26,7 @@ import {
   Phone,
   Ban,
   X,
+  Repeat,
 } from "lucide-react";
 
 type CustomerSuggestion = {
@@ -79,6 +80,11 @@ export function ManualBookingDialog({
     notes: "",
   });
 
+  // Recurring state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [repeatInterval, setRepeatInterval] = useState<1 | 2>(1);
+  const [repeatCount, setRepeatCount] = useState(4);
+
   // Customer picker state
   const [suggestions, setSuggestions] = useState<CustomerSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -87,6 +93,17 @@ export function ManualBookingDialog({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const seriesEndDate = useMemo(() => {
+    if (!isRecurring || !form.date) return "";
+    const start = new Date(`${form.date}T12:00:00`);
+    const endDate = new Date(start.getTime() + (repeatCount - 1) * repeatInterval * 7 * 24 * 60 * 60 * 1000);
+    return endDate.toLocaleDateString(locale === "he" ? "he-IL" : "en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }, [isRecurring, form.date, repeatCount, repeatInterval, locale]);
 
   const availableStaff = useMemo(() => {
     if (!serviceStaffLinks || serviceStaffLinks.length === 0) return staff;
@@ -242,18 +259,40 @@ export function ManualBookingDialog({
     }
 
     startTransition(async () => {
-      const result = await createManualAppointment({
-        businessId,
-        customerPhone: form.customerPhone.trim(),
-        customerName: form.customerName.trim(),
-        serviceId: form.serviceId,
-        staffId: form.staffId,
-        startTime: startTime.toISOString(),
-        notes: form.notes || undefined,
-        customerCardId: selectedCardId || undefined,
-      });
+      let success = false;
+      let errorMsg: string | undefined;
 
-      if (result.success) {
+      if (isRecurring) {
+        const result = await createRecurringAppointments({
+          businessId,
+          customerPhone: form.customerPhone.trim(),
+          customerName: form.customerName.trim(),
+          serviceId: form.serviceId,
+          staffId: form.staffId,
+          firstStartTime: startTime.toISOString(),
+          intervalWeeks: repeatInterval,
+          count: repeatCount,
+          notes: form.notes || undefined,
+          customerCardId: selectedCardId || undefined,
+        });
+        success = result.success;
+        errorMsg = result.success ? undefined : result.error;
+      } else {
+        const result = await createManualAppointment({
+          businessId,
+          customerPhone: form.customerPhone.trim(),
+          customerName: form.customerName.trim(),
+          serviceId: form.serviceId,
+          staffId: form.staffId,
+          startTime: startTime.toISOString(),
+          notes: form.notes || undefined,
+          customerCardId: selectedCardId || undefined,
+        });
+        success = result.success;
+        errorMsg = result.success ? undefined : result.error;
+      }
+
+      if (success) {
         onOpenChange(false);
         setForm({
           customerName: prefillCustomer?.name ?? "",
@@ -265,9 +304,10 @@ export function ManualBookingDialog({
           notes: "",
         });
         setSelectedCustomer(null);
+        setIsRecurring(false);
         router.refresh();
       } else {
-        setError(result.error ?? t("manual.error_generic"));
+        setError(errorMsg ?? t("manual.error_generic"));
       }
     });
   }
@@ -468,6 +508,60 @@ export function ManualBookingDialog({
             </div>
           </div>
 
+          {/* Recurring toggle */}
+          {!prefillCustomer && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  disabled={isPending}
+                  className="size-4 rounded"
+                />
+                <Repeat className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{t("manual.recurring_label")}</span>
+              </label>
+
+              {isRecurring && (
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">{t("manual.recurring")}</Label>
+                      <select
+                        value={repeatInterval}
+                        onChange={(e) => setRepeatInterval(Number(e.target.value) as 1 | 2)}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        disabled={isPending}
+                      >
+                        <option value={1}>{t("manual.repeat_weekly")}</option>
+                        <option value={2}>{t("manual.repeat_biweekly")}</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">{t("manual.repeat_count")}</Label>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={52}
+                        value={repeatCount}
+                        onChange={(e) => setRepeatCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
+                        disabled={isPending}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("manual.repeat_summary", {
+                      count: String(repeatCount),
+                      freq: repeatInterval === 1 ? t("manual.repeat_weekly") : t("manual.repeat_biweekly"),
+                      endDate: seriesEndDate,
+                    })}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Card indicator */}
           {activeCards.length > 0 && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -537,10 +631,14 @@ export function ManualBookingDialog({
             <Button type="submit" disabled={isPending}>
               {isPending ? (
                 <Loader2 className="size-4 me-1.5 animate-spin" />
+              ) : isRecurring ? (
+                <Repeat className="size-4 me-1.5" />
               ) : (
                 <CalendarPlus className="size-4 me-1.5" />
               )}
-              {t("manual.create")}
+              {isRecurring
+                ? t("manual.create_series", { count: String(repeatCount) })
+                : t("manual.create")}
             </Button>
           </div>
         </form>

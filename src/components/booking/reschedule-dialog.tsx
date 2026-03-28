@@ -131,7 +131,7 @@ export function RescheduleDialog({
     if (!selectedTime) return;
     setSubmitting(true);
     setError("");
-    const result = await rescheduleAppointment(appointmentId, selectedTime);
+    const result = await rescheduleAppointment(appointmentId, selectedTime, undefined, "CUSTOMER");
     setSubmitting(false);
     if (result.success) {
       setSuccess(true);

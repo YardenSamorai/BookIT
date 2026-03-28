@@ -62,6 +62,7 @@ export const appointments = pgTable(
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: cancelledByEnum("cancelled_by"),
     notes: text("notes"),
+    seriesId: uuid("series_id"),
     googleEventId: text("google_event_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
