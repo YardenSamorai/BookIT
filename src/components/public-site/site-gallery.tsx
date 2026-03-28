@@ -31,7 +31,7 @@ function parseImages(raw: unknown): GalleryImage[] {
     .filter((img) => img.url);
 }
 
-const SPEED_MAP: Record<string, number> = { slow: 5, normal: 3, fast: 1.5 };
+const SPEED_MAP: Record<string, number> = { slow: 5, normal: 3, fast: 1.5, very_fast: 0.75 };
 
 export function SiteGallery({ theme, content = {}, sectionIndex, locale }: SiteGalleryProps) {
   const images = parseImages(content.images);
@@ -127,7 +127,7 @@ function GalleryMarquee({
   alternateDir: boolean;
   onImageClick?: (index: number) => void;
 }) {
-  const rowCount = Math.max(1, Math.min(columns, Math.ceil(images.length / 2)));
+  const rowCount = Math.max(1, columns);
   const rows = useMemo(() => splitIntoRows(images, rowCount), [images, rowCount]);
   const secsPerItem = SPEED_MAP[speed] ?? 3;
   const isMasonry = layout === "masonry";
@@ -170,14 +170,13 @@ function MarqueeRow({
   rowIdx: number;
   onImageClick?: (index: number) => void;
 }) {
-  const copies = Math.max(4, Math.ceil(16 / images.length));
   const repeated = useMemo(() => {
-    const arr: GalleryImage[] = [];
-    for (let c = 0; c < copies; c++) arr.push(...images);
-    return arr;
-  }, [images, copies]);
-
-  const pct = (100 / copies).toFixed(6);
+    const minItems = 14;
+    const repeatsPerCopy = Math.max(1, Math.ceil(minItems / images.length));
+    const singleCopy: GalleryImage[] = [];
+    for (let r = 0; r < repeatsPerCopy; r++) singleCopy.push(...images);
+    return [...singleCopy, ...singleCopy];
+  }, [images]);
 
   const stripRef = useRef<HTMLDivElement>(null);
   const touchState = useRef({ startX: 0, currentOffset: 0, dragging: false });
@@ -220,7 +219,8 @@ function MarqueeRow({
     resumeTimer.current = setTimeout(resumeAnimation, 2000);
   }, [resumeAnimation]);
 
-  const dur = Math.max(images.length * secsPerItem, 8);
+  const itemsPerCopy = repeated.length / 2;
+  const dur = Math.max(itemsPerCopy * secsPerItem, 4);
   const animId = `gal-marquee-${rowIdx}`;
   const animIdRtl = `gal-marquee-rtl-${rowIdx}`;
   const stripClass = `gal-strip-${rowIdx}`;
@@ -253,7 +253,7 @@ function MarqueeRow({
       <style>{`
         @keyframes ${animId} {
           0% { transform: translateX(0); }
-          100% { transform: translateX(${reverse ? `${pct}%` : `-${pct}%`}); }
+          100% { transform: translateX(${reverse ? "50%" : "-50%"}); }
         }
         .${stripClass} {
           animation: ${animId} ${dur}s linear infinite;
@@ -266,7 +266,7 @@ function MarqueeRow({
         }
         @keyframes ${animIdRtl} {
           0% { transform: translateX(0); }
-          100% { transform: translateX(${reverse ? `-${pct}%` : `${pct}%`}); }
+          100% { transform: translateX(${reverse ? "-50%" : "50%"}); }
         }
       `}</style>
     </div>

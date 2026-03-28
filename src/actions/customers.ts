@@ -59,7 +59,8 @@ export async function updateCustomerTags(
 }
 
 export async function importCustomers(
-  rows: { name: string; phone: string; email?: string }[]
+  rows: { name: string; phone: string; email?: string }[],
+  initialStatus?: "LEAD" | "ACTIVE" | "INACTIVE"
 ): Promise<ActionResult<{ imported: number; skipped: number }>> {
   const { businessId } = await requireBusinessOwner();
 
@@ -100,7 +101,7 @@ export async function importCustomers(
         continue;
       }
 
-      await db.insert(customers).values({ businessId, userId });
+      await db.insert(customers).values({ businessId, userId, ...(initialStatus ? { status: initialStatus } : {}) });
       imported++;
     } catch {
       skipped++;

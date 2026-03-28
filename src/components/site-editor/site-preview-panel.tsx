@@ -5,6 +5,7 @@ import { useT } from "@/lib/i18n/locale-context";
 import { DAYS_SHORT_KEYS } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { buildSiteTheme } from "@/lib/themes/presets";
+import { getSiteFont, getGoogleFontUrl } from "@/lib/themes/fonts";
 import { getHeroBackground, getHeroFontStyle, getHeroTextSize } from "@/lib/themes/hero-backgrounds";
 import { Monitor, Smartphone, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ interface SitePreviewPanelProps {
   products: Product[];
   currency: string;
   themePresetId?: string;
+  fontId?: string | null;
   activeSectionType?: string | null;
 }
 
@@ -51,11 +53,14 @@ export function SitePreviewPanel({
   products: productList,
   currency,
   themePresetId = "modern",
+  fontId = null,
   activeSectionType = null,
 }: SitePreviewPanelProps) {
   const t = useT();
   const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
-  const theme = buildSiteTheme(themePresetId, brand.primaryColor, brand.secondaryColor);
+  const siteFont = fontId ? getSiteFont(fontId) : null;
+  const googleFontUrl = fontId ? getGoogleFontUrl(fontId) : null;
+  const theme = buildSiteTheme(themePresetId, brand.primaryColor, brand.secondaryColor, siteFont?.tailwindClass ?? null);
   const enabled = sections.filter((s) => s.enabled).sort((a, b) => a.order - b.order);
   const isMobile = viewMode === "mobile";
 
@@ -100,10 +105,14 @@ export function SitePreviewPanel({
         )}
       >
         <div className="h-[calc(100vh-200px)] overflow-y-auto bg-white">
+          {googleFontUrl && (
+            // eslint-disable-next-line @next/next/no-page-custom-font
+            <link rel="stylesheet" href={googleFontUrl} />
+          )}
           <div
             className={cn(
               "text-[10px] leading-relaxed [&_*]:transition-[background-color,color,border-color] [&_*]:duration-300",
-              theme.preset.fontStyle === "classic" ? "font-serif" : "font-sans"
+              theme.font
             )}
           >
             {/* Nav */}
@@ -226,10 +235,7 @@ function PreviewSection({
   const c = section.content;
   const isAlt = sectionIndex % 2 === 1;
   const sectionBg = isAlt ? "bg-gray-50/60" : "bg-white";
-  const headingClass = cn(
-    "mb-1 text-[9px] font-bold",
-    theme.preset.fontStyle === "classic" ? "font-serif" : "font-sans"
-  );
+  const headingClass = "mb-1 text-[9px] font-bold";
 
   const cardClass = cn(
     "p-1.5",
@@ -601,16 +607,20 @@ function PreviewSection({
             <p className="mb-1.5 text-[7px] text-gray-500">{c.subtitle}</p>
           )}
           {isMarquee ? (() => {
-            const rowCount = Math.max(1, Math.min(galCols, Math.ceil(galleryImages.length / 2)));
-            const rows: { url: string; caption: string }[][] = Array.from({ length: rowCount }, () => []);
-            galleryImages.forEach((img: { url: string; caption: string }, i: number) => { rows[i % rowCount].push(img); });
+            const rowCount = Math.max(1, galCols);
+            const pRows: { url: string; caption: string }[][] = Array.from({ length: rowCount }, () => []);
+            galleryImages.forEach((img: { url: string; caption: string }, i: number) => { pRows[i % rowCount].push(img); });
+            const speedMap: Record<string, number> = { slow: 5, normal: 3, fast: 1.5, very_fast: 0.75 };
+            const secsPerItem = speedMap[(c.marquee_speed as string) ?? "normal"] ?? 3;
             return (
               <div className="space-y-1">
-                {rows.map((rowImgs, ri) => {
-                  const copies = Math.max(4, Math.ceil(12 / rowImgs.length));
-                  const repeated: typeof rowImgs = [];
-                  for (let c = 0; c < copies; c++) repeated.push(...rowImgs);
-                  const pct = (100 / copies).toFixed(6);
+                {pRows.map((rowImgs, ri) => {
+                  const minItems = 8;
+                  const repeatsPerCopy = Math.max(1, Math.ceil(minItems / rowImgs.length));
+                  const singleCopy: typeof rowImgs = [];
+                  for (let r = 0; r < repeatsPerCopy; r++) singleCopy.push(...rowImgs);
+                  const repeated = [...singleCopy, ...singleCopy];
+                  const dur = Math.max(singleCopy.length * secsPerItem, 3);
                   const rev = altDir ? ri % 2 === 1 : false;
                   return (
                     <div key={ri} className="relative overflow-hidden">
@@ -624,17 +634,17 @@ function PreviewSection({
                       <style>{`
                         @keyframes pgm-${ri} {
                           0% { transform: translateX(0); }
-                          100% { transform: translateX(${rev ? `${pct}%` : `-${pct}%`}); }
+                          100% { transform: translateX(${rev ? "50%" : "-50%"}); }
                         }
                         .pgm-row-${ri} {
-                          animation: pgm-${ri} ${Math.max(rowImgs.length * 2, 5)}s linear infinite;
+                          animation: pgm-${ri} ${dur}s linear infinite;
                         }
                         [dir="rtl"] .pgm-row-${ri} {
                           animation-name: pgm-rtl-${ri};
                         }
                         @keyframes pgm-rtl-${ri} {
                           0% { transform: translateX(0); }
-                          100% { transform: translateX(${rev ? `-${pct}%` : `${pct}%`}); }
+                          100% { transform: translateX(${rev ? "-50%" : "50%"}); }
                         }
                       `}</style>
                     </div>

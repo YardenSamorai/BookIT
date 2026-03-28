@@ -29,9 +29,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { telLink, whatsappLink } from "@/lib/utils/phone";
-import { importCustomers, deleteCustomer, addCustomer, archiveCustomer } from "@/actions/customers";
+import { importCustomers, deleteCustomer, addCustomer, archiveCustomer, updateCustomerStatus } from "@/actions/customers";
 import { BookingCalendarSheet } from "@/components/customers/booking-calendar-sheet";
 import type { CustomerRow } from "@/lib/db/queries/customers";
 import {
@@ -62,6 +69,12 @@ import {
   Sparkles,
   Clock,
   Archive,
+  Trash2,
+  ArchiveRestore,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -104,14 +117,17 @@ const STATUS_BADGE: Record<string, string> = {
   ARCHIVED: "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500",
 };
 
+const LIFECYCLE_STATUSES = ["LEAD", "ACTIVE", "INACTIVE", "BLOCKED", "ARCHIVED"] as const;
+type LifecycleStatus = typeof LIFECYCLE_STATUSES[number];
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function CustomerList({ customers, businessId, staff, services, serviceStaffLinks }: CustomerListProps) {
   const t = useT();
   const locale = useLocale();
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
@@ -123,6 +139,7 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
 
   const [bookingCustomer, setBookingCustomer] = useState<{ name: string; phone: string } | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
 
@@ -292,38 +309,66 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
     writeFile(wb, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const { read, utils } = await import("xlsx");
-    const buf = await file.arrayBuffer();
-    const wb = read(buf);
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = utils.sheet_to_json<Record<string, string>>(ws);
-    const mapped = rows.map((r) => {
-      const name = r["name"] || r["Name"] || r["שם"] || r["שם מלא"] || r["שם לקוח"] || "";
-      const phone = r["phone"] || r["Phone"] || r["טלפון"] || r["מספר טלפון"] || r["נייד"] || "";
-      const email = r["email"] || r["Email"] || r["אימייל"] || r["מייל"] || "";
-      return { name, phone, email: email || undefined };
-    });
-    const valid = mapped.filter((r) => r.name && r.phone);
-    if (valid.length === 0) { alert(t("cust.import_no_valid")); return; }
-    startTransition(async () => {
-      const result = await importCustomers(valid);
-      if (result.success) {
-        alert(t("cust.import_done").replace("{imported}", String(result.data.imported)).replace("{skipped}", String(result.data.skipped)));
-        router.refresh();
-      }
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  function openImportWizard() {
+    setImportDialogOpen(true);
   }
 
   function handleBulkArchive() {
     if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     startTransition(async () => {
-      for (const id of selectedIds) {
-        await archiveCustomer(id);
+      for (let i = 0; i < ids.length; i++) {
+        await archiveCustomer(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
+      setBulkProgress(null);
+      setSelectedIds(new Set());
+      router.refresh();
+    });
+  }
+
+  function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(t("cust.bulk_delete_confirm", { n: selectedIds.size }))) return;
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    startTransition(async () => {
+      for (let i = 0; i < ids.length; i++) {
+        await deleteCustomer(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
+      }
+      setBulkProgress(null);
+      setSelectedIds(new Set());
+      router.refresh();
+    });
+  }
+
+  function handleBulkUnarchive() {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    startTransition(async () => {
+      for (let i = 0; i < ids.length; i++) {
+        await updateCustomerStatus(ids[i], "ACTIVE");
+        setBulkProgress({ done: i + 1, total: ids.length });
+      }
+      setBulkProgress(null);
+      setSelectedIds(new Set());
+      router.refresh();
+    });
+  }
+
+  function handleBulkStatusChange(status: LifecycleStatus) {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    startTransition(async () => {
+      for (let i = 0; i < ids.length; i++) {
+        await updateCustomerStatus(ids[i], status);
+        setBulkProgress({ done: i + 1, total: ids.length });
+      }
+      setBulkProgress(null);
       setSelectedIds(new Set());
       router.refresh();
     });
@@ -353,13 +398,20 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
               <p className="font-semibold text-lg">{t("cust.no_customers")}</p>
               <p className="text-sm text-muted-foreground mt-1">{t("cust.no_customers_desc")}</p>
             </div>
-            <Button onClick={() => setAddDialogOpen(true)} className="mt-2">
-              <UserPlus className="size-4 me-1.5" />
-              {t("cust.add_customer")}
-            </Button>
+            <div className="flex items-center gap-3 mt-2">
+              <Button onClick={() => setAddDialogOpen(true)}>
+                <UserPlus className="size-4 me-1.5" />
+                {t("cust.add_customer")}
+              </Button>
+              <Button variant="outline" onClick={openImportWizard} disabled={isPending}>
+                <Upload className="size-4 me-1.5" />
+                {t("cust.import_excel")}
+              </Button>
+            </div>
           </CardContent>
         </Card>
         <AddCustomerDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+        <ImportWizardDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
       </>
     );
   }
@@ -378,15 +430,14 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
 
       {/* ── Header: Search + Actions ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("cust.search_ph")}
-            className="ps-9 h-10"
-          />
-        </div>
+        <CustomerSearch
+          customers={customers}
+          value={search}
+          onChange={setSearch}
+          onSelect={(id) => router.push(`/dashboard/customers/${id}`)}
+          placeholder={t("cust.search_ph")}
+          locale={locale}
+        />
         <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" onClick={() => setAddDialogOpen(true)}>
             <UserPlus className="size-4 me-1.5" />
@@ -397,7 +448,7 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
             <Download className="size-4 sm:me-1.5" />
             <span className="hidden sm:inline">{t("cust.export_excel")}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+          <Button variant="outline" size="sm" onClick={openImportWizard} disabled={isPending}>
             <Upload className="size-4 sm:me-1.5" />
             <span className="hidden sm:inline">{t("cust.import_excel")}</span>
           </Button>
@@ -409,7 +460,6 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
             <SlidersHorizontal className="size-4 sm:me-1.5" />
             <span className="hidden sm:inline">{t("cust.filters")}</span>
           </Button>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
         </div>
       </div>
 
@@ -440,22 +490,66 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
 
       {/* ── Bulk Actions Bar ── */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
-          <span className="text-sm font-medium">
-            {t("cust.selected", { n: selectedIds.size })}
-          </span>
-          <Separator orientation="vertical" className="h-5" />
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBulkArchive} disabled={isPending}>
-            <Archive className="size-3 me-1" />
-            {t("cust.bulk_archive")}
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleExport}>
-            <Download className="size-3 me-1" />
-            {t("cust.bulk_export")}
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs ms-auto" onClick={() => setSelectedIds(new Set())}>
-            <X className="size-3" />
-          </Button>
+        <div className="space-y-0 rounded-lg border bg-muted/50">
+          <div className="flex items-center gap-3 px-4 py-2">
+            <span className="text-sm font-medium">
+              {t("cust.selected", { n: selectedIds.size })}
+            </span>
+            <Separator orientation="vertical" className="h-5" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={isPending}>
+                  <RefreshCw className="size-3 me-1" />
+                  {t("cust.bulk_status")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {LIFECYCLE_STATUSES.map((s) => (
+                  <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(s)}>
+                    <span className={`me-2 inline-block size-2 rounded-full ${STATUS_BADGE[s].split(" ")[0]}`} />
+                    {t(`cust.status_${s.toLowerCase()}` as Parameters<typeof t>[0])}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {activeView === "archived" ? (
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBulkUnarchive} disabled={isPending}>
+                <ArchiveRestore className="size-3 me-1" />
+                {t("cust.unarchive")}
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBulkArchive} disabled={isPending}>
+                <Archive className="size-3 me-1" />
+                {t("cust.bulk_archive")}
+              </Button>
+            )}
+            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={handleBulkDelete} disabled={isPending}>
+              <Trash2 className="size-3 me-1" />
+              {t("cust.bulk_delete")}
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleExport}>
+              <Download className="size-3 me-1" />
+              {t("cust.bulk_export")}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs ms-auto" onClick={() => setSelectedIds(new Set())} disabled={isPending}>
+              <X className="size-3" />
+            </Button>
+          </div>
+          {bulkProgress && (
+            <div className="px-4 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                    style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+                  />
+                </div>
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {bulkProgress.done}/{bulkProgress.total}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -650,12 +744,32 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
                                 <StickyNote className="size-3.5 me-2" />
                                 {t("cust.add_note_action")}
                               </DropdownMenuItem>
+                              {c.status === "ARCHIVED" ? (
+                                <DropdownMenuItem
+                                  onClick={() => { startTransition(async () => { await updateCustomerStatus(c.id, "ACTIVE"); router.refresh(); }); }}
+                                >
+                                  <ArchiveRestore className="size-3.5 me-2" />
+                                  {t("cust.unarchive")}
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => { startTransition(async () => { await archiveCustomer(c.id); router.refresh(); }); }}
+                                  className="text-destructive"
+                                >
+                                  <Archive className="size-3.5 me-2" />
+                                  {t("cust.archive_customer")}
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
-                                onClick={() => { startTransition(async () => { await archiveCustomer(c.id); router.refresh(); }); }}
+                                onClick={() => {
+                                  if (confirm(t("cust.delete_confirm", { name: c.name }))) {
+                                    startTransition(async () => { await deleteCustomer(c.id); router.refresh(); });
+                                  }
+                                }}
                                 className="text-destructive"
                               >
-                                <Archive className="size-3.5 me-2" />
-                                {t("cust.archive_customer")}
+                                <Trash2 className="size-3.5 me-2" />
+                                {t("cust.delete_customer")}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -712,6 +826,7 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
       )}
 
       <AddCustomerDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+      <ImportWizardDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
     </div>
   );
 }
@@ -744,6 +859,81 @@ function CustomerAvatar({ name, attention }: { name: string; attention?: boolean
       </div>
       {attention && (
         <span className="absolute -top-0.5 -end-0.5 size-2.5 rounded-full bg-amber-500 ring-2 ring-background" />
+      )}
+    </div>
+  );
+}
+
+// ─── Customer Search with Autocomplete ───────────────────────────────────────
+
+function CustomerSearch({
+  customers,
+  value,
+  onChange,
+  onSelect,
+  placeholder,
+  locale,
+}: {
+  customers: CustomerRow[];
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (id: string) => void;
+  placeholder: string;
+  locale: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = useMemo(() => {
+    if (!value.trim() || value.length < 2) return [];
+    const q = value.toLowerCase();
+    return customers
+      .filter((c) => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)))
+      .slice(0, 8);
+  }, [value, customers]);
+
+  const showDropdown = focused && suggestions.length > 0;
+
+  return (
+    <div className="relative flex-1 max-w-md" ref={wrapperRef}>
+      <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 200)}
+        placeholder={placeholder}
+        className="ps-9 h-10"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+      {showDropdown && (
+        <div className="absolute top-full z-50 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-lg">
+          {suggestions.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-start text-sm hover:bg-muted/60 transition-colors"
+              onMouseDown={(e) => { e.preventDefault(); onSelect(c.id); }}
+            >
+              <CustomerAvatar name={c.name} attention={false} />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">{c.name}</p>
+                {c.phone && <p className="text-xs text-muted-foreground" dir="ltr">{c.phone}</p>}
+              </div>
+              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_BADGE[c.status] ?? ""}`}>
+                {c.status}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -1208,6 +1398,359 @@ function AddCustomerDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Import Wizard Dialog ────────────────────────────────────────────────────
+
+type ImportStep = "instructions" | "preview" | "importing" | "done";
+interface ParsedRow { name: string; phone: string; email?: string; valid: boolean }
+
+function ImportWizardDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const locale = useLocale();
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [step, setStep] = useState<ImportStep>("instructions");
+  const [fileName, setFileName] = useState("");
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [importStatus, setImportStatus] = useState<"LEAD" | "ACTIVE" | "INACTIVE">("LEAD");
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  function reset() {
+    setStep("instructions");
+    setFileName("");
+    setParsedRows([]);
+    setImportStatus("LEAD");
+    setProgress(null);
+    setResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+
+    const { read, utils } = await import("xlsx");
+    const buf = await file.arrayBuffer();
+    const wb = read(buf);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = utils.sheet_to_json<Record<string, string>>(ws);
+
+    const mapped: ParsedRow[] = rows.map((r) => {
+      const name = r["name"] || r["Name"] || r["שם"] || r["שם מלא"] || r["שם לקוח"] || "";
+      const phone = r["phone"] || r["Phone"] || r["טלפון"] || r["מספר טלפון"] || r["נייד"] || "";
+      const email = r["email"] || r["Email"] || r["אימייל"] || r["מייל"] || "";
+      return { name, phone, email: email || undefined, valid: !!(name.trim() && phone.trim()) };
+    });
+
+    setParsedRows(mapped);
+    setStep("preview");
+  }
+
+  async function startImport() {
+    const valid = parsedRows.filter((r) => r.valid);
+    if (valid.length === 0) return;
+
+    setStep("importing");
+    setProgress({ done: 0, total: valid.length });
+
+    const batchSize = 10;
+    let imported = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < valid.length; i += batchSize) {
+      const batch = valid.slice(i, i + batchSize);
+      const res = await importCustomers(batch, importStatus);
+      if (res.success) {
+        imported += res.data.imported;
+        skipped += res.data.skipped;
+      }
+      setProgress({ done: Math.min(i + batchSize, valid.length), total: valid.length });
+    }
+
+    setResult({ imported, skipped });
+    setStep("done");
+    router.refresh();
+  }
+
+  const validCount = parsedRows.filter((r) => r.valid).length;
+  const invalidCount = parsedRows.length - validCount;
+  const progressPct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  const REQUIRED_COLS = [
+    { name: locale === "he" ? "שם / שם מלא / שם לקוח" : "name / Name", key: t("cust.import_col_name") },
+    { name: locale === "he" ? "טלפון / מספר טלפון / נייד" : "phone / Phone", key: t("cust.import_col_phone") },
+  ];
+  const OPTIONAL_COLS = [
+    { name: locale === "he" ? "אימייל / מייל" : "email / Email", key: t("cust.import_col_email") },
+  ];
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (step === "importing") return;
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
+      <DialogContent dir={locale === "he" ? "rtl" : "ltr"} className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="size-5" />
+            {t("cust.import_title")}
+          </DialogTitle>
+          {step === "instructions" && (
+            <DialogDescription>{t("cust.import_subtitle")}</DialogDescription>
+          )}
+        </DialogHeader>
+
+        {/* Step: Instructions */}
+        {step === "instructions" && (
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm font-medium">{t("cust.import_required_title")}</p>
+              <div className="space-y-2">
+                {REQUIRED_COLS.map((col) => (
+                  <div key={col.key} className="flex items-start gap-2">
+                    <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <CheckCircle2 className="size-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{col.key}</p>
+                      <p className="text-xs text-muted-foreground" dir="ltr">{col.name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm font-medium">{t("cust.import_optional_title")}</p>
+              <div className="space-y-2">
+                {OPTIONAL_COLS.map((col) => (
+                  <div key={col.key} className="flex items-start gap-2">
+                    <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <span className="text-[10px] font-bold">?</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{col.key}</p>
+                      <p className="text-xs text-muted-foreground" dir="ltr">{col.name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">{t("cust.import_tip")}</p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex-row gap-2 sm:flex-row pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => { onOpenChange(false); reset(); }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button className="flex-1" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="size-4 me-1.5" />
+                {t("cust.import_choose_file")}
+              </Button>
+            </DialogFooter>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
+        )}
+
+        {/* Step: Preview */}
+        {step === "preview" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+              <FileSpreadsheet className="size-5 shrink-0 text-green-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{fileName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("cust.import_rows_found", { n: parsedRows.length })}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="flex-1 rounded-lg border bg-green-50/50 p-3 text-center dark:bg-green-950/20">
+                <p className="text-2xl font-bold text-green-700 dark:text-green-400">{validCount}</p>
+                <p className="text-xs text-green-600 dark:text-green-500">{t("cust.import_valid")}</p>
+              </div>
+              {invalidCount > 0 && (
+                <div className="flex-1 rounded-lg border bg-red-50/50 p-3 text-center dark:bg-red-950/20">
+                  <p className="text-2xl font-bold text-red-700 dark:text-red-400">{invalidCount}</p>
+                  <p className="text-xs text-red-600 dark:text-red-500">{t("cust.import_invalid")}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Preview table */}
+            <div className="max-h-48 overflow-auto rounded-lg border">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="px-3 py-2 text-start font-medium">#</th>
+                    <th className="px-3 py-2 text-start font-medium">{t("cust.import_col_name")}</th>
+                    <th className="px-3 py-2 text-start font-medium">{t("cust.import_col_phone")}</th>
+                    <th className="px-3 py-2 text-start font-medium">{t("cust.import_col_email")}</th>
+                    <th className="px-3 py-2 text-center font-medium w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsedRows.slice(0, 50).map((row, i) => (
+                    <tr key={i} className={`border-b last:border-0 ${!row.valid ? "bg-red-50/50 dark:bg-red-950/10" : ""}`}>
+                      <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
+                      <td className="px-3 py-1.5">{row.name || "—"}</td>
+                      <td className="px-3 py-1.5" dir="ltr">{row.phone || "—"}</td>
+                      <td className="px-3 py-1.5" dir="ltr">{row.email || "—"}</td>
+                      <td className="px-3 py-1.5 text-center">
+                        {row.valid
+                          ? <CheckCircle2 className="size-3.5 text-green-600 inline" />
+                          : <AlertCircle className="size-3.5 text-red-500 inline" />}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {parsedRows.length > 50 && (
+                <p className="px-3 py-2 text-xs text-muted-foreground text-center border-t">
+                  {t("cust.import_showing_preview", { shown: 50, total: parsedRows.length })}
+                </p>
+              )}
+            </div>
+
+            {invalidCount > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    {t("cust.import_invalid_note", { n: invalidCount })}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t("cust.import_status_label")}</Label>
+              <Select value={importStatus} onValueChange={(v) => setImportStatus(v as typeof importStatus)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LEAD">{t("cust.status_lead")}</SelectItem>
+                  <SelectItem value="ACTIVE">{t("cust.status_active")}</SelectItem>
+                  <SelectItem value="INACTIVE">{t("cust.status_inactive")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{t("cust.import_status_hint")}</p>
+            </div>
+
+            <DialogFooter className="flex-row gap-2 sm:flex-row pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={reset}
+              >
+                {t("cust.import_back")}
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={startImport}
+                disabled={validCount === 0}
+              >
+                <Upload className="size-4 me-1.5" />
+                {t("cust.import_start", { n: validCount })}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {/* Step: Importing */}
+        {step === "importing" && progress && (
+          <div className="space-y-6 py-4">
+            <div className="text-center space-y-2">
+              <Loader2 className="size-10 mx-auto animate-spin text-primary" />
+              <p className="text-sm font-medium">{t("cust.import_in_progress")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("cust.import_progress_text", { done: progress.done, total: progress.total })}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="text-center text-sm font-medium tabular-nums text-primary">
+                {progressPct}%
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Step: Done */}
+        {step === "done" && result && (
+          <div className="space-y-4 py-4">
+            <div className="text-center space-y-2">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <CheckCircle2 className="size-8 text-green-600" />
+              </div>
+              <p className="text-lg font-semibold">{t("cust.import_complete")}</p>
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <div className="rounded-lg border bg-green-50/50 px-6 py-3 text-center dark:bg-green-950/20">
+                <p className="text-2xl font-bold text-green-700 dark:text-green-400">{result.imported}</p>
+                <p className="text-xs text-green-600 dark:text-green-500">{t("cust.import_imported")}</p>
+              </div>
+              {result.skipped > 0 && (
+                <div className="rounded-lg border bg-amber-50/50 px-6 py-3 text-center dark:bg-amber-950/20">
+                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{result.skipped}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500">{t("cust.import_skipped")}</p>
+                </div>
+              )}
+            </div>
+
+            {result.skipped > 0 && (
+              <p className="text-xs text-center text-muted-foreground">{t("cust.import_skipped_note")}</p>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button className="w-full" onClick={() => { onOpenChange(false); reset(); }}>
+                {t("cust.import_finish")}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

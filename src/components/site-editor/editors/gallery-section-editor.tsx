@@ -48,6 +48,7 @@ const SPEED_LABELS = {
   slow: "gallery_editor.speed_slow",
   normal: "gallery_editor.speed_normal",
   fast: "gallery_editor.speed_fast",
+  very_fast: "gallery_editor.speed_very_fast",
 } as const;
 
 export function GallerySectionEditor({ content, onChange, maxImages = 50 }: GallerySectionEditorProps) {
@@ -161,6 +162,7 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
                 <SelectItem value="slow">{t("gallery_editor.speed_slow")}</SelectItem>
                 <SelectItem value="normal">{t("gallery_editor.speed_normal")}</SelectItem>
                 <SelectItem value="fast">{t("gallery_editor.speed_fast")}</SelectItem>
+                <SelectItem value="very_fast">{t("gallery_editor.speed_very_fast")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

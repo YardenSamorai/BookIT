@@ -301,6 +301,7 @@ export function SiteEditorShell({
             products={productList}
             currency={initialBusiness.currency}
             themePresetId={themePresetId}
+            fontId={fontId}
             activeSectionType={
               activeView === "content" && editingSectionIndex !== null
                 ? sections[editingSectionIndex]?.type ?? null

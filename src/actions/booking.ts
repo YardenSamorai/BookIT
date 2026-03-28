@@ -1190,3 +1190,129 @@ export async function updateAppointmentStatus(
   revalidatePath(`/dashboard`);
   return { success: true, data: undefined };
 }
+
+// ─── Bulk Import Appointments ───────────────────────────────────────────────
+
+export async function importAppointments(
+  rows: {
+    customerName: string;
+    customerPhone: string;
+    serviceName: string;
+    staffName: string;
+    date: string;
+    time: string;
+    notes?: string;
+    durationOverride?: number;
+  }[],
+  serviceMap: Record<string, { id: string; durationMinutes: number; price: string | null }>,
+  staffMap: Record<string, string>
+): Promise<ActionResult<{ imported: number; skipped: number }>> {
+  const { requireBusinessOwner: guard } = await import("@/lib/auth/guards");
+  const { businessId } = await guard();
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    try {
+      const phone = row.customerPhone.replace(/[^+\d]/g, "");
+      if (!row.customerName.trim() || !phone) { skipped++; continue; }
+
+      const svc = serviceMap[row.serviceName.trim()];
+      const staffId = staffMap[row.staffName.trim()];
+      if (!svc || !staffId) { skipped++; continue; }
+
+      const startTime = parseImportDateTime(row.date, row.time);
+      if (!startTime) { skipped++; continue; }
+
+      const duration = row.durationOverride && row.durationOverride > 0
+        ? row.durationOverride
+        : svc.durationMinutes;
+      const endTime = new Date(startTime.getTime() + duration * 60_000);
+
+      let existingUser = await db.query.users.findFirst({
+        where: eq(users.phone, phone),
+        columns: { id: true },
+      });
+      if (!existingUser) {
+        const [newUser] = await db
+          .insert(users)
+          .values({ name: row.customerName.trim(), phone, role: "CUSTOMER" })
+          .returning({ id: users.id });
+        existingUser = newUser;
+      }
+
+      let customer = await db.query.customers.findFirst({
+        where: and(eq(customers.businessId, businessId), eq(customers.userId, existingUser.id)),
+        columns: { id: true },
+      });
+      if (!customer) {
+        const [newCustomer] = await db
+          .insert(customers)
+          .values({ businessId, userId: existingUser.id, status: "ACTIVE" })
+          .returning({ id: customers.id });
+        customer = newCustomer;
+      }
+
+      await db.insert(appointments).values({
+        businessId,
+        customerId: customer.id,
+        serviceId: svc.id,
+        staffId,
+        startTime,
+        endTime,
+        status: "CONFIRMED",
+        paymentStatus: svc.price ? "UNPAID" : "FREE",
+        paymentAmount: svc.price || null,
+        notes: row.notes || null,
+        source: "DASHBOARD",
+      });
+
+      imported++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  revalidatePath("/dashboard/appointments");
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard");
+  return { success: true, data: { imported, skipped } };
+}
+
+function parseImportDateTime(dateStr: string, timeStr: string): Date | null {
+  try {
+    const time = timeStr.trim();
+    const timeParts = time.match(/^(\d{1,2}):(\d{2})$/);
+    if (!timeParts) return null;
+    const hours = parseInt(timeParts[1], 10);
+    const minutes = parseInt(timeParts[2], 10);
+    if (hours > 23 || minutes > 59) return null;
+
+    const d = dateStr.trim();
+    let year: number, month: number, day: number;
+
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(d)) {
+      const parts = d.split(/[-/]/);
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      day = parseInt(parts[2], 10);
+    } else if (/^\d{1,2}[./]\d{1,2}[./]\d{2,4}$/.test(d)) {
+      const parts = d.split(/[./]/);
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      year = parseInt(parts[2], 10);
+      if (year < 100) year += 2000;
+    } else {
+      return null;
+    }
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const result = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    if (isNaN(result.getTime())) return null;
+    return result;
+  } catch {
+    return null;
+  }
+}
