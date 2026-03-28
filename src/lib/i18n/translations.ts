@@ -1284,6 +1284,12 @@ export const translations = {
     "gallery_editor.add_image": "Add Image",
     "gallery_editor.no_images": 'No images yet. Click "Add Image" to get started.',
     "gallery_editor.upload_n": "Upload image {n}",
+    "gallery_editor.marquee": "Scrolling marquee",
+    "gallery_editor.marquee_desc": "Images scroll automatically in a continuous loop",
+    "gallery_editor.speed": "Scroll speed",
+    "gallery_editor.speed_slow": "Slow",
+    "gallery_editor.speed_normal": "Normal",
+    "gallery_editor.speed_fast": "Fast",
 
     // ── Testimonials Editor ──
     "testimonial_editor.title": "Section Title",
@@ -3246,6 +3252,12 @@ export const translations = {
     "gallery_editor.add_image": "הוספת תמונה",
     "gallery_editor.no_images": 'אין תמונות עדיין. לחצו "הוספת תמונה" להתחלה.',
     "gallery_editor.upload_n": "העלאת תמונה {n}",
+    "gallery_editor.marquee": "פס נע",
+    "gallery_editor.marquee_desc": "התמונות גוללות אוטומטית בלולאה מתמשכת",
+    "gallery_editor.speed": "מהירות גלילה",
+    "gallery_editor.speed_slow": "איטי",
+    "gallery_editor.speed_normal": "רגיל",
+    "gallery_editor.speed_fast": "מהיר",
 
     // ── Testimonials Editor ──
     "testimonial_editor.title": "כותרת הסקציה",
