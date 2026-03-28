@@ -24,6 +24,8 @@ export function StaffForm({ onSuccess, defaultValues }: StaffFormProps) {
   const [error, setError] = useState("");
   const [form, setForm] = useState<StaffMemberInput>({
     name: defaultValues?.name ?? "",
+    phone: defaultValues?.phone ?? "",
+    notifyOwner: defaultValues?.notifyOwner ?? true,
     roleTitle: defaultValues?.roleTitle ?? "",
     bio: defaultValues?.bio ?? "",
     imageUrl: defaultValues?.imageUrl ?? "",
@@ -72,6 +74,19 @@ export function StaffForm({ onSuccess, defaultValues }: StaffFormProps) {
           placeholder={t("staff.role_ph")}
           disabled={loading}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("staff.phone")}</Label>
+        <Input
+          value={form.phone}
+          onChange={(e) => update({ phone: e.target.value })}
+          placeholder={t("staff.phone_ph")}
+          disabled={loading}
+          dir="ltr"
+          type="tel"
+        />
+        <p className="text-xs text-muted-foreground">{t("staff.phone_hint")}</p>
       </div>
 
       <div className="space-y-2">

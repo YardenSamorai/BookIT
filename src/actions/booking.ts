@@ -301,7 +301,7 @@ export async function createAppointment(
         where: eq(businesses.id, businessId),
         columns: { name: true, ownerId: true },
       }),
-      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
+      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true, phone: true, notifyOwner: true } }),
       db.query.users.findFirst({ where: eq(users.id, userId), columns: { phone: true, name: true } }),
     ]);
 
@@ -335,7 +335,8 @@ export async function createAppointment(
       }));
     }
 
-    if (biz?.ownerId) {
+    const shouldNotifyOwner = staff?.notifyOwner !== false || !staff?.phone;
+    if (biz?.ownerId && shouldNotifyOwner) {
       promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
     }
 
@@ -526,7 +527,7 @@ export async function createManualAppointment(input: {
     const { sendBookingNotificationSafe, sendOwnerBookingNotification, sendStaffNotification } = await import("@/lib/notifications/send-notification");
     const [biz, staffMember] = await Promise.all([
       db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true, ownerId: true } }),
-      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
+      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true, phone: true, notifyOwner: true } }),
     ]);
     const dateStr = startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
     const timeStr = startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
@@ -547,7 +548,8 @@ export async function createManualAppointment(input: {
       type: "BOOKING_CONFIRMED",
       variables,
     }));
-    if (biz?.ownerId) {
+    const shouldNotifyOwner = staffMember?.notifyOwner !== false || !staffMember?.phone;
+    if (biz?.ownerId && shouldNotifyOwner) {
       promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
     }
     promises.push(sendStaffNotification(businessId, staffId, "STAFF_NEW_BOOKING", variables));
@@ -751,7 +753,7 @@ export async function enrollCustomerInClass(input: {
     const { sendBookingNotificationSafe, sendOwnerBookingNotification, sendStaffNotification } = await import("@/lib/notifications/send-notification");
     const [biz, staffMember] = await Promise.all([
       db.query.businesses.findFirst({ where: eq(businesses.id, businessId), columns: { name: true, ownerId: true } }),
-      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, instance.staffId), columns: { name: true } }),
+      db.query.staffMembers.findFirst({ where: eq(staffMembers.id, instance.staffId), columns: { name: true, phone: true, notifyOwner: true } }),
     ]);
     const dateStr = instance.startTime.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
     const timeStr = instance.startTime.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
@@ -772,7 +774,8 @@ export async function enrollCustomerInClass(input: {
       type: "BOOKING_CONFIRMED",
       variables,
     }));
-    if (biz?.ownerId) {
+    const shouldNotifyOwner = staffMember?.notifyOwner !== false || !staffMember?.phone;
+    if (biz?.ownerId && shouldNotifyOwner) {
       promises.push(sendOwnerBookingNotification(businessId, biz.ownerId, variables));
     }
     promises.push(sendStaffNotification(businessId, instance.staffId, "STAFF_NEW_BOOKING", variables));
@@ -944,10 +947,11 @@ export async function cancelAppointment(
       columns: { userId: true },
     });
     if (customer) {
-      const [user, svc, cancelBiz] = await Promise.all([
+      const [user, svc, cancelBiz, cancelStaff] = await Promise.all([
         db.query.users.findFirst({ where: eq(users.id, customer.userId), columns: { phone: true, name: true } }),
         db.query.services.findFirst({ where: eq(services.id, appointment.serviceId), columns: { title: true } }),
         db.query.businesses.findFirst({ where: eq(businesses.id, appointment.businessId), columns: { name: true, ownerId: true } }),
+        db.query.staffMembers.findFirst({ where: eq(staffMembers.id, appointment.staffId), columns: { phone: true, notifyOwner: true } }),
       ]);
       const dateStr = new Date(appointment.startTime).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });
       const timeStr = new Date(appointment.startTime).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
@@ -970,7 +974,8 @@ export async function cancelAppointment(
           variables,
         });
       }
-      if (cancelBiz?.ownerId) {
+      const shouldNotifyOwner = cancelStaff?.notifyOwner !== false || !cancelStaff?.phone;
+      if (cancelBiz?.ownerId && shouldNotifyOwner) {
         sendOwnerBookingNotification(appointment.businessId, cancelBiz.ownerId, {
           ...variables,
           customerName: user?.name || "Customer",
@@ -1116,7 +1121,7 @@ export async function rescheduleAppointment(
     if (customer) {
       const [user, staffMember, biz] = await Promise.all([
         db.query.users.findFirst({ where: eq(users.id, customer.userId), columns: { phone: true, name: true } }),
-        db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true } }),
+        db.query.staffMembers.findFirst({ where: eq(staffMembers.id, staffId), columns: { name: true, phone: true, notifyOwner: true } }),
         db.query.businesses.findFirst({ where: eq(businesses.id, appointment.businessId), columns: { name: true } }),
       ]);
       const dateStr = start.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Jerusalem" });

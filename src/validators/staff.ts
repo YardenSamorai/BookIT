@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const staffMemberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(80),
+  phone: z.string().max(20).optional().or(z.literal("")),
+  notifyOwner: z.boolean().default(true),
   roleTitle: z.string().max(60).optional().or(z.literal("")),
   bio: z.string().max(500).optional().or(z.literal("")),
   imageUrl: z.string().optional().or(z.literal("")),

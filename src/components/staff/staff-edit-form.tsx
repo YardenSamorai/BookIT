@@ -27,6 +27,8 @@ export function StaffEditForm({ member }: StaffEditFormProps) {
           defaultValues={{
             id: member.id,
             name: member.name,
+            phone: member.phone ?? "",
+            notifyOwner: member.notifyOwner,
             roleTitle: member.roleTitle ?? "",
             bio: member.bio ?? "",
             imageUrl: member.imageUrl ?? "",

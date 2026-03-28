@@ -74,6 +74,7 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
+  XCircle,
   RefreshCw,
 } from "lucide-react";
 
@@ -1407,8 +1408,80 @@ function AddCustomerDialog({
 
 // ─── Import Wizard Dialog ────────────────────────────────────────────────────
 
-type ImportStep = "instructions" | "preview" | "importing" | "done";
+type WizardStep = 0 | 1 | 2 | 3;
 interface ParsedRow { name: string; phone: string; email?: string; valid: boolean }
+
+interface CustDetectedField {
+  id: string;
+  label: string;
+  required: boolean;
+  detected: boolean;
+  headerFound: string | null;
+  sample: string;
+}
+
+const CUST_COL_HEADERS: Record<string, string[]> = {
+  name: ["name", "Name", "שם", "שם מלא", "שם לקוח", "customer name", "customer"],
+  phone: ["phone", "Phone", "טלפון", "מספר טלפון", "נייד", "mobile", "cell"],
+  email: ["email", "Email", "אימייל", "מייל", "דוא\"ל", "e-mail"],
+};
+
+function findCustCol(row: Record<string, string>, headers: string[]): string {
+  for (const h of headers) {
+    for (const key of Object.keys(row)) {
+      if (key.trim().toLowerCase() === h.toLowerCase()) return row[key];
+    }
+  }
+  return "";
+}
+
+function findCustHeaderKey(fileHeaders: string[], expected: string[]): string | null {
+  for (const e of expected) {
+    for (const h of fileHeaders) {
+      if (h.trim().toLowerCase() === e.toLowerCase()) return h;
+    }
+  }
+  return null;
+}
+
+const CUST_STEP_KEYS = [
+  "cust.import_step_upload",
+  "cust.import_step_review",
+  "cust.import_step_preview",
+  "cust.import_step_import",
+] as const;
+
+function CustStepIndicator({ current, t }: { current: WizardStep; t: (k: any) => string }) {
+  return (
+    <div className="flex items-center justify-between px-1">
+      {CUST_STEP_KEYS.map((key, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <div key={key} className="flex items-center gap-1.5 flex-1 last:flex-initial">
+            <div
+              className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                done
+                  ? "bg-primary text-primary-foreground"
+                  : active
+                    ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {done ? <CheckCircle2 className="size-4" /> : i + 1}
+            </div>
+            <span className={`text-xs font-medium hidden sm:block ${active ? "text-foreground" : "text-muted-foreground"}`}>
+              {t(key as any)}
+            </span>
+            {i < CUST_STEP_KEYS.length - 1 && (
+              <div className={`mx-1 h-px flex-1 ${done ? "bg-primary" : "bg-border"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function ImportWizardDialog({
   open,
@@ -1421,27 +1494,41 @@ function ImportWizardDialog({
   const locale = useLocale();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
-  const [step, setStep] = useState<ImportStep>("instructions");
+  const [step, setStep] = useState<WizardStep>(0);
   const [fileName, setFileName] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [detectedFields, setDetectedFields] = useState<CustDetectedField[]>([]);
+  const [showErrors, setShowErrors] = useState(false);
   const [importStatus, setImportStatus] = useState<"LEAD" | "ACTIVE" | "INACTIVE">("LEAD");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
 
+  const FIELD_DEFS: { id: string; labelKey: string; required: boolean }[] = [
+    { id: "name", labelKey: "cust.import_col_name", required: true },
+    { id: "phone", labelKey: "cust.import_col_phone", required: true },
+    { id: "email", labelKey: "cust.import_col_email", required: false },
+  ];
+
   function reset() {
-    setStep("instructions");
+    setStep(0);
     setFileName("");
+    setDragging(false);
+    setLoading(false);
     setParsedRows([]);
+    setDetectedFields([]);
+    setShowErrors(false);
     setImportStatus("LEAD");
     setProgress(null);
     setResult(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function processFile(file: File) {
+    setLoading(true);
     setFileName(file.name);
 
     const { read, utils } = await import("xlsx");
@@ -1450,22 +1537,57 @@ function ImportWizardDialog({
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = utils.sheet_to_json<Record<string, string>>(ws);
 
+    if (rows.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    const fileHeaders = Object.keys(rows[0]);
+    const firstRow = rows[0];
+
+    const detected: CustDetectedField[] = FIELD_DEFS.map((fd) => {
+      const headerKey = findCustHeaderKey(fileHeaders, CUST_COL_HEADERS[fd.id]);
+      const sample = headerKey ? String(firstRow[headerKey] ?? "") : "";
+      return {
+        id: fd.id,
+        label: t(fd.labelKey as any),
+        required: fd.required,
+        detected: !!headerKey,
+        headerFound: headerKey,
+        sample,
+      };
+    });
+
     const mapped: ParsedRow[] = rows.map((r) => {
-      const name = r["name"] || r["Name"] || r["שם"] || r["שם מלא"] || r["שם לקוח"] || "";
-      const phone = r["phone"] || r["Phone"] || r["טלפון"] || r["מספר טלפון"] || r["נייד"] || "";
-      const email = r["email"] || r["Email"] || r["אימייל"] || r["מייל"] || "";
+      const name = findCustCol(r, CUST_COL_HEADERS.name);
+      const phone = findCustCol(r, CUST_COL_HEADERS.phone);
+      const email = findCustCol(r, CUST_COL_HEADERS.email);
       return { name, phone, email: email || undefined, valid: !!(name.trim() && phone.trim()) };
     });
 
+    setDetectedFields(detected);
     setParsedRows(mapped);
-    setStep("preview");
+    setLoading(false);
+    setStep(1);
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   }
 
   async function startImport() {
     const valid = parsedRows.filter((r) => r.valid);
     if (valid.length === 0) return;
 
-    setStep("importing");
+    setStep(3);
     setProgress({ done: 0, total: valid.length });
 
     const batchSize = 10;
@@ -1483,276 +1605,411 @@ function ImportWizardDialog({
     }
 
     setResult({ imported, skipped });
-    setStep("done");
     router.refresh();
   }
 
   const validCount = parsedRows.filter((r) => r.valid).length;
   const invalidCount = parsedRows.length - validCount;
   const progressPct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
+  const missingRequired = detectedFields.filter((f) => f.required && !f.detected).length;
+  const isImporting = step === 3 && !result;
 
-  const REQUIRED_COLS = [
-    { name: locale === "he" ? "שם / שם מלא / שם לקוח" : "name / Name", key: t("cust.import_col_name") },
-    { name: locale === "he" ? "טלפון / מספר טלפון / נייד" : "phone / Phone", key: t("cust.import_col_phone") },
-  ];
-  const OPTIONAL_COLS = [
-    { name: locale === "he" ? "אימייל / מייל" : "email / Email", key: t("cust.import_col_email") },
-  ];
+  const displayRows = useMemo(() => {
+    const base = showErrors ? parsedRows : parsedRows.filter((r) => r.valid);
+    return base.slice(0, 50);
+  }, [parsedRows, showErrors]);
 
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        if (step === "importing") return;
+        if (isImporting) return;
         onOpenChange(v);
         if (!v) reset();
       }}
     >
-      <DialogContent dir={locale === "he" ? "rtl" : "ltr"} className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="size-5" />
-            {t("cust.import_title")}
-          </DialogTitle>
-          {step === "instructions" && (
-            <DialogDescription>{t("cust.import_subtitle")}</DialogDescription>
-          )}
-        </DialogHeader>
+      <DialogContent
+        dir={locale === "he" ? "rtl" : "ltr"}
+        className="sm:max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0"
+      >
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{t("cust.import_title")}</DialogTitle>
+            <DialogDescription className="text-sm">{t("cust.import_subtitle")}</DialogDescription>
+          </DialogHeader>
+          <CustStepIndicator current={step} t={t} />
+        </div>
 
-        {/* Step: Instructions */}
-        {step === "instructions" && (
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <p className="text-sm font-medium">{t("cust.import_required_title")}</p>
-              <div className="space-y-2">
-                {REQUIRED_COLS.map((col) => (
-                  <div key={col.key} className="flex items-start gap-2">
-                    <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <CheckCircle2 className="size-3.5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{col.key}</p>
-                      <p className="text-xs text-muted-foreground" dir="ltr">{col.name}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
 
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <p className="text-sm font-medium">{t("cust.import_optional_title")}</p>
-              <div className="space-y-2">
-                {OPTIONAL_COLS.map((col) => (
-                  <div key={col.key} className="flex items-start gap-2">
-                    <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                      <span className="text-[10px] font-bold">?</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{col.key}</p>
-                      <p className="text-xs text-muted-foreground" dir="ltr">{col.name}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
-                <p className="text-xs text-amber-700 dark:text-amber-400">{t("cust.import_tip")}</p>
-              </div>
-            </div>
-
-            <DialogFooter className="flex-row gap-2 sm:flex-row pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => { onOpenChange(false); reset(); }}
+          {/* ─── Step 0: Upload ─── */}
+          {step === 0 && (
+            <div className="space-y-5">
+              <div
+                ref={dropRef}
+                className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors cursor-pointer ${
+                  dragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
               >
-                {t("common.cancel")}
-              </Button>
-              <Button className="flex-1" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="size-4 me-1.5" />
-                {t("cust.import_choose_file")}
-              </Button>
-            </DialogFooter>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </div>
-        )}
-
-        {/* Step: Preview */}
-        {step === "preview" && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
-              <FileSpreadsheet className="size-5 shrink-0 text-green-600" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{fileName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t("cust.import_rows_found", { n: parsedRows.length })}
-                </p>
+                {loading ? (
+                  <Loader2 className="size-10 animate-spin text-primary" />
+                ) : (
+                  <>
+                    <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-primary/10">
+                      <Upload className="size-6 text-primary" />
+                    </div>
+                    <p className="text-sm font-medium">{t("cust.import_upload_title")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground max-w-xs">
+                      {t("cust.import_upload_desc")}
+                    </p>
+                    <p className="mt-3 text-[11px] text-muted-foreground/70">
+                      {t("cust.import_upload_formats")}
+                    </p>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={handleFileInput}
+                />
               </div>
+
+              {/* Collapsible guide */}
+              <details className="group rounded-lg border bg-muted/20">
+                <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium select-none">
+                  <FileSpreadsheet className="size-4 text-muted-foreground" />
+                  {t("cust.import_file_guide")}
+                  <ChevronDown className="size-4 text-muted-foreground ms-auto transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-4 pb-4 space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-foreground">{t("cust.import_required_title")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FIELD_DEFS.filter((f) => f.required).map((f) => (
+                        <span key={f.id} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                          <span className="size-1.5 rounded-full bg-primary" />
+                          {t(f.labelKey as any)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-foreground">{t("cust.import_optional_title")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FIELD_DEFS.filter((f) => !f.required).map((f) => (
+                        <span key={f.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                          {t(f.labelKey as any)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="size-3.5 mt-0.5 shrink-0 text-amber-600" />
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{t("cust.import_tip")}</p>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
+          )}
 
-            <div className="flex gap-3">
-              <div className="flex-1 rounded-lg border bg-green-50/50 p-3 text-center dark:bg-green-950/20">
-                <p className="text-2xl font-bold text-green-700 dark:text-green-400">{validCount}</p>
-                <p className="text-xs text-green-600 dark:text-green-500">{t("cust.import_valid")}</p>
-              </div>
-              {invalidCount > 0 && (
-                <div className="flex-1 rounded-lg border bg-red-50/50 p-3 text-center dark:bg-red-950/20">
-                  <p className="text-2xl font-bold text-red-700 dark:text-red-400">{invalidCount}</p>
-                  <p className="text-xs text-red-600 dark:text-red-500">{t("cust.import_invalid")}</p>
+          {/* ─── Step 1: Review detected fields ─── */}
+          {step === 1 && (
+            <div className="space-y-5">
+              {missingRequired === 0 ? (
+                <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50/60 p-3.5 dark:border-green-900 dark:bg-green-950/20">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
+                    <CheckCircle2 className="size-4.5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-green-800 dark:text-green-300">{t("cust.import_all_required_found")}</p>
+                    <p className="text-xs text-green-600/80 dark:text-green-400/70">
+                      {t("cust.import_rows_found", { n: parsedRows.length })}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50/60 p-3.5 dark:border-red-900 dark:bg-red-950/20">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+                    <XCircle className="size-4.5 text-red-600" />
+                  </div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                    {t("cust.import_missing_required", { n: missingRequired })}
+                  </p>
                 </div>
               )}
-            </div>
 
-            {/* Preview table */}
-            <div className="max-h-48 overflow-auto rounded-lg border">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    <th className="px-3 py-2 text-start font-medium">#</th>
-                    <th className="px-3 py-2 text-start font-medium">{t("cust.import_col_name")}</th>
-                    <th className="px-3 py-2 text-start font-medium">{t("cust.import_col_phone")}</th>
-                    <th className="px-3 py-2 text-start font-medium">{t("cust.import_col_email")}</th>
-                    <th className="px-3 py-2 text-center font-medium w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {parsedRows.slice(0, 50).map((row, i) => (
-                    <tr key={i} className={`border-b last:border-0 ${!row.valid ? "bg-red-50/50 dark:bg-red-950/10" : ""}`}>
-                      <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
-                      <td className="px-3 py-1.5">{row.name || "—"}</td>
-                      <td className="px-3 py-1.5" dir="ltr">{row.phone || "—"}</td>
-                      <td className="px-3 py-1.5" dir="ltr">{row.email || "—"}</td>
-                      <td className="px-3 py-1.5 text-center">
-                        {row.valid
-                          ? <CheckCircle2 className="size-3.5 text-green-600 inline" />
-                          : <AlertCircle className="size-3.5 text-red-500 inline" />}
-                      </td>
+              {/* Field detection cards */}
+              <div className="space-y-2">
+                {detectedFields.map((field) => (
+                  <div
+                    key={field.id}
+                    className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+                      field.detected
+                        ? "border-green-200/60 bg-green-50/30 dark:border-green-900/40 dark:bg-green-950/10"
+                        : field.required
+                          ? "border-red-200/60 bg-red-50/30 dark:border-red-900/40 dark:bg-red-950/10"
+                          : "border-muted bg-muted/10"
+                    }`}
+                  >
+                    <div className={`flex size-7 shrink-0 items-center justify-center rounded-full ${
+                      field.detected ? "bg-green-100 dark:bg-green-900/40" : field.required ? "bg-red-100 dark:bg-red-900/40" : "bg-muted"
+                    }`}>
+                      {field.detected
+                        ? <CheckCircle2 className="size-4 text-green-600" />
+                        : field.required
+                          ? <XCircle className="size-4 text-red-500" />
+                          : <span className="text-xs text-muted-foreground">—</span>
+                      }
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{field.label}</span>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
+                          field.required ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                        }`}>
+                          {field.required ? t("cust.import_field_required") : t("cust.import_field_optional")}
+                        </span>
+                      </div>
+                      {field.detected ? (
+                        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="text-green-600 dark:text-green-400 font-medium" dir="ltr">&quot;{field.headerFound}&quot;</span>
+                          {field.sample && (
+                            <>
+                              <span className="text-muted-foreground/40">·</span>
+                              <span className="truncate" dir="ltr">{field.sample}</span>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {field.required ? t("cust.import_field_not_found") : ""}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── Step 2: Preview data ─── */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="flex-1 rounded-xl border bg-green-50/50 p-4 text-center dark:bg-green-950/20">
+                  <p className="text-3xl font-bold text-green-700 dark:text-green-400 tabular-nums">{validCount}</p>
+                  <p className="mt-0.5 text-xs font-medium text-green-600 dark:text-green-500">{t("cust.import_valid")}</p>
+                </div>
+                {invalidCount > 0 && (
+                  <div className="flex-1 rounded-xl border bg-amber-50/50 p-4 text-center dark:bg-amber-950/20">
+                    <p className="text-3xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">{invalidCount}</p>
+                    <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">{t("cust.import_invalid")}</p>
+                  </div>
+                )}
+              </div>
+
+              {invalidCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowErrors(!showErrors)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-800 dark:text-amber-400"
+                >
+                  <AlertCircle className="size-3.5" />
+                  {showErrors ? t("cust.import_hide_errors") : t("cust.import_show_errors")}
+                </button>
+              )}
+
+              {/* Preview table */}
+              <div className="max-h-[280px] overflow-auto rounded-lg border">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b bg-muted/60 backdrop-blur-sm">
+                      <th className="px-2.5 py-2 text-start font-medium w-8">#</th>
+                      <th className="px-2.5 py-2 text-start font-medium">{t("cust.import_col_name")}</th>
+                      <th className="px-2.5 py-2 text-start font-medium">{t("cust.import_col_phone")}</th>
+                      <th className="px-2.5 py-2 text-start font-medium hidden sm:table-cell">{t("cust.import_col_email")}</th>
+                      <th className="px-2.5 py-2 w-6"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {displayRows.map((row, i) => {
+                      const rowIdx = parsedRows.indexOf(row);
+                      return (
+                        <tr
+                          key={rowIdx}
+                          className={`border-b last:border-0 transition-colors ${
+                            !row.valid
+                              ? "bg-red-50/40 dark:bg-red-950/10"
+                              : "hover:bg-muted/20"
+                          }`}
+                        >
+                          <td className="px-2.5 py-2 text-muted-foreground tabular-nums">{rowIdx + 1}</td>
+                          <td className="px-2.5 py-2">
+                            <span className="truncate block max-w-[140px]">{row.name || "—"}</span>
+                          </td>
+                          <td className="px-2.5 py-2" dir="ltr">
+                            <span className="truncate block max-w-[120px]">{row.phone || "—"}</span>
+                          </td>
+                          <td className="px-2.5 py-2 hidden sm:table-cell" dir="ltr">
+                            <span className="truncate block max-w-[140px]">{row.email || "—"}</span>
+                          </td>
+                          <td className="px-2.5 py-2">
+                            {row.valid ? (
+                              <CheckCircle2 className="size-3.5 text-green-500" />
+                            ) : (
+                              <AlertCircle className="size-3.5 text-red-500" />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               {parsedRows.length > 50 && (
-                <p className="px-3 py-2 text-xs text-muted-foreground text-center border-t">
+                <p className="text-xs text-center text-muted-foreground">
                   {t("cust.import_showing_preview", { shown: 50, total: parsedRows.length })}
                 </p>
               )}
-            </div>
 
-            {invalidCount > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    {t("cust.import_invalid_note", { n: invalidCount })}
-                  </p>
+              {invalidCount > 0 && (
+                <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 p-3 dark:border-amber-900 dark:bg-amber-950/15">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      {t("cust.import_invalid_note", { n: invalidCount })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">{t("cust.import_status_label")}</Label>
+                <Select value={importStatus} onValueChange={(v) => setImportStatus(v as typeof importStatus)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LEAD">{t("cust.status_lead")}</SelectItem>
+                    <SelectItem value="ACTIVE">{t("cust.status_active")}</SelectItem>
+                    <SelectItem value="INACTIVE">{t("cust.status_inactive")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t("cust.import_status_hint")}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Step 3: Importing / Done ─── */}
+          {step === 3 && !result && progress && (
+            <div className="flex flex-col items-center justify-center py-10 space-y-6">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping" />
+                <div className="relative flex size-16 items-center justify-center rounded-full bg-primary/10">
+                  <Loader2 className="size-8 animate-spin text-primary" />
                 </div>
               </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label className="text-sm">{t("cust.import_status_label")}</Label>
-              <Select value={importStatus} onValueChange={(v) => setImportStatus(v as typeof importStatus)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LEAD">{t("cust.status_lead")}</SelectItem>
-                  <SelectItem value="ACTIVE">{t("cust.status_active")}</SelectItem>
-                  <SelectItem value="INACTIVE">{t("cust.status_inactive")}</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{t("cust.import_status_hint")}</p>
+              <div className="text-center space-y-1">
+                <p className="text-base font-semibold">{t("cust.import_in_progress")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("cust.import_progress_text", { done: progress.done, total: progress.total })}
+                </p>
+              </div>
+              <div className="w-full max-w-xs space-y-2">
+                <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <p className="text-center text-sm font-semibold tabular-nums text-primary">{progressPct}%</p>
+              </div>
             </div>
+          )}
 
-            <DialogFooter className="flex-row gap-2 sm:flex-row pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={reset}
-              >
+          {step === 3 && result && (
+            <div className="flex flex-col items-center justify-center py-8 space-y-6">
+              <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <CheckCircle2 className="size-10 text-green-600" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-xl font-bold">{t("cust.import_done_title")}</p>
+                <p className="text-sm text-muted-foreground">{t("cust.import_done_desc")}</p>
+              </div>
+              <div className="flex gap-4">
+                <div className="rounded-xl border bg-green-50/50 px-8 py-4 text-center dark:bg-green-950/20">
+                  <p className="text-3xl font-bold text-green-700 dark:text-green-400 tabular-nums">{result.imported}</p>
+                  <p className="mt-0.5 text-xs font-medium text-green-600 dark:text-green-500">{t("cust.import_imported")}</p>
+                </div>
+                {result.skipped > 0 && (
+                  <div className="rounded-xl border bg-amber-50/50 px-8 py-4 text-center dark:bg-amber-950/20">
+                    <p className="text-3xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">{result.skipped}</p>
+                    <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">{t("cust.import_skipped")}</p>
+                  </div>
+                )}
+              </div>
+              {result.skipped > 0 && (
+                <p className="text-xs text-center text-muted-foreground max-w-sm">{t("cust.import_skipped_note")}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sticky footer */}
+        <div className="border-t px-6 py-4 bg-background">
+          {step === 0 && (
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => { onOpenChange(false); reset(); }}>
+                {t("common.cancel")}
+              </Button>
+              <Button className="flex-1" onClick={() => fileInputRef.current?.click()} disabled={loading}>
+                <Upload className="size-4 me-1.5" />
+                {t("cust.import_choose_file")}
+              </Button>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => { reset(); }}>
+                {t("cust.import_change_file")}
+              </Button>
+              <Button className="flex-1" onClick={() => setStep(2)} disabled={missingRequired > 0}>
+                {locale === "he" ? "המשך לתצוגה מקדימה" : "Continue to Preview"}
+              </Button>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setStep(1)}>
                 {t("cust.import_back")}
               </Button>
-              <Button
-                className="flex-1"
-                onClick={startImport}
-                disabled={validCount === 0}
-              >
+              <Button className="flex-1" onClick={startImport} disabled={validCount === 0}>
                 <Upload className="size-4 me-1.5" />
                 {t("cust.import_start", { n: validCount })}
               </Button>
-            </DialogFooter>
-          </div>
-        )}
-
-        {/* Step: Importing */}
-        {step === "importing" && progress && (
-          <div className="space-y-6 py-4">
-            <div className="text-center space-y-2">
-              <Loader2 className="size-10 mx-auto animate-spin text-primary" />
-              <p className="text-sm font-medium">{t("cust.import_in_progress")}</p>
-              <p className="text-xs text-muted-foreground">
-                {t("cust.import_progress_text", { done: progress.done, total: progress.total })}
-              </p>
             </div>
-            <div className="space-y-2">
-              <div className="h-3 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <p className="text-center text-sm font-medium tabular-nums text-primary">
-                {progressPct}%
-              </p>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Step: Done */}
-        {step === "done" && result && (
-          <div className="space-y-4 py-4">
-            <div className="text-center space-y-2">
-              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <CheckCircle2 className="size-8 text-green-600" />
-              </div>
-              <p className="text-lg font-semibold">{t("cust.import_complete")}</p>
-            </div>
-
-            <div className="flex gap-3 justify-center">
-              <div className="rounded-lg border bg-green-50/50 px-6 py-3 text-center dark:bg-green-950/20">
-                <p className="text-2xl font-bold text-green-700 dark:text-green-400">{result.imported}</p>
-                <p className="text-xs text-green-600 dark:text-green-500">{t("cust.import_imported")}</p>
-              </div>
-              {result.skipped > 0 && (
-                <div className="rounded-lg border bg-amber-50/50 px-6 py-3 text-center dark:bg-amber-950/20">
-                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{result.skipped}</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-500">{t("cust.import_skipped")}</p>
-                </div>
-              )}
-            </div>
-
-            {result.skipped > 0 && (
-              <p className="text-xs text-center text-muted-foreground">{t("cust.import_skipped_note")}</p>
-            )}
-
-            <DialogFooter className="pt-2">
-              <Button className="w-full" onClick={() => { onOpenChange(false); reset(); }}>
-                {t("cust.import_finish")}
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
+          {step === 3 && result && (
+            <Button className="w-full" onClick={() => { onOpenChange(false); reset(); }}>
+              {t("cust.import_finish")}
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

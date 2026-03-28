@@ -1,0 +1,1 @@
+ALTER TABLE "staff_member" ADD COLUMN "notify_owner" boolean DEFAULT true NOT NULL;

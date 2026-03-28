@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { createStaffMember, updateStaffMember } from "@/actions/staff";
 import { useT } from "@/lib/i18n/locale-context";
-import { Check, Loader2, Save, User, Camera, FileText } from "lucide-react";
+import { Bell, Check, Loader2, Phone, Save, User, Camera, FileText } from "lucide-react";
 import type { StaffMemberInput } from "@/validators/staff";
 
 interface Props {
@@ -29,6 +29,8 @@ export function StaffFormPage({ defaultValues }: Props) {
 
   const [form, setForm] = useState<StaffMemberInput>({
     name: defaultValues?.name ?? "",
+    phone: defaultValues?.phone ?? "",
+    notifyOwner: defaultValues?.notifyOwner ?? true,
     roleTitle: defaultValues?.roleTitle ?? "",
     bio: defaultValues?.bio ?? "",
     imageUrl: defaultValues?.imageUrl ?? "",
@@ -91,6 +93,19 @@ export function StaffFormPage({ defaultValues }: Props) {
                 className="h-9"
               />
             </div>
+            <div className="space-y-1">
+              <Label className="text-sm">{t("staff.phone")}</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => update({ phone: e.target.value })}
+                placeholder={t("staff.phone_ph")}
+                disabled={loading}
+                className="h-9"
+                dir="ltr"
+                type="tel"
+              />
+              <p className="text-xs text-muted-foreground">{t("staff.phone_hint")}</p>
+            </div>
           </div>
         </SectionCard>
 
@@ -117,7 +132,34 @@ export function StaffFormPage({ defaultValues }: Props) {
         </SectionCard>
       </div>
 
-      {/* ROW 2: Toggle + Actions */}
+      {/* ROW 2: Notifications */}
+      {form.phone && form.phone.length >= 9 && (
+        <div className="mt-4">
+          <SectionCard icon={<Bell className="size-4" />} title={t("staff.notifications")}>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t("staff.notify_desc")}</p>
+              <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium">{t("staff.notify_owner_label")}</p>
+                  <p className="text-xs text-muted-foreground">{t("staff.notify_owner_desc")}</p>
+                </div>
+                <Switch
+                  checked={form.notifyOwner}
+                  onCheckedChange={(checked) => update({ notifyOwner: !!checked })}
+                  disabled={loading}
+                />
+              </div>
+              {!form.notifyOwner && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  {t("staff.notify_owner_warning")}
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
+      )}
+
+      {/* ROW 3: Toggle + Actions */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="overflow-hidden">
           <CardContent className="flex items-center justify-between gap-2 p-3">

@@ -45,6 +45,8 @@ export async function createStaffMember(
     .values({
       businessId,
       name: parsed.data.name,
+      phone: parsed.data.phone || null,
+      notifyOwner: parsed.data.notifyOwner,
       roleTitle: parsed.data.roleTitle || null,
       bio: parsed.data.bio || null,
       imageUrl: parsed.data.imageUrl || null,
@@ -82,6 +84,8 @@ export async function updateStaffMember(
     .update(staffMembers)
     .set({
       name: parsed.data.name,
+      phone: parsed.data.phone || null,
+      notifyOwner: parsed.data.notifyOwner,
       roleTitle: parsed.data.roleTitle || null,
       bio: parsed.data.bio || null,
       imageUrl: parsed.data.imageUrl || null,
