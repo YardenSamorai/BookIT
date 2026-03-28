@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, ArrowUp, ArrowDown, ArrowUpDown, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export type AdminUserRow = {
@@ -11,9 +11,10 @@ export type AdminUserRow = {
   phone: string | null;
   role: string;
   createdAt: Date | string;
+  businesses: { id: string; name: string }[];
 };
 
-type SortKey = "name" | "email" | "phone" | "role" | "createdAt";
+type SortKey = "name" | "email" | "phone" | "role" | "businesses" | "createdAt" | "tenure";
 type SortDir = "asc" | "desc";
 
 const ROLE_ORDER: Record<string, number> = {
@@ -46,30 +47,66 @@ function cellText(value: string | null): string {
   return value ?? "";
 }
 
+function formatTenure(createdAt: Date | string): string {
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (days < 1) return "היום";
+  if (days === 1) return "יום אחד";
+  if (days < 7) return `${days} ימים`;
+  if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return weeks === 1 ? "שבוע" : `${weeks} שבועות`;
+  }
+  if (days < 365) {
+    const months = Math.floor(days / 30);
+    return months === 1 ? "חודש" : `${months} חודשים`;
+  }
+  const years = Math.floor(days / 365);
+  const remainMonths = Math.floor((days % 365) / 30);
+  if (remainMonths === 0) return years === 1 ? "שנה" : `${years} שנים`;
+  return `${years === 1 ? "שנה" : `${years} שנים`} ו-${remainMonths} חודשים`;
+}
+
 export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [bizFilter, setBizFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const allBusinesses = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of users) {
+      for (const b of u.businesses) {
+        map.set(b.id, b.name);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "he"));
+  }, [users]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir(key === "createdAt" ? "desc" : "asc");
+      setSortDir(key === "createdAt" || key === "tenure" ? "desc" : "asc");
     }
   }
 
   const filtered = useMemo(() => {
     const list = users.filter((u) => {
       if (roleFilter && u.role !== roleFilter) return false;
+      if (bizFilter && !u.businesses.some((b) => b.id === bizFilter)) return false;
       if (search) {
         const q = search.toLowerCase().trim();
         const nameMatch = u.name.toLowerCase().includes(q);
         const emailMatch = (u.email ?? "").toLowerCase().includes(q);
         const phoneMatch = (u.phone ?? "").includes(search.trim());
-        if (!nameMatch && !emailMatch && !phoneMatch) return false;
+        const bizMatch = u.businesses.some((b) => b.name.toLowerCase().includes(q));
+        if (!nameMatch && !emailMatch && !phoneMatch && !bizMatch) return false;
       }
       return true;
     });
@@ -91,7 +128,11 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
         case "role":
           cmp = (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99);
           break;
+        case "businesses":
+          cmp = a.businesses.length - b.businesses.length;
+          break;
         case "createdAt":
+        case "tenure":
           cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
       }
@@ -99,13 +140,15 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
     });
 
     return list;
-  }, [users, search, roleFilter, sortKey, sortDir]);
+  }, [users, search, roleFilter, bizFilter, sortKey, sortDir]);
 
   const columns: { key: SortKey; label: string }[] = [
     { key: "name", label: "שם" },
     { key: "email", label: "אימייל" },
     { key: "phone", label: "טלפון" },
     { key: "role", label: "תפקיד" },
+    { key: "businesses", label: "עסקים" },
+    { key: "tenure", label: "זמן במערכת" },
     { key: "createdAt", label: "נוצר" },
   ];
 
@@ -115,7 +158,7 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
         <div className="relative min-w-[200px] max-w-sm flex-1">
           <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="חיפוש לפי שם, אימייל או טלפון..."
+            placeholder="חיפוש לפי שם, אימייל, טלפון או עסק..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="ps-9"
@@ -131,6 +174,18 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
           <option value="BUSINESS_OWNER">BUSINESS_OWNER</option>
           <option value="BOTH">BOTH</option>
           <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+        </select>
+        <select
+          value={bizFilter}
+          onChange={(e) => setBizFilter(e.target.value)}
+          className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="">כל העסקים</option>
+          {allBusinesses.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
         </select>
         <span className="text-sm text-muted-foreground">
           {filtered.length} מתוך {users.length} משתמשים
@@ -158,7 +213,7 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   לא נמצאו תוצאות
                 </td>
               </tr>
@@ -178,6 +233,26 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
                     >
                       {u.role}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.businesses.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {u.businesses.map((b) => (
+                          <span
+                            key={b.id}
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700"
+                          >
+                            <Building2 className="size-2.5" />
+                            {b.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+                    {formatTenure(u.createdAt)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                     {new Date(u.createdAt).toLocaleDateString("he-IL", {

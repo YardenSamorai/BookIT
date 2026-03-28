@@ -15,6 +15,7 @@ import {
   products,
   systemAnnouncements,
   coupons,
+  customers,
 } from "@/lib/db/schema";
 import { requireSuperAdmin } from "@/lib/auth/guards";
 import { type PlanType, PLAN_LIMITS } from "@/lib/plans/limits";
@@ -388,7 +389,32 @@ export async function getAdminUserList() {
     .from(users)
     .orderBy(desc(users.createdAt));
 
-  return allUsers;
+  const userIds = allUsers.map((u) => u.id);
+  if (userIds.length === 0) return [];
+
+  const customerLinks = await db
+    .select({
+      userId: customers.userId,
+      businessId: customers.businessId,
+      businessName: businesses.name,
+    })
+    .from(customers)
+    .innerJoin(businesses, eq(customers.businessId, businesses.id))
+    .where(inArray(customers.userId, userIds));
+
+  const bizMap = new Map<string, { id: string; name: string }[]>();
+  for (const row of customerLinks) {
+    const arr = bizMap.get(row.userId) ?? [];
+    if (!arr.some((b) => b.id === row.businessId)) {
+      arr.push({ id: row.businessId, name: row.businessName });
+    }
+    bizMap.set(row.userId, arr);
+  }
+
+  return allUsers.map((u) => ({
+    ...u,
+    businesses: bizMap.get(u.id) ?? [],
+  }));
 }
 
 // ── Admin permissions (SUPER_ADMIN roster) ──

@@ -245,7 +245,7 @@ export function SiteNav({
 
         {/* Mobile nav */}
         <div className="flex items-center gap-2 md:hidden">
-          {isLoggedIn && (
+          {isLoggedIn ? (
             <UserMenuDropdown
               userName={userName}
               avatarSize="sm"
@@ -255,6 +255,14 @@ export function SiteNav({
               basePath={resolvedBase}
               locale={locale}
             />
+          ) : (
+            <a
+              href={myAppointmentsUrl}
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: theme.secondaryColor }}
+            >
+              {t(locale, "pub.login")}
+            </a>
           )}
         </div>
       </div>
