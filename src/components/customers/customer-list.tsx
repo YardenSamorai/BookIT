@@ -78,6 +78,8 @@ import {
   RefreshCw,
   Ban,
   ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -143,6 +145,7 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
   const [bookingCustomer, setBookingCustomer] = useState<{ name: string; phone: string } | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
 
@@ -250,6 +253,23 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
     });
   }, [advFiltered, search, sortKey, sortDir, locale]);
 
+  // ── Pagination ──
+  const PAGE_SIZE = 50;
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedList = useMemo(
+    () => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [sorted, safePage]
+  );
+
+  // Reset to page 1 when filters/search/sort change
+  const resetPageKey = `${search}|${sortKey}|${sortDir}|${JSON.stringify(filters)}`;
+  const prevResetKeyRef = useRef(resetPageKey);
+  if (prevResetKeyRef.current !== resetPageKey) {
+    prevResetKeyRef.current = resetPageKey;
+    if (page !== 1) setPage(1);
+  }
+
   // ── Helpers ──
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -265,9 +285,9 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    if (selectedIds.size === sorted.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(sorted.map((c) => c.id)));
-  }, [sorted, selectedIds.size]);
+    if (selectedIds.size === paginatedList.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(paginatedList.map((c) => c.id)));
+  }, [paginatedList, selectedIds.size]);
 
   function fmtDate(d: string | Date) {
     return new Date(d).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
@@ -609,7 +629,7 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((c) => {
+                {paginatedList.map((c) => {
                   const unpaid = parseFloat(c.unpaidBalance) || 0;
                   const isSelected = selectedIds.has(c.id);
                   return (
@@ -813,7 +833,7 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
 
           {/* ── Mobile Card List ── */}
           <div className="md:hidden space-y-2">
-            {sorted.map((c) => (
+            {paginatedList.map((c) => (
               <MobileCustomerCard
                 key={c.id}
                 customer={c}
@@ -828,6 +848,57 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
               />
             ))}
           </div>
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between py-4 px-1">
+              <p className="text-sm text-muted-foreground">
+                {sorted.length} {t("cust.total_results")} · {t("cust.page_of", { page: String(safePage), total: String(totalPages) })}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                >
+                  <ChevronRight className="size-4 rtl:rotate-180" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce<(number | "ellipsis")[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("ellipsis");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, i) =>
+                    item === "ellipsis" ? (
+                      <span key={`e${i}`} className="px-1 text-muted-foreground text-sm">…</span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={item === safePage ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 w-8 p-0 text-xs"
+                        onClick={() => setPage(item)}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                >
+                  <ChevronLeft className="size-4 rtl:rotate-180" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
