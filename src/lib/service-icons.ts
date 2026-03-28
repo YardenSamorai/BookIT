@@ -8,6 +8,7 @@ import {
   Bike, Trophy, Timer, Target, Shell, Feather,
   type LucideIcon,
 } from "lucide-react";
+import { NailPolishIcon } from "@/components/icons/nail-polish-icon";
 
 export interface IconCategory {
   label_he: string;
@@ -20,6 +21,7 @@ export const SERVICE_ICON_CATEGORIES: IconCategory[] = [
     label_he: "יופי וטיפוח",
     label_en: "Beauty",
     icons: [
+      { name: "nail-polish", label_he: "לק", Icon: NailPolishIcon as unknown as LucideIcon },
       { name: "sparkles", label_he: "נצנצים", Icon: Sparkles },
       { name: "scissors", label_he: "מספריים", Icon: Scissors },
       { name: "gem", label_he: "יהלום", Icon: Gem },
