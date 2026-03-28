@@ -1753,6 +1753,11 @@ export const translations = {
     "manual.error_invalid_date": "Invalid date or time.",
     "manual.error_past_time": "Cannot book appointments in the past.",
     "manual.error_generic": "Something went wrong. Please try again.",
+    "manual.search_placeholder": "Search by name or phone...",
+    "manual.existing_customer": "Existing customer",
+    "manual.new_customer": "New customer",
+    "manual.no_results": "No matching customers",
+    "manual.blocked_customer": "Blocked",
 
     // ── Products ──
     "prod.title": "Products",
@@ -3856,6 +3861,11 @@ export const translations = {
     "manual.error_invalid_date": "תאריך או שעה לא תקינים.",
     "manual.error_past_time": "לא ניתן לקבוע תורים בעבר.",
     "manual.error_generic": "משהו השתבש. נסו שוב.",
+    "manual.search_placeholder": "חיפוש לפי שם או טלפון...",
+    "manual.existing_customer": "לקוח קיים",
+    "manual.new_customer": "לקוח חדש",
+    "manual.no_results": "לא נמצאו לקוחות תואמים",
+    "manual.blocked_customer": "חסום",
 
     // ── Products ──
     "prod.title": "מוצרים",

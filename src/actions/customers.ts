@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, or, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { customers, customerNotes, customerActivities, users } from "@/lib/db/schema";
@@ -561,4 +561,44 @@ export async function completeCustomerOnboarding(data: {
     .where(eq(users.id, session.user.id));
 
   return { success: true, data: undefined };
+}
+
+export async function searchCustomers(
+  query: string
+): Promise<{ id: string; name: string; phone: string | null; email: string | null; status: string }[]> {
+  const { businessId } = await requireBusinessOwner();
+  const q = query.trim();
+  if (!q || q.length < 2) return [];
+
+  const pattern = `%${q}%`;
+  const results = await db
+    .select({
+      id: customers.id,
+      name: users.name,
+      phone: users.phone,
+      email: users.email,
+      status: customers.status,
+    })
+    .from(customers)
+    .innerJoin(users, eq(customers.userId, users.id))
+    .where(
+      and(
+        eq(customers.businessId, businessId),
+        ne(customers.status, "ARCHIVED"),
+        or(
+          ilike(users.name, pattern),
+          ilike(users.phone, pattern),
+          ilike(users.email, pattern),
+        )
+      )
+    )
+    .limit(8);
+
+  return results.map((r) => ({
+    id: r.id,
+    name: r.name ?? "",
+    phone: r.phone,
+    email: r.email,
+    status: r.status,
+  }));
 }

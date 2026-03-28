@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo } from "react";
+import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -15,8 +15,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { createManualAppointment } from "@/actions/booking";
-import { CalendarPlus, Loader2, Wallet, CreditCard } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { searchCustomers } from "@/actions/customers";
+import {
+  CalendarPlus,
+  Loader2,
+  Wallet,
+  Search,
+  UserCheck,
+  UserPlus,
+  Phone,
+  Ban,
+  X,
+} from "lucide-react";
+
+type CustomerSuggestion = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  status: string;
+};
 
 interface ManualBookingDialogProps {
   open: boolean;
@@ -61,6 +79,15 @@ export function ManualBookingDialog({
     notes: "",
   });
 
+  // Customer picker state
+  const [suggestions, setSuggestions] = useState<CustomerSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSuggestion | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
   const availableStaff = useMemo(() => {
     if (!serviceStaffLinks || serviceStaffLinks.length === 0) return staff;
     const linkedIds = new Set(
@@ -77,8 +104,19 @@ export function ManualBookingDialog({
         customerName: prefillCustomer.name,
         customerPhone: prefillCustomer.phone,
       }));
+      setSelectedCustomer(null);
     }
   }, [open, prefillCustomer]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSelectedCustomer(null);
+      setSearchLoading(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (availableStaff.length > 0 && !availableStaff.some((s) => s.id === form.staffId)) {
@@ -110,6 +148,72 @@ export function ManualBookingDialog({
     }, 500);
     return () => clearTimeout(timeout);
   }, [form.customerPhone, form.serviceId, businessId]);
+
+  // Debounced customer search
+  const handleNameChange = useCallback((value: string) => {
+    setForm((prev) => ({ ...prev, customerName: value }));
+    setError(null);
+
+    if (selectedCustomer) {
+      setSelectedCustomer(null);
+      setForm((prev) => ({ ...prev, customerPhone: "" }));
+    }
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchCustomers(value.trim());
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0 || value.trim().length >= 2);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+  }, [selectedCustomer]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node) &&
+        nameInputRef.current &&
+        !nameInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function selectCustomer(customer: CustomerSuggestion) {
+    setSelectedCustomer(customer);
+    setForm((prev) => ({
+      ...prev,
+      customerName: customer.name,
+      customerPhone: customer.phone ?? "",
+    }));
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
+
+  function clearSelection() {
+    setSelectedCustomer(null);
+    setForm((prev) => ({ ...prev, customerName: "", customerPhone: "" }));
+    setSuggestions([]);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
+  }
 
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -160,12 +264,15 @@ export function ManualBookingDialog({
           time: "10:00",
           notes: "",
         });
+        setSelectedCustomer(null);
         router.refresh();
       } else {
         setError(result.error ?? t("manual.error_generic"));
       }
     });
   }
+
+  const hasPrefill = !!prefillCustomer;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,30 +286,128 @@ export function ManualBookingDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Customer info */}
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* Customer picker */}
+          <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>{t("manual.customer_name")}</Label>
-              <Input
-                value={form.customerName}
-                onChange={(e) => update("customerName", e.target.value)}
-                placeholder={t("manual.customer_name_ph")}
-                disabled={isPending}
-                readOnly={!!prefillCustomer}
-                className={prefillCustomer ? "bg-muted" : ""}
-              />
+              {hasPrefill ? (
+                <Input
+                  value={form.customerName}
+                  readOnly
+                  className="bg-muted"
+                />
+              ) : selectedCustomer ? (
+                <div className="flex h-9 w-full items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 text-sm">
+                  <UserCheck className="size-4 text-primary shrink-0" />
+                  <span className="flex-1 truncate font-medium">{selectedCustomer.name}</span>
+                  <span className="text-xs text-muted-foreground" dir="ltr">{selectedCustomer.phone}</span>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="shrink-0 rounded-full p-0.5 hover:bg-primary/10 transition-colors"
+                  >
+                    <X className="size-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute start-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      ref={nameInputRef}
+                      value={form.customerName}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      onFocus={() => {
+                        if (form.customerName.trim().length >= 2) setShowSuggestions(true);
+                      }}
+                      placeholder={t("manual.search_placeholder")}
+                      disabled={isPending}
+                      className="ps-9"
+                      autoComplete="off"
+                    />
+                    {searchLoading && (
+                      <Loader2 className="absolute end-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+
+                  {showSuggestions && (
+                    <div
+                      ref={suggestionsRef}
+                      className="absolute z-50 mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden"
+                    >
+                      {suggestions.length > 0 ? (
+                        <div className="max-h-48 overflow-y-auto py-1">
+                          {suggestions.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => selectCustomer(c)}
+                              disabled={c.status === "BLOCKED"}
+                              className="flex w-full items-center gap-3 px-3 py-2 text-start text-sm hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0">
+                                {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium truncate">{c.name}</span>
+                                  {c.status === "BLOCKED" && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">
+                                      <Ban className="size-3" />
+                                      {t("manual.blocked_customer")}
+                                    </span>
+                                  )}
+                                </div>
+                                {c.phone && (
+                                  <p className="text-xs text-muted-foreground truncate" dir="ltr">{c.phone}</p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : !searchLoading && form.customerName.trim().length >= 2 ? (
+                        <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
+                          <UserPlus className="size-4 shrink-0" />
+                          {t("manual.no_results")}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Existing / New customer indicator */}
+              {!hasPrefill && form.customerName.trim().length >= 2 && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  {selectedCustomer ? (
+                    <>
+                      <UserCheck className="size-3.5 text-primary" />
+                      <span className="text-primary font-medium">{t("manual.existing_customer")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="size-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">{t("manual.new_customer")}</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
+
             <div className="space-y-1.5">
               <Label>{t("manual.customer_phone")}</Label>
-              <Input
-                value={form.customerPhone}
-                onChange={(e) => update("customerPhone", e.target.value)}
-                placeholder="05X-XXXXXXX"
-                dir="ltr"
-                disabled={isPending}
-                readOnly={!!prefillCustomer}
-                className={prefillCustomer ? "bg-muted" : ""}
-              />
+              <div className="relative">
+                <Phone className="absolute start-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={form.customerPhone}
+                  onChange={(e) => update("customerPhone", e.target.value)}
+                  placeholder="05X-XXXXXXX"
+                  dir="ltr"
+                  disabled={isPending}
+                  readOnly={hasPrefill || !!selectedCustomer}
+                  className={`ps-9 ${(hasPrefill || selectedCustomer) ? "bg-muted" : ""}`}
+                />
+              </div>
             </div>
           </div>
 
