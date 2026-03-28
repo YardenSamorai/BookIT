@@ -15,6 +15,7 @@ import {
   CreditCard,
   CheckCircle2,
   MessageSquare,
+  Info,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
@@ -138,7 +139,7 @@ export function StepDetails({
     });
 
     if (!result.success) {
-      setError(result.error);
+      setError(result.error === "CUSTOMER_BLOCKED" ? "CUSTOMER_BLOCKED" : result.error);
       setLoading(false);
       return;
     }
@@ -306,9 +307,14 @@ export function StepDetails({
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700"
+          className={`mt-3 rounded-xl border p-3 text-sm flex items-start gap-2.5 ${
+            error === "CUSTOMER_BLOCKED"
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : "border-red-100 bg-red-50 text-red-700"
+          }`}
         >
-          {error}
+          {error === "CUSTOMER_BLOCKED" && <Info className="size-4 mt-0.5 shrink-0" />}
+          <span>{error === "CUSTOMER_BLOCKED" ? t("booking.blocked_message") : error}</span>
         </motion.div>
       )}
 

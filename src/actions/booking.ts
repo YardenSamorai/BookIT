@@ -85,6 +85,14 @@ export async function createAppointment(
 
   const customerId = await findOrCreateCustomer(businessId, userId);
 
+  const customerRecord = await db.query.customers.findFirst({
+    where: and(eq(customers.id, customerId), eq(customers.businessId, businessId)),
+    columns: { status: true },
+  });
+  if (customerRecord?.status === "BLOCKED") {
+    return { success: false, error: "CUSTOMER_BLOCKED" };
+  }
+
   if (classInstanceId) {
     const [existing] = await db
       .select({ id: appointments.id })
@@ -661,6 +669,14 @@ export async function enrollCustomerInClass(input: {
   }
 
   const customerId = await findOrCreateCustomer(businessId, user.id);
+
+  const customerRecord2 = await db.query.customers.findFirst({
+    where: and(eq(customers.id, customerId), eq(customers.businessId, businessId)),
+    columns: { status: true },
+  });
+  if (customerRecord2?.status === "BLOCKED") {
+    return { success: false, error: "CUSTOMER_BLOCKED" };
+  }
 
   const [existing] = await db
     .select({ id: appointments.id })

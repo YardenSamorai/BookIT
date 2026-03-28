@@ -76,6 +76,8 @@ import {
   AlertCircle,
   XCircle,
   RefreshCw,
+  Ban,
+  ShieldCheck,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -747,6 +749,30 @@ export function CustomerList({ customers, businessId, staff, services, serviceSt
                                 <StickyNote className="size-3.5 me-2" />
                                 {t("cust.add_note_action")}
                               </DropdownMenuItem>
+                              {c.status === "BLOCKED" ? (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    if (confirm(t("cust.unblock_confirm", { name: c.name }))) {
+                                      startTransition(async () => { await updateCustomerStatus(c.id, "ACTIVE"); router.refresh(); });
+                                    }
+                                  }}
+                                >
+                                  <ShieldCheck className="size-3.5 me-2" />
+                                  {t("cust.unblock")}
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    if (confirm(t("cust.block_confirm", { name: c.name }))) {
+                                      startTransition(async () => { await updateCustomerStatus(c.id, "BLOCKED"); router.refresh(); });
+                                    }
+                                  }}
+                                  className="text-destructive"
+                                >
+                                  <Ban className="size-3.5 me-2" />
+                                  {t("cust.block")}
+                                </DropdownMenuItem>
+                              )}
                               {c.status === "ARCHIVED" ? (
                                 <DropdownMenuItem
                                   onClick={() => { startTransition(async () => { await updateCustomerStatus(c.id, "ACTIVE"); router.refresh(); }); }}
