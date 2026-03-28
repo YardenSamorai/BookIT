@@ -1,19 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useT } from "@/lib/i18n/locale-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ImageUpload } from "@/components/shared/image-upload";
+import { uploadFile } from "@/lib/storage/upload";
+import { ALLOWED_IMAGE_TYPES, MAX_FILE_SIZE_MB } from "@/lib/storage/types";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { Images, Plus, Trash2 } from "lucide-react";
+import { Images, Plus, Trash2, ImagePlus, Loader2, X } from "lucide-react";
 
 interface GalleryImage {
   url: string;
@@ -179,7 +180,7 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>{t("gallery_editor.images")}</Label>
+          <Label>{t("gallery_editor.images")} ({images.length}/{maxImages})</Label>
           <Button
             type="button"
             variant="outline"
@@ -192,45 +193,20 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
           </Button>
         </div>
 
-        <div className="space-y-4">
-          {images.map((img, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-2 rounded-lg border p-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <ImageUpload
-                    value={img.url}
-                    onChange={(url) => updateImage(index, { url })}
-                    folder="gallery"
-                    aspectRatio="square"
-                    placeholder={t("gallery_editor.upload_n", { n: index + 1 })}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeImage(index)}
-                  className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t("gallery_editor.caption")}</Label>
-                <Input
-                  value={img.caption}
-                  onChange={(e) => updateImage(index, { caption: e.target.value })}
-                  placeholder={t("gallery_editor.caption_ph")}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {images.length === 0 && (
+        {images.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {images.map((img, index) => (
+              <GalleryThumb
+                key={index}
+                img={img}
+                index={index}
+                onUpdate={updateImage}
+                onRemove={removeImage}
+                t={t}
+              />
+            ))}
+          </div>
+        ) : (
           <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-6 text-center">
             <Images className="mx-auto size-8 text-muted-foreground/40" />
             <p className="mt-2 text-sm font-medium">{t("empty.gallery_title")}</p>
@@ -238,6 +214,98 @@ export function GallerySectionEditor({ content, onChange, maxImages = 50 }: Gall
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function GalleryThumb({
+  img,
+  index,
+  onUpdate,
+  onRemove,
+  t,
+}: {
+  img: GalleryImage;
+  index: number;
+  onUpdate: (index: number, patch: Partial<GalleryImage>) => void;
+  onRemove: (index: number) => void;
+  t: ReturnType<typeof useT>;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(async (file: File) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) return;
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) return;
+    setUploading(true);
+    try {
+      const result = await uploadFile(file, "gallery");
+      onUpdate(index, { url: result.url });
+    } catch {
+      /* ignore */
+    } finally {
+      setUploading(false);
+    }
+  }, [index, onUpdate]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
+
+  return (
+    <div className="group relative">
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ALLOWED_IMAGE_TYPES.join(",")}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); if (inputRef.current) inputRef.current.value = ""; }}
+        className="hidden"
+      />
+
+      {img.url ? (
+        <div
+          className="relative aspect-square cursor-pointer overflow-hidden rounded-lg border"
+          onClick={() => inputRef.current?.click()}
+          onDrop={onDrop}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <img src={img.url} alt={img.caption} className="size-full object-cover" />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemove(index); }}
+            className="absolute end-1 top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white opacity-0 transition-opacity group-hover:opacity-100"
+          >
+            <X className="size-3" />
+          </button>
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+              <Loader2 className="size-5 animate-spin text-white" />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 transition-colors hover:border-primary/50 hover:bg-muted/50"
+          onClick={() => inputRef.current?.click()}
+          onDrop={onDrop}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          {uploading ? (
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          ) : (
+            <ImagePlus className="size-5 text-muted-foreground/50" />
+          )}
+        </div>
+      )}
+
+      <Input
+        value={img.caption}
+        onChange={(e) => onUpdate(index, { caption: e.target.value })}
+        placeholder={t("gallery_editor.caption_ph")}
+        className="mt-1 h-7 text-xs"
+      />
     </div>
   );
 }
