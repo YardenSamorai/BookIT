@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,9 +11,11 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   Calendar,
+  CalendarClock,
   Clock,
   User,
   Scissors,
@@ -23,10 +25,12 @@ import {
   UserX,
   ExternalLink,
   StickyNote,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
-import { updateAppointmentStatus, cancelAppointment } from "@/actions/booking";
-import { BUSINESS_TZ } from "./calendar-types";
+import { updateAppointmentStatus, cancelAppointment, rescheduleAppointment } from "@/actions/booking";
+import { BUSINESS_TZ, wallClockToDate } from "./calendar-types";
 
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "NO_SHOW";
 
@@ -93,6 +97,75 @@ interface AppointmentQuickViewProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function toLocalParts(date: Date, tz: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute") };
+}
+
+
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const options: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 5) {
+      options.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  }
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+      dir="ltr"
+    >
+      {options.map((opt) => (
+        <option key={opt} value={opt}>{opt}</option>
+      ))}
+    </select>
+  );
+}
+
+function DateInput({
+  value,
+  onChange,
+}: {
+  value: string; // YYYY-MM-DD
+  onChange: (v: string) => void;
+}) {
+  const display = value
+    ? `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}`
+    : "";
+
+  const handleNativeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
+    [onChange]
+  );
+
+  return (
+    <div className="relative">
+      <input
+        type="date"
+        value={value}
+        onChange={handleNativeChange}
+        className="absolute inset-0 opacity-0 cursor-pointer"
+      />
+      <div className="flex h-10 w-full items-center rounded-lg border border-input bg-background px-3 text-sm tabular-nums">
+        <Calendar className="size-3.5 shrink-0 text-muted-foreground me-2" />
+        <span>{display}</span>
+      </div>
+    </div>
+  );
+}
+
 export function AppointmentQuickView({
   appointment,
   open,
@@ -102,6 +175,10 @@ export function AppointmentQuickView({
   const locale = useLocale();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [rescheduleMode, setRescheduleMode] = useState(false);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
+  const [rescheduleError, setRescheduleError] = useState("");
 
   if (!appointment) return null;
 
@@ -122,15 +199,19 @@ export function AppointmentQuickView({
     day: "numeric",
     timeZone: BUSINESS_TZ,
   });
-  const timeStr = `${startDate.toLocaleTimeString(dtLocale, {
+  const startTimeStr = startDate.toLocaleTimeString(dtLocale, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
     timeZone: BUSINESS_TZ,
-  })} – ${endDate.toLocaleTimeString(dtLocale, {
+  });
+  const endTimeStr = endDate.toLocaleTimeString(dtLocale, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
     timeZone: BUSINESS_TZ,
-  })}`;
+  });
+  const timeStr = `${startTimeStr} – ${endTimeStr}`;
 
   function handleStatus(newStatus: "CONFIRMED" | "COMPLETED" | "NO_SHOW") {
     startTransition(async () => {
@@ -148,17 +229,54 @@ export function AppointmentQuickView({
     });
   }
 
+  function openReschedule() {
+    const p = toLocalParts(startDate, BUSINESS_TZ);
+    setNewDate(`${p.year}-${p.month}-${p.day}`);
+    setNewTime(`${p.hour}:${p.minute}`);
+    setRescheduleError("");
+    setRescheduleMode(true);
+  }
+
+  function closeReschedule() {
+    setRescheduleMode(false);
+    setRescheduleError("");
+  }
+
+  function handleReschedule() {
+    if (!newDate || !newTime) return;
+    setRescheduleError("");
+    startTransition(async () => {
+      const [h, m] = newTime.split(":").map(Number);
+      const dateRef = new Date(`${newDate}T12:00:00Z`);
+      const utcStart = wallClockToDate(dateRef, h, m);
+      const res = await rescheduleAppointment(appointment!.id, utcStart.toISOString());
+      if (res.success) {
+        router.refresh();
+        onOpenChange(false);
+        setRescheduleMode(false);
+      } else {
+        setRescheduleError(t("apt.reschedule_conflict" as any));
+      }
+    });
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={locale === "he" ? "left" : "right"} className="w-full sm:max-w-md">
-        <SheetHeader className="pb-4">
-          <SheetTitle className="text-lg">{appointment.serviceName}</SheetTitle>
+    <Sheet
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) setRescheduleMode(false);
+        onOpenChange(v);
+      }}
+    >
+      <SheetContent side={locale === "he" ? "left" : "right"} className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader className="pb-2 pe-10">
+          <SheetTitle className="text-lg leading-snug">{appointment.serviceName}</SheetTitle>
           <SheetDescription className="sr-only">
             {t("apt.detail_title")}
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-5 px-1">
+        <div className="space-y-4 px-4 pb-6">
           {/* Status badge + source */}
           <div className="flex items-center gap-2 flex-wrap">
             <div
@@ -176,35 +294,32 @@ export function AppointmentQuickView({
             )}
           </div>
 
-          {/* Date & Time */}
-          <div className="space-y-3">
+          {/* Info card */}
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="size-4 shrink-0 text-muted-foreground" />
-              <span>{dateStr}</span>
+              <span className="font-medium">{dateStr}</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Clock className="size-4 shrink-0 text-muted-foreground" />
               <span>
                 {timeStr}
-                <span className="ms-1.5 text-muted-foreground">
+                <span className="ms-2 text-muted-foreground">
                   ({durationMins} {t("common.min")})
                 </span>
               </span>
             </div>
-          </div>
 
-          <Separator />
+            <Separator />
 
-          {/* People */}
-          <div className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <User className="size-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex items-center gap-2">
                 <span className="font-medium">{appointment.customerName}</span>
                 {appointment.customerPhone && (
                   <a
                     href={`tel:${appointment.customerPhone}`}
-                    className="ms-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
                   >
                     <Phone className="size-3" />
                     <span dir="ltr">{appointment.customerPhone}</span>
@@ -220,20 +335,66 @@ export function AppointmentQuickView({
 
           {/* Notes */}
           {appointment.notes && (
-            <>
-              <Separator />
-              <div className="flex gap-3 text-sm">
-                <StickyNote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <p className="text-muted-foreground">{appointment.notes}</p>
-              </div>
-            </>
+            <div className="flex gap-3 rounded-xl border bg-muted/10 p-4 text-sm">
+              <StickyNote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <p className="text-muted-foreground">{appointment.notes}</p>
+            </div>
           )}
 
-          <Separator />
+          {/* Reschedule inline form */}
+          {rescheduleMode && (
+            <div className="rounded-xl border-2 border-primary/20 bg-primary/[0.03] p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <CalendarClock className="size-4 text-primary" />
+                {t("apt.reschedule" as any)}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">{t("apt.reschedule_date" as any)}</Label>
+                  <DateInput value={newDate} onChange={setNewDate} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">{t("apt.reschedule_time" as any)}</Label>
+                  <TimeSelect value={newTime} onChange={setNewTime} />
+                </div>
+              </div>
+
+              {rescheduleError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/20">
+                  <AlertCircle className="size-4 shrink-0 text-red-500 mt-0.5" />
+                  <p className="text-xs text-red-700 dark:text-red-400">{rescheduleError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isPending}
+                  onClick={closeReschedule}
+                >
+                  {t("apt.reschedule_cancel" as any)}
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={isPending || !newDate || !newTime}
+                  onClick={handleReschedule}
+                >
+                  {isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-4" />
+                  )}
+                  {t("apt.reschedule_save" as any)}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
-          {hasActions && (
-            <div className="space-y-2">
+          {hasActions && !rescheduleMode && (
+            <div className="space-y-2 pt-1">
               {status === "PENDING" && (
                 <Button
                   className="w-full"
@@ -245,9 +406,8 @@ export function AppointmentQuickView({
                 </Button>
               )}
               {status === "CONFIRMED" && (
-                <>
+                <div className="grid grid-cols-2 gap-2">
                   <Button
-                    className="w-full"
                     disabled={isPending}
                     onClick={() => handleStatus("COMPLETED")}
                   >
@@ -256,31 +416,39 @@ export function AppointmentQuickView({
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full"
                     disabled={isPending}
                     onClick={() => handleStatus("NO_SHOW")}
                   >
                     <UserX className="size-4" />
                     {t("apt.no_show")}
                   </Button>
-                </>
+                </div>
               )}
-              <Button
-                variant="destructive"
-                className="w-full"
-                disabled={isPending}
-                onClick={handleCancel}
-              >
-                <XCircle className="size-4" />
-                {t("apt.cancel")}
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={openReschedule}
+                >
+                  <CalendarClock className="size-4" />
+                  {t("apt.reschedule" as any)}
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={isPending}
+                  onClick={handleCancel}
+                >
+                  <XCircle className="size-4" />
+                  {t("apt.cancel")}
+                </Button>
+              </div>
             </div>
           )}
 
           {/* Link to full detail page */}
           <Link
             href={`/dashboard/appointments/${appointment.id}`}
-            className="flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+            className="flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           >
             <ExternalLink className="size-3.5" />
             {t("apt.view_full_details")}
