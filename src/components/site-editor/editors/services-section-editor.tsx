@@ -1,10 +1,13 @@
 "use client";
 
+import { useState, useTransition, useCallback, useEffect } from "react";
 import { useT } from "@/lib/i18n/locale-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ColorPicker } from "@/components/onboarding/color-picker";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ChevronUp, ChevronDown, Star } from "lucide-react";
+import { reorderServices } from "@/actions/site-editor";
 import {
   Select,
   SelectContent,
@@ -12,14 +15,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { InferSelectModel } from "drizzle-orm";
+import type { services as servicesSchema } from "@/lib/db/schema";
+
+type Service = InferSelectModel<typeof servicesSchema>;
 
 interface ServicesSectionEditorProps {
   content: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
+  services?: Service[];
 }
 
-export function ServicesSectionEditor({ content, onChange }: ServicesSectionEditorProps) {
+export function ServicesSectionEditor({ content, onChange, services = [] }: ServicesSectionEditorProps) {
   const t = useT();
+  const [isPending, startTransition] = useTransition();
+  const [orderedServices, setOrderedServices] = useState<Service[]>(() =>
+    [...services].sort((a, b) => a.sortOrder - b.sortOrder)
+  );
+
+  useEffect(() => {
+    setOrderedServices([...services].sort((a, b) => a.sortOrder - b.sortOrder));
+  }, [services]);
+
+  const primaryCount = (content.primary_count as number) ?? 0;
+
+  const moveService = useCallback((fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= orderedServices.length) return;
+    setOrderedServices((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+    startTransition(async () => {
+      const updated = [...orderedServices];
+      const [item] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, item);
+      await reorderServices(updated.map((s) => s.id));
+    });
+  }, [orderedServices]);
 
   return (
     <div className="space-y-5">
@@ -48,9 +82,11 @@ export function ServicesSectionEditor({ content, onChange }: ServicesSectionEdit
           onValueChange={(v) => v && onChange({ card_layout: v })}
         >
           <SelectTrigger>
-            <SelectValue />
+            <span>
+              {{ grid: t("svc_editor.grid"), list: t("svc_editor.list"), compact: t("svc_editor.compact") }[(content.card_layout as string) ?? "grid"] ?? t("svc_editor.grid")}
+            </span>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" sideOffset={4}>
             <SelectItem value="grid">{t("svc_editor.grid")}</SelectItem>
             <SelectItem value="list">{t("svc_editor.list")}</SelectItem>
             <SelectItem value="compact">{t("svc_editor.compact")}</SelectItem>
@@ -58,37 +94,93 @@ export function ServicesSectionEditor({ content, onChange }: ServicesSectionEdit
         </Select>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex items-center justify-between">
         <Label>{t("svc_editor.show_prices")}</Label>
+        <Switch
+          checked={content.show_prices !== false}
+          onCheckedChange={(checked) => onChange({ show_prices: checked })}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label>{t("svc_editor.show_duration")}</Label>
+        <Switch
+          checked={content.show_duration !== false}
+          onCheckedChange={(checked) => onChange({ show_duration: checked })}
+        />
+      </div>
+
+      {/* Primary count */}
+      <div className="space-y-2">
+        <Label>{t("svc_editor.primary_count" as any)}</Label>
+        <p className="text-xs text-muted-foreground">{t("svc_editor.primary_count_desc" as any)}</p>
         <Select
-          value={String(content.show_prices ?? "true")}
-          onValueChange={(v) => v != null && onChange({ show_prices: v === "true" })}
+          value={String(primaryCount)}
+          onValueChange={(v) => onChange({ primary_count: Number(v) })}
         >
           <SelectTrigger>
-            <SelectValue />
+            <span>{primaryCount === 0 ? t("svc_editor.show_all" as any) : primaryCount}</span>
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">{t("common.yes")}</SelectItem>
-            <SelectItem value="false">{t("common.no")}</SelectItem>
+          <SelectContent position="popper" sideOffset={4}>
+            <SelectItem value="0">{t("svc_editor.show_all" as any)}</SelectItem>
+            {orderedServices.map((_, i) => (
+              <SelectItem key={i + 1} value={String(i + 1)}>
+                {i + 1}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label>{t("svc_editor.show_duration")}</Label>
-        <Select
-          value={String(content.show_duration ?? "true")}
-          onValueChange={(v) => v != null && onChange({ show_duration: v === "true" })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">{t("common.yes")}</SelectItem>
-            <SelectItem value="false">{t("common.no")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Service order — compact cards */}
+      {orderedServices.length > 0 && (
+        <div className="space-y-2">
+          <Label>{t("svc_editor.service_order" as any)}</Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {orderedServices.map((svc, idx) => {
+              const isPrimary = primaryCount > 0 && idx < primaryCount;
+              return (
+                <div
+                  key={svc.id}
+                  className={`group relative flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
+                    isPrimary
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border bg-background"
+                  } ${isPending ? "opacity-60 pointer-events-none" : ""}`}
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
+                    {idx + 1}
+                  </span>
+                  {isPrimary && <Star className="size-3 shrink-0 fill-primary text-primary" />}
+                  <span className="flex-1 truncate font-medium">{svc.title}</span>
+                  <div className="flex shrink-0 flex-col opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                      disabled={idx === 0 || isPending}
+                      onClick={() => moveService(idx, idx - 1)}
+                    >
+                      <ChevronUp className="size-3" />
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                      disabled={idx === orderedServices.length - 1 || isPending}
+                      onClick={() => moveService(idx, idx + 1)}
+                    >
+                      <ChevronDown className="size-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {primaryCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              <Star className="me-1 inline size-3 fill-primary text-primary" />
+              {t("svc_editor.primary_hint" as any)}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Custom Colors */}
       <details className="group">
@@ -123,10 +215,6 @@ export function ServicesSectionEditor({ content, onChange }: ServicesSectionEdit
           </div>
         </div>
       </details>
-
-      <p className="text-xs text-muted-foreground">
-        {t("svc_editor.auto_desc")}
-      </p>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { businesses, siteConfigs } from "@/lib/db/schema";
+import { businesses, siteConfigs, services } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import {
   updateSectionsSchema,
@@ -180,6 +180,33 @@ export async function updateSiteSeo(
       updatedAt: new Date(),
     })
     .where(eq(siteConfigs.businessId, businessId));
+
+  const slug = await getBusinessSlug(businessId);
+  revalidatePublicSite(slug);
+  return { success: true, data: undefined };
+}
+
+export async function reorderServices(
+  orderedIds: string[]
+): Promise<ActionResult> {
+  const { businessId } = await requireBusinessOwner();
+
+  const allServices = await db.query.services.findMany({
+    where: eq(services.businessId, businessId),
+    columns: { id: true },
+  });
+  const validIds = new Set(allServices.map((s) => s.id));
+
+  const updates = orderedIds
+    .filter((id) => validIds.has(id))
+    .map((id, index) =>
+      db
+        .update(services)
+        .set({ sortOrder: index, updatedAt: new Date() })
+        .where(eq(services.id, id))
+    );
+
+  await Promise.all(updates);
 
   const slug = await getBusinessSlug(businessId);
   revalidatePublicSite(slug);

@@ -157,36 +157,21 @@ export function DesignView({
         </CardContent>
       </Card>
 
-      {/* Card 3: Logo & Cover */}
+      {/* Card 3: Logo */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("editor.logo_and_cover")}</CardTitle>
-          <p className="text-xs text-muted-foreground">{t("editor.logo_cover_helper")}</p>
+          <CardTitle className="text-base">{t("editor.logo")}</CardTitle>
+          <p className="text-xs text-muted-foreground">{t("editor.logo_helper" as any)}</p>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium">{t("editor.logo")}</p>
-              <ImageUpload
-                value={brand.logoUrl}
-                onChange={(url) => onBrandChange({ logoUrl: url })}
-                folder="logos"
-                aspectRatio="square"
-                placeholder={t("editor.upload_logo")}
-                className="max-w-[180px]"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium">{t("editor.hero_banner")}</p>
-              <ImageUpload
-                value={brand.coverImageUrl}
-                onChange={(url) => onBrandChange({ coverImageUrl: url })}
-                folder="covers"
-                aspectRatio="banner"
-                placeholder={t("editor.upload_hero")}
-              />
-            </div>
-          </div>
+          <ImageUpload
+            value={brand.logoUrl}
+            onChange={(url) => onBrandChange({ logoUrl: url })}
+            folder="logos"
+            aspectRatio="square"
+            placeholder={t("editor.upload_logo")}
+            className="max-w-[180px]"
+          />
         </CardContent>
       </Card>
 

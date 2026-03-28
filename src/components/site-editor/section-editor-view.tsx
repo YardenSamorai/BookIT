@@ -84,11 +84,11 @@ export function SectionEditorView({
   function renderEditor() {
     switch (section.type) {
       case "hero":
-        return <HeroSectionEditor {...editorProps} />;
+        return <HeroSectionEditor {...editorProps} coverImageUrl={(extraEditorProps?.coverImageUrl as string) ?? ""} />;
       case "about":
         return <AboutSectionEditor {...editorProps} />;
       case "services":
-        return <ServicesSectionEditor {...editorProps} />;
+        return <ServicesSectionEditor {...editorProps} services={(extraEditorProps?.services ?? []) as any[]} />;
       case "team":
         return <TeamSectionEditor {...editorProps} staffCount={(extraEditorProps?.staff as unknown[] ?? []).length} />;
       case "gallery":

@@ -35,6 +35,10 @@ export function SiteHero({
   const textSize = getHeroTextSize((content.text_size as string) ?? "lg");
   const textAlign = (content.text_align as string) || "left";
 
+  const focalX = (content.focal_x as number) ?? 50;
+  const focalY = (content.focal_y as number) ?? 50;
+  const focalPosition = `${focalX}% ${focalY}%`;
+
   const bgMode = (content.bg_mode as string) || "upload";
   const bgPresetId = content.bg_preset_id as string | undefined;
   const bgImage = (content.background_image as string) || coverImageUrl;
@@ -137,7 +141,7 @@ export function SiteHero({
 
   if (layout === "split" && (hasImage || hasPreset)) {
     return (
-      <section className="relative grid min-h-[60vh] md:min-h-[70vh] md:grid-cols-2">
+      <section className="relative grid min-h-[50vh] sm:min-h-[60vh] md:min-h-[70vh] md:grid-cols-2">
         <div
           className={`flex flex-col justify-center px-6 py-12 sm:px-8 sm:py-16 md:px-16 ${alignClass}`}
           style={bgStyle}
@@ -191,6 +195,7 @@ export function SiteHero({
               src={imageUrl}
               alt=""
               className="absolute inset-0 size-full object-cover"
+              style={{ objectPosition: focalPosition }}
             />
           ) : isPresetCss && presetBg.css ? (
             <div className="absolute inset-0" style={presetBg.css} />
@@ -200,85 +205,136 @@ export function SiteHero({
     );
   }
 
-  return (
-    <section
-      className="relative flex min-h-[60vh] items-center overflow-hidden sm:min-h-[70vh]"
-      style={bgStyle}
-    >
-      {imageUrl && (
-        <img
-          src={imageUrl}
-          alt=""
-          className="absolute inset-0 size-full object-cover"
-        />
-      )}
-
-      {hasImage && (
+  const heroTextContent = (
+    <>
+      {showBadge && (
         <div
-          className="absolute inset-0"
-          style={{ backgroundColor: "black", opacity: overlayOpacity }}
-        />
+          className={`mb-4 inline-block ${theme.radius.full} px-4 py-1.5 text-xs font-medium tracking-wide uppercase sm:mb-6`}
+          style={{ ...pillBg, ...pillTextStyle }}
+        >
+          {t(locale, "pub.welcome")}
+        </div>
       )}
 
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at 50% 0%, ${theme.secondaryColor}15 0%, transparent 70%)`,
-        }}
-      />
+      <h1
+        className={`${textSize.classes} ${fontStyle.fontWeight} ${fontStyle.letterSpacing} leading-[1.1]`}
+        style={headlineInlineStyle}
+      >
+        {headline}
+      </h1>
+
+      <p
+        className={`mt-4 max-w-xl text-base sm:mt-6 sm:text-lg md:text-xl ${subtitleMargin}`}
+        style={bodyColorStyle}
+      >
+        {subtitle}
+      </p>
 
       <div
-        className={`relative z-10 mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24 ${alignClass}`}
+        className={`mt-8 flex flex-wrap items-center gap-3 sm:mt-10 sm:gap-4 ${alignJustify}`}
       >
-        {showBadge && (
-          <div
-            className={`mb-4 inline-block ${theme.radius.full} px-4 py-1.5 text-xs font-medium tracking-wide uppercase sm:mb-6`}
-            style={{ ...pillBg, ...pillTextStyle }}
+        <a
+          href="#services"
+          className={`px-6 py-3 text-sm font-semibold sm:px-8 sm:py-3.5 sm:text-base ${theme.buttonClasses}`}
+          style={buttonStyle}
+        >
+          {ctaText}
+        </a>
+        {ctaSecondary && (
+          <a
+            href="#contact"
+            className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta2Bg ? "" : ghostBorder}`}
+            style={secondaryButtonStyle}
           >
-            {t(locale, "pub.welcome")}
+            {ctaSecondary}
+          </a>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile: image shown at full width, no cropping */}
+      {hasImage && imageUrl ? (
+        <section className="relative sm:hidden overflow-hidden" style={bgStyle}>
+          <img
+            src={imageUrl}
+            alt=""
+            className="block w-full"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(to bottom, rgba(0,0,0,${overlayOpacity * 0.3}) 0%, rgba(0,0,0,${overlayOpacity * 0.6}) 40%, rgba(0,0,0,${overlayOpacity}) 100%)`,
+            }}
+          />
+          <div
+            className={`absolute inset-0 flex flex-col justify-end px-5 pb-8 ${alignClass}`}
+          >
+            {heroTextContent}
           </div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-16"
+            style={{ background: "linear-gradient(to top, var(--palette-bg, white), transparent)" }}
+          />
+        </section>
+      ) : (
+        <section
+          className="relative flex min-h-[50vh] items-center overflow-hidden sm:hidden"
+          style={bgStyle}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(ellipse at 50% 0%, ${theme.secondaryColor}15 0%, transparent 70%)`,
+            }}
+          />
+          <div className={`relative z-10 mx-auto w-full px-5 py-16 ${alignClass}`}>
+            {heroTextContent}
+          </div>
+        </section>
+      )}
+
+      {/* Desktop: image as background cover with focal point */}
+      <section
+        className="relative hidden min-h-[60vh] items-center overflow-hidden sm:flex md:min-h-[70vh]"
+        style={bgStyle}
+      >
+        {imageUrl && (
+          <img
+            src={imageUrl}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+            style={{ objectPosition: focalPosition }}
+          />
         )}
 
-        <h1
-          className={`${textSize.classes} ${fontStyle.fontWeight} ${fontStyle.letterSpacing} leading-[1.1]`}
-          style={headlineInlineStyle}
-        >
-          {headline}
-        </h1>
-
-        <p
-          className={`mt-4 max-w-xl text-base sm:mt-6 sm:text-lg md:text-xl ${subtitleMargin}`}
-          style={bodyColorStyle}
-        >
-          {subtitle}
-        </p>
+        {hasImage && (
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: "black", opacity: overlayOpacity }}
+          />
+        )}
 
         <div
-          className={`mt-8 flex flex-wrap items-center gap-3 sm:mt-10 sm:gap-4 ${alignJustify}`}
-        >
-          <a
-            href="#services"
-            className={`px-6 py-3 text-sm font-semibold sm:px-8 sm:py-3.5 sm:text-base ${theme.buttonClasses}`}
-            style={buttonStyle}
-          >
-            {ctaText}
-          </a>
-          {ctaSecondary && (
-            <a
-              href="#contact"
-              className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta2Bg ? "" : ghostBorder}`}
-              style={secondaryButtonStyle}
-            >
-              {ctaSecondary}
-            </a>
-          )}
-        </div>
-      </div>
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at 50% 0%, ${theme.secondaryColor}15 0%, transparent 70%)`,
+          }}
+        />
 
-      <div
-        className="absolute bottom-0 left-0 right-0 h-24"
-        style={{ background: "linear-gradient(to top, var(--palette-bg, white), transparent)" }}
-      />
-    </section>
+        <div
+          className={`relative z-10 mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-24 ${alignClass}`}
+        >
+          {heroTextContent}
+        </div>
+
+        <div
+          className="absolute bottom-0 left-0 right-0 h-24"
+          style={{ background: "linear-gradient(to top, var(--palette-bg, white), transparent)" }}
+        />
+      </section>
+    </>
   );
 }

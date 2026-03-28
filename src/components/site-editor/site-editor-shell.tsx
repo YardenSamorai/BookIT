@@ -215,7 +215,7 @@ export function SiteEditorShell({
             onToggleEnabled={(index, enabled) => updateSection(index, { enabled })}
             onContentChange={updateSectionContent}
             onMove={moveSection}
-            extraEditorProps={{ products: productList, staff }}
+            extraEditorProps={{ products: productList, staff, services: serviceList, coverImageUrl: brand.coverImageUrl }}
           />
         );
       case "details":

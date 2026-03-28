@@ -1,7 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import type { InferSelectModel } from "drizzle-orm";
 import type { services } from "@/lib/db/schema";
 import type { SiteTheme } from "@/lib/themes/presets";
-import { Clock, Users } from "lucide-react";
+import { Clock, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { formatPrice } from "@/lib/utils/currencies";
 import { t, type Locale } from "@/lib/i18n";
 import { AnimatedStagger } from "./animated-section";
@@ -38,6 +41,8 @@ export function SiteServices({
   bookingUrl,
   locale,
 }: SiteServicesProps) {
+  const [showAll, setShowAll] = useState(false);
+
   if (serviceList.length === 0) return null;
 
   const title = (content.title as string) || t(locale, "pub.our_services");
@@ -47,6 +52,13 @@ export function SiteServices({
   const showPrices = content.show_prices !== false;
   const showDuration = content.show_duration !== false;
   const cardLayout = (content.card_layout as string) || "grid";
+  const primaryCount = (content.primary_count as number) ?? 0;
+
+  const hasSplit = primaryCount > 0 && primaryCount < serviceList.length;
+  const visibleServices = hasSplit && !showAll
+    ? serviceList.slice(0, primaryCount)
+    : serviceList;
+  const hiddenCount = hasSplit ? serviceList.length - primaryCount : 0;
 
   const customTitleColor = content.title_color as string | undefined;
   const customSubtitleColor = content.subtitle_color as string | undefined;
@@ -69,6 +81,9 @@ export function SiteServices({
     },
   };
 
+  const moreLabel = locale === "he" ? "לעוד שירותים" : "More services";
+  const lessLabel = locale === "he" ? "פחות שירותים" : "Less services";
+
   return (
     <section
       id="services"
@@ -87,7 +102,7 @@ export function SiteServices({
 
         {cardLayout === "list" ? (
           <AnimatedStagger className="mt-8 space-y-3 sm:mt-12 sm:space-y-4">
-            {serviceList.map((svc) => (
+            {visibleServices.map((svc) => (
               <ServiceListItem
                 key={svc.id}
                 service={svc}
@@ -103,7 +118,7 @@ export function SiteServices({
           </AnimatedStagger>
         ) : cardLayout === "compact" ? (
           <AnimatedStagger className="mt-8 grid gap-2 sm:mt-12 sm:grid-cols-2 sm:gap-3">
-            {serviceList.map((svc) => (
+            {visibleServices.map((svc) => (
               <ServiceCompact
                 key={svc.id}
                 service={svc}
@@ -120,7 +135,7 @@ export function SiteServices({
         ) : (
           <>
             <AnimatedStagger className="mt-8 space-y-3 sm:hidden">
-              {serviceList.map((svc) => (
+              {visibleServices.map((svc) => (
                 <ServiceMobileCard
                   key={svc.id}
                   service={svc}
@@ -135,7 +150,7 @@ export function SiteServices({
             ))}
             </AnimatedStagger>
             <AnimatedStagger className="mt-12 hidden gap-6 sm:grid sm:grid-cols-2 lg:grid-cols-3">
-              {serviceList.map((svc) => (
+              {visibleServices.map((svc) => (
                 <ServiceCard
                   key={svc.id}
                   service={svc}
@@ -150,6 +165,28 @@ export function SiteServices({
             ))}
             </AnimatedStagger>
           </>
+        )}
+
+        {hasSplit && (
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => setShowAll((prev) => !prev)}
+              className={`inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium transition-all ${theme.buttonClasses}`}
+              style={colors.btnStyle}
+            >
+              {showAll ? (
+                <>
+                  {lessLabel}
+                  <ChevronUp className="size-4" />
+                </>
+              ) : (
+                <>
+                  {moreLabel} ({hiddenCount})
+                  <ChevronDown className="size-4" />
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
     </section>

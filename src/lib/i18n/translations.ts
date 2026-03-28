@@ -1050,6 +1050,7 @@ export const translations = {
     "editor.colors_helper": "Your main color is used for headings. Your accent color is used for buttons.",
     "editor.logo_and_cover": "Logo & Cover Image",
     "editor.logo_cover_helper": "Your logo appears in the navigation bar. The cover photo is the background of your hero section.",
+    "editor.logo_helper": "Your logo appears in the navigation bar.",
 
     // ── Readiness Checklist ──
     "readiness.ways_to_improve": "{count} ways to improve your site",
@@ -1190,6 +1191,8 @@ export const translations = {
     "hero.presets": "Presets",
     "hero.upload_bg": "Upload hero background image",
     "hero.upload_hint": "For best results, use an image at least 1920x1080px.",
+    "focal.hint": "Click or drag to set the focal point",
+    "focal.reset": "Reset to center",
     "hero.load_more": "Show More",
     "hero.overlay": "Image Overlay",
     "hero.layout_mode": "Layout Mode",
@@ -1235,6 +1238,11 @@ export const translations = {
     "svc_editor.btn_bg_color": "Button Background",
     "svc_editor.btn_text_color": "Button Text",
     "svc_editor.auto_desc": "Services are pulled automatically from your Services page.",
+    "svc_editor.primary_count": "Visible Services",
+    "svc_editor.primary_count_desc": "How many services to show initially. The rest will be behind a \"More services\" button.",
+    "svc_editor.show_all": "Show all",
+    "svc_editor.service_order": "Service Order",
+    "svc_editor.primary_hint": "Primary — shown first on the site",
 
     // ── Team Section Editor ──
     "team_editor.title": "Section Title",
@@ -3004,6 +3012,7 @@ export const translations = {
     "editor.colors_helper": "הצבע הראשי משמש לכותרות. צבע ההדגשה משמש לכפתורים.",
     "editor.logo_and_cover": "לוגו ותמונת רקע",
     "editor.logo_cover_helper": "הלוגו מופיע בסרגל הניווט. תמונת הרקע מופיעה בבאנר הראשי.",
+    "editor.logo_helper": "הלוגו מופיע בסרגל הניווט.",
 
     // ── Readiness Checklist ──
     "readiness.ways_to_improve": "{count} דרכים לשפר את האתר שלכם",
@@ -3144,6 +3153,8 @@ export const translations = {
     "hero.presets": "תבניות",
     "hero.upload_bg": "העלאת תמונת רקע לבאנר",
     "hero.upload_hint": "לתוצאות מיטביות, השתמשו בתמונה של לפחות 1920x1080 פיקסלים.",
+    "focal.hint": "לחצו או גררו לבחירת נקודת המוקד",
+    "focal.reset": "איפוס למרכז",
     "hero.load_more": "הצג עוד",
     "hero.overlay": "שכבת כיסוי",
     "hero.layout_mode": "מצב תצוגה",
@@ -3189,6 +3200,11 @@ export const translations = {
     "svc_editor.btn_bg_color": "רקע כפתור",
     "svc_editor.btn_text_color": "טקסט כפתור",
     "svc_editor.auto_desc": "השירותים נשלפים אוטומטית מעמוד השירותים שלכם.",
+    "svc_editor.primary_count": "שירותים מוצגים",
+    "svc_editor.primary_count_desc": "כמה שירותים להציג בהתחלה. השאר יופיעו מאחורי כפתור \"לעוד שירותים\".",
+    "svc_editor.show_all": "הצג הכל",
+    "svc_editor.service_order": "סדר שירותים",
+    "svc_editor.primary_hint": "ראשי — מוצג ראשון באתר",
 
     // ── Team Section Editor ──
     "team_editor.title": "כותרת הסקציה",

@@ -265,6 +265,10 @@ function PreviewSection({
           : { backgroundColor: brand.primaryColor };
         const heroTextColor = isDarkText ? "text-gray-900" : "text-white";
 
+        const focalX = (c.focal_x as number) ?? 50;
+        const focalY = (c.focal_y as number) ?? 50;
+        const focalPos = `${focalX}% ${focalY}%`;
+
         const heroFontStyle = getHeroFontStyle((c.font_style as string) ?? "clean-sans");
         const heroTextSize = getHeroTextSize((c.text_size as string) ?? "lg");
         const heroAlign = (c.text_align as string) || "left";
@@ -351,7 +355,7 @@ function PreviewSection({
                 {textBlock}
               </div>
               <div className="relative w-1/2">
-                <img src={imgSrc} alt="" className="absolute inset-0 size-full object-cover" />
+                <img src={imgSrc} alt="" className="absolute inset-0 size-full object-cover" style={{ objectPosition: focalPos }} />
                 <div className="absolute inset-0" style={{ backgroundColor: "black", opacity: ((c.overlay_opacity as number) ?? 0.5) * 0.3 }} />
               </div>
             </div>
@@ -373,6 +377,7 @@ function PreviewSection({
                 src={imgSrc}
                 alt=""
                 className="absolute inset-0 size-full object-cover"
+                style={{ objectPosition: focalPos }}
               />
             )}
             {showImage && (

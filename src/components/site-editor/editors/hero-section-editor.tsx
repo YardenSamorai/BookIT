@@ -28,6 +28,7 @@ import {
   Image,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FocalPointPicker } from "@/components/shared/focal-point-picker";
 import {
   HERO_BACKGROUNDS,
   BACKGROUND_CATEGORIES,
@@ -41,6 +42,7 @@ import {
 interface HeroSectionEditorProps {
   content: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
+  coverImageUrl?: string;
 }
 
 type HeroTab = "text" | "style" | "background";
@@ -53,7 +55,7 @@ const TAB_CONFIG: { id: HeroTab; icon: React.ElementType; labelKey: string }[] =
   { id: "background", icon: Image, labelKey: "hero.tab_background" },
 ];
 
-export function HeroSectionEditor({ content, onChange }: HeroSectionEditorProps) {
+export function HeroSectionEditor({ content, onChange, coverImageUrl = "" }: HeroSectionEditorProps) {
   const t = useT();
   const [activeTab, setActiveTab] = useState<HeroTab>("text");
   const bgMode = (content.bg_mode as string) ?? "preset";
@@ -397,6 +399,14 @@ export function HeroSectionEditor({ content, onChange }: HeroSectionEditorProps)
                 aspectRatio="banner"
                 placeholder={t("hero.upload_bg")}
               />
+              {((content.background_image as string) || coverImageUrl) && (
+                <FocalPointPicker
+                  imageUrl={(content.background_image as string) || coverImageUrl}
+                  focalX={(content.focal_x as number) ?? 50}
+                  focalY={(content.focal_y as number) ?? 50}
+                  onChange={(x, y) => onChange({ focal_x: x, focal_y: y })}
+                />
+              )}
               <p className="text-xs text-muted-foreground">
                 {t("hero.upload_hint")}
               </p>

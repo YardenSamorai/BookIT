@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, siteConfigs, services, staffMembers, products } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
@@ -19,6 +19,7 @@ export default async function SiteEditorPage() {
     }),
     db.query.services.findMany({
       where: eq(services.businessId, businessId),
+      orderBy: [asc(services.sortOrder), asc(services.createdAt)],
     }),
     db.query.staffMembers.findMany({
       where: eq(staffMembers.businessId, businessId),
