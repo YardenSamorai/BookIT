@@ -20,7 +20,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessLocale } from "@/lib/db/queries/business";
 import { getDashboardData } from "@/lib/db/queries/dashboard";
+import { getActiveAnnouncements } from "@/lib/db/queries/announcements";
 import { t } from "@/lib/i18n";
+import { AnnouncementBanner } from "@/components/dashboard/announcement-banner";
 
 function formatCurrency(amount: number, currency: string) {
   const symbols: Record<string, string> = { ILS: "₪", USD: "$", EUR: "€", GBP: "£" };
@@ -61,9 +63,10 @@ function StatusBadge({ status, locale }: { status: string; locale: "en" | "he" }
 
 export default async function DashboardOverviewPage() {
   const { businessId } = await requireBusinessOwner();
-  const [locale, data] = await Promise.all([
+  const [locale, data, announcements] = await Promise.all([
     getBusinessLocale(businessId),
     getDashboardData(businessId),
+    getActiveAnnouncements(businessId),
   ]);
 
   const { stats, staffPerformance, popularServices, recentAppointments, currency } = data;
@@ -71,6 +74,8 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-8">
+      {announcements.length > 0 && <AnnouncementBanner announcements={announcements} />}
+
       <PageHeader
         title={t(locale, "dash.overview")}
         description={t(locale, "dash.welcome")}

@@ -6,6 +6,9 @@ import {
   AlertTriangle,
   TrendingUp,
   TicketCheck,
+  CalendarDays,
+  Percent,
+  BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +17,17 @@ import {
   getAdminDashboardStats,
   getBusinessesNeedingAttention,
   getAdminBusinessList,
+  getAdminGlobalStats,
 } from "@/actions/admin";
 import { getTicketStats } from "@/actions/tickets";
 
 export default async function AdminDashboardPage() {
-  const [stats, attention, allBiz, ticketStats] = await Promise.all([
+  const [stats, attention, allBiz, ticketStats, globalStats] = await Promise.all([
     getAdminDashboardStats(),
     getBusinessesNeedingAttention(),
     getAdminBusinessList(),
     getTicketStats(),
+    getAdminGlobalStats(),
   ]);
 
   const topConsumers = [...allBiz]
@@ -241,6 +246,146 @@ export default async function AdminDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Global stats dashboard */}
+      <div dir="rtl" className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">סטטיסטיקות גלובליות</h2>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CalendarDays className="size-4 text-sky-600" />
+                תורים
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline justify-between border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                <span className="text-sm text-muted-foreground">היום</span>
+                <span className="text-2xl font-bold tabular-nums">
+                  {globalStats.appointments.today.toLocaleString("he-IL")}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                <span className="text-sm text-muted-foreground">7 ימים אחרונים</span>
+                <span className="text-2xl font-bold tabular-nums">
+                  {globalStats.appointments.week.toLocaleString("he-IL")}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-muted-foreground">החודש</span>
+                <span className="text-2xl font-bold tabular-nums">
+                  {globalStats.appointments.month.toLocaleString("he-IL")}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Percent className="size-4 text-rose-600" />
+                שיעור נטישה (30 יום)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold tabular-nums text-slate-900">
+                {globalStats.churn.wasActive > 0
+                  ? `${globalStats.churn.rate.toLocaleString("he-IL", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}%`
+                  : "—"}
+              </p>
+              <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                {globalStats.churn.cancelled.toLocaleString("he-IL")} עסקים בוטלו ב־30 הימים האחרונים
+                {" · "}
+                מתוך {globalStats.churn.wasActive.toLocaleString("he-IL")} שהיו פעילים לפני 30 יום
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-1">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="size-4 text-violet-600" />
+                התפלגות תוכניות
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <PlanDistributionBar dist={globalStats.planDistribution} />
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-slate-400" />
+                    חינם
+                  </span>
+                  <span className="tabular-nums font-medium">
+                    {globalStats.planDistribution.free.toLocaleString("he-IL")}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-blue-500" />
+                    Starter
+                  </span>
+                  <span className="tabular-nums font-medium">
+                    {globalStats.planDistribution.starter.toLocaleString("he-IL")}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-violet-500" />
+                    Pro
+                  </span>
+                  <span className="tabular-nums font-medium">
+                    {globalStats.planDistribution.pro.toLocaleString("he-IL")}
+                  </span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanDistributionBar({
+  dist,
+}: {
+  dist: { free: number; starter: number; pro: number };
+}) {
+  const total = dist.free + dist.starter + dist.pro;
+  if (total === 0) {
+    return (
+      <div className="h-3 w-full rounded-full bg-slate-100" aria-hidden />
+    );
+  }
+  const pct = (n: number) => (n / total) * 100;
+  return (
+    <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100" role="img" aria-label="התפלגות תוכניות">
+      {dist.free > 0 && (
+        <div
+          className="bg-slate-400 transition-all"
+          style={{ width: `${pct(dist.free)}%` }}
+          title={`חינם: ${dist.free}`}
+        />
+      )}
+      {dist.starter > 0 && (
+        <div
+          className="bg-blue-500 transition-all"
+          style={{ width: `${pct(dist.starter)}%` }}
+          title={`Starter: ${dist.starter}`}
+        />
+      )}
+      {dist.pro > 0 && (
+        <div
+          className="bg-violet-500 transition-all"
+          style={{ width: `${pct(dist.pro)}%` }}
+          title={`Pro: ${dist.pro}`}
+        />
+      )}
     </div>
   );
 }

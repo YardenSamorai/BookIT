@@ -2,7 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, CalendarDays, TicketCheck, Globe } from "lucide-react";
+import {
+  LayoutDashboard,
+  Building2,
+  CalendarDays,
+  TicketCheck,
+  Globe,
+  Users,
+  Megaphone,
+  Activity,
+  DollarSign,
+  Tag,
+  ShieldCheck,
+  Mail,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,8 +31,15 @@ import {
 const navItems = [
   { title: "דשבורד", href: "/admin", icon: LayoutDashboard },
   { title: "עסקים", href: "/admin/businesses", icon: Building2 },
+  { title: "משתמשים", href: "/admin/users", icon: Users },
+  { title: "הכנסות", href: "/admin/revenue", icon: DollarSign },
+  { title: "קופונים", href: "/admin/coupons", icon: Tag },
   { title: "טיקטים", href: "/admin/tickets", icon: TicketCheck },
   { title: "סאב-דומיינים", href: "/admin/subdomains", icon: Globe },
+  { title: "הודעות מערכת", href: "/admin/announcements", icon: Megaphone },
+  { title: "בריאות מערכת", href: "/admin/health", icon: Activity },
+  { title: "אימייל", href: "/admin/email", icon: Mail },
+  { title: "הרשאות", href: "/admin/permissions", icon: ShieldCheck },
 ];
 
 export function AdminSidebar() {

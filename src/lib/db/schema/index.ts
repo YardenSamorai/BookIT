@@ -13,5 +13,6 @@ export * from "./notifications";
 export * from "./reviews";
 export * from "./cards";
 export * from "./admin-billing";
+export * from "./admin";
 export * from "./calendar";
 export * from "./tickets";
