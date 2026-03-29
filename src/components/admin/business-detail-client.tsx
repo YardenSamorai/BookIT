@@ -14,6 +14,7 @@ import {
   Settings,
   Power,
   PowerOff,
+  LayoutGrid,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,9 @@ import {
   setGalleryQuotaOverride,
   createBillingRecord,
   updateBillingRecord,
+  updateBusinessModules,
 } from "@/actions/admin";
+import { Switch } from "@/components/ui/switch";
 
 interface BusinessDetailData {
   business: {
@@ -41,6 +44,7 @@ interface BusinessDetailData {
     messageQuotaOverride: number | null;
     galleryQuotaOverride: number | null;
     brandingRemoved: boolean;
+    enabledModules: string[] | null;
     createdAt: Date;
   };
   owner: { id: string; name: string; email: string | null; phone: string | null } | null;
@@ -111,6 +115,7 @@ const GALLERY_PACKAGES = [
 
 const tabs = [
   { key: "overview", label: "סקירה", icon: Settings },
+  { key: "modules", label: "מודולים", icon: LayoutGrid },
   { key: "messages", label: "הודעות", icon: MessageSquare },
   { key: "billing", label: "חיובים", icon: CreditCard },
   { key: "limits", label: "מגבלות", icon: BarChart3 },
@@ -189,6 +194,14 @@ export function BusinessDetailClient({ data }: { data: BusinessDetailData }) {
       {/* Tab content */}
       {activeTab === "overview" && (
         <OverviewTab
+          data={data}
+          pending={pending}
+          startTransition={startTransition}
+          onSaved={showSaved}
+        />
+      )}
+      {activeTab === "modules" && (
+        <ModulesTab
           data={data}
           pending={pending}
           startTransition={startTransition}
@@ -443,6 +456,104 @@ function OverviewTab({
             מכסה נוכחית: <strong>{data.usage.galleryImages.limit >= 999 ? "∞" : data.usage.galleryImages.limit}</strong> תמונות
             {biz.galleryQuotaOverride ? " (דריסה ידנית)" : " (ברירת מחדל לפי חבילה)"}
           </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── Modules Tab ──
+
+const ALL_MODULES = [
+  { key: "services", label: "שירותים", desc: "ניהול שירותים ומחירון" },
+  { key: "packages", label: "כרטיסיות ומנויים", desc: "מכירת כרטיסיות ומנויים" },
+  { key: "classes", label: "שיעורים ואימונים", desc: "ניהול שיעורים קבוצתיים" },
+  { key: "staff", label: "צוות", desc: "ניהול עובדים ולוחות זמנים" },
+  { key: "products", label: "מוצרים", desc: "קטלוג מוצרים" },
+  { key: "payments", label: "תשלומים", desc: "מעקב תשלומים" },
+  { key: "messages", label: "הודעות", desc: "SMS ו-WhatsApp" },
+  { key: "reviews", label: "ביקורות", desc: "ביקורות לקוחות" },
+  { key: "statistics", label: "סטטיסטיקות", desc: "דוחות ונתונים" },
+];
+
+function ModulesTab({
+  data,
+  pending,
+  startTransition,
+  onSaved,
+}: {
+  data: BusinessDetailData;
+  pending: boolean;
+  startTransition: (fn: () => void) => void;
+  onSaved: () => void;
+}) {
+  const currentModules = data.business.enabledModules;
+  const allEnabled = currentModules === null;
+
+  function isEnabled(key: string) {
+    if (allEnabled) return true;
+    return currentModules!.includes(key);
+  }
+
+  function handleToggle(key: string, enabled: boolean) {
+    let newModules: string[];
+    if (allEnabled) {
+      newModules = ALL_MODULES.map((m) => m.key).filter((k) => k !== key || enabled);
+    } else {
+      if (enabled) {
+        newModules = [...currentModules!, key];
+      } else {
+        newModules = currentModules!.filter((k) => k !== key);
+      }
+    }
+    startTransition(async () => {
+      await updateBusinessModules(data.business.id, newModules);
+      onSaved();
+    });
+  }
+
+  function handleEnableAll() {
+    startTransition(async () => {
+      await updateBusinessModules(data.business.id, null);
+      onSaved();
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium">מודולים פעילים</CardTitle>
+            {!allEnabled && (
+              <Button variant="outline" size="sm" onClick={handleEnableAll} disabled={pending}>
+                הפעל הכל
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            בחרו אילו עמודים יהיו זמינים לבעל העסק בדשבורד
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {ALL_MODULES.map((mod) => (
+              <div
+                key={mod.key}
+                className="flex items-center justify-between rounded-lg border px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{mod.label}</p>
+                  <p className="text-xs text-muted-foreground">{mod.desc}</p>
+                </div>
+                <Switch
+                  checked={isEnabled(mod.key)}
+                  onCheckedChange={(checked) => handleToggle(mod.key, checked)}
+                  disabled={pending}
+                />
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

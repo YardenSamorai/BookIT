@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getCardTemplates, getBusinessCustomerCards, getBusinessCardUsageHistory, getCardAnalytics } from "@/lib/db/queries/cards";
-import { getBusinessLocale } from "@/lib/db/queries/business";
+import { getBusinessLocale, isModuleEnabled } from "@/lib/db/queries/business";
 import { t } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
 import { CardsDashboard } from "@/components/cards/cards-dashboard";
@@ -9,6 +10,7 @@ import { Plus } from "lucide-react";
 
 export default async function PackagesPage() {
   const { businessId } = await requireBusinessOwner();
+  if (!(await isModuleEnabled(businessId, "packages"))) redirect("/dashboard");
 
   const [templates, customerCards, usageHistory, analytics, locale] =
     await Promise.all([

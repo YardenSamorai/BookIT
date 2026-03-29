@@ -21,6 +21,9 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
+const inputBase =
+  "h-12 w-full rounded-xl border bg-gray-50/50 ps-11 pe-4 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-4 focus:shadow-sm";
+
 export function SignupForm() {
   const router = useRouter();
   const t = useT();
@@ -71,20 +74,20 @@ export function SignupForm() {
   }
 
   const inputClass = (field: string) =>
-    `h-11 w-full rounded-xl border bg-gray-50/50 ps-10 pe-4 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-4 ${
+    `${inputBase} ${
       fieldError === field
         ? "border-red-300 focus:border-red-500 focus:ring-red-500/10"
         : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10"
     }`;
 
   return (
-    <div className="space-y-5">
-      {/* Google button */}
+    <div className="space-y-6">
+      {/* Google sign-in */}
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={googleLoading || loading}
-        className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:shadow active:scale-[0.98] disabled:opacity-60"
       >
         {googleLoading ? (
           <Loader2 className="size-4 animate-spin" />
@@ -97,23 +100,23 @@ export function SignupForm() {
       {/* Divider */}
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-200" />
+          <div className="w-full border-t border-gray-100" />
         </div>
         <div className="relative flex justify-center text-xs">
-          <span className="bg-white px-3 text-gray-400">
+          <span className="bg-white px-4 text-gray-400">
             {t("auth.or" as Parameters<typeof t>[0])}
           </span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+        <div className="space-y-1.5">
+          <Label htmlFor="name" className="text-[13px] font-medium text-gray-600">
             {t("auth.full_name")}
           </Label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
-              <User className="size-4 text-gray-400" />
+              <User className="size-[18px] text-gray-400" />
             </div>
             <input
               id="name"
@@ -127,13 +130,13 @@ export function SignupForm() {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-[13px] font-medium text-gray-600">
             {t("auth.email")}
           </Label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
-              <Mail className="size-4 text-gray-400" />
+              <Mail className="size-[18px] text-gray-400" />
             </div>
             <input
               id="email"
@@ -148,13 +151,13 @@ export function SignupForm() {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+        <div className="space-y-1.5">
+          <Label htmlFor="password" className="text-[13px] font-medium text-gray-600">
             {t("auth.password")}
           </Label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
-              <Lock className="size-4 text-gray-400" />
+              <Lock className="size-[18px] text-gray-400" />
             </div>
             <input
               id="password"
@@ -171,7 +174,7 @@ export function SignupForm() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
@@ -179,7 +182,7 @@ export function SignupForm() {
         <Button
           type="submit"
           disabled={loading || googleLoading}
-          className="h-11 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/30 disabled:opacity-60"
+          className="h-12 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-60"
         >
           {loading ? (
             <span className="inline-flex items-center gap-2">
@@ -192,23 +195,16 @@ export function SignupForm() {
         </Button>
       </form>
 
-      <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-200" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-white px-3 text-gray-400">
-            {t("auth.have_account")}
-          </span>
-        </div>
-      </div>
-
-      <Link
-        href="/login"
-        className="flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50"
-      >
-        {t("auth.login")}
-      </Link>
+      {/* Login link */}
+      <p className="text-center text-sm text-gray-500">
+        {t("auth.have_account")}{" "}
+        <Link
+          href="/login"
+          className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+        >
+          {t("auth.login")}
+        </Link>
+      </p>
     </div>
   );
 }

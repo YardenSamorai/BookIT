@@ -30,7 +30,7 @@ export default async function DashboardLayout({
   const business = session.user.businessId
     ? await db.query.businesses.findFirst({
         where: eq(businesses.id, session.user.businessId),
-        columns: { name: true, slug: true, language: true, subscriptionStatus: true },
+        columns: { name: true, slug: true, language: true, subscriptionStatus: true, enabledModules: true },
       })
     : await getBusinessByOwnerId(session.user.id);
 
@@ -44,11 +44,17 @@ export default async function DashboardLayout({
     return <SuspendedScreen locale={locale} />;
   }
 
+  const rawModules = (business as { enabledModules?: string | null }).enabledModules;
+  let enabledModules: string[] | null = null;
+  if (rawModules) {
+    try { enabledModules = JSON.parse(rawModules); } catch { /* null = all enabled */ }
+  }
+
   return (
     <LocaleProvider locale={locale}>
       <div dir={getDir(locale)}>
         <SidebarProvider>
-          <AppSidebar businessSlug={business?.slug} />
+          <AppSidebar businessSlug={business?.slug} enabledModules={enabledModules} />
           <SidebarInset>
             <Topbar
               userName={session.user.name || "User"}

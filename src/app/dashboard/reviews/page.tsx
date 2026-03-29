@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getBusinessReviews, getBusinessRatingStats, getRatingDistribution } from "@/lib/db/queries/reviews";
-import { getBusinessLocale } from "@/lib/db/queries/business";
+import { getBusinessLocale, isModuleEnabled } from "@/lib/db/queries/business";
 import { t } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReviewList } from "@/components/reviews/review-list";
@@ -8,6 +9,7 @@ import { ReviewStats } from "@/components/reviews/review-stats";
 
 export default async function ReviewsPage() {
   const { businessId } = await requireBusinessOwner();
+  if (!(await isModuleEnabled(businessId, "reviews"))) redirect("/dashboard");
 
   const [reviewsList, stats, distribution, locale] = await Promise.all([
     getBusinessReviews(businessId),

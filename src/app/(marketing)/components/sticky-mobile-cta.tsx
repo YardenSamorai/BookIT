@@ -24,7 +24,7 @@ export function StickyMobileCta() {
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 p-3 backdrop-blur-md md:hidden">
       <Link
         href="/signup"
-        className="block w-full rounded-xl bg-blue-600 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+        className="block w-full rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 py-3 text-center text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:brightness-105"
       >
         {t("landing.mobile_cta" as never)}
       </Link>

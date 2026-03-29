@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getPaymentData } from "@/lib/db/queries/dashboard";
-import { getBusinessLocale } from "@/lib/db/queries/business";
+import { getBusinessLocale, isModuleEnabled } from "@/lib/db/queries/business";
 import { t } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils/currencies";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,6 +11,7 @@ import { DollarSign, TrendingUp, CalendarDays } from "lucide-react";
 
 export default async function PaymentsPage() {
   const { businessId } = await requireBusinessOwner();
+  if (!(await isModuleEnabled(businessId, "payments"))) redirect("/dashboard");
 
   const [data, locale] = await Promise.all([
     getPaymentData(businessId),

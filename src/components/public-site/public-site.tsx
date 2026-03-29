@@ -220,7 +220,7 @@ export function PublicSite({ data, locale, basePath }: PublicSiteProps) {
         theme={theme}
         socialLinks={socialLinks}
         locale={locale}
-        removeBranding={business.brandingRemoved}
+        removeBranding={business.brandingRemoved || business.subscriptionPlan === "PRO"}
       />
 
       {socialLinks.whatsapp && (

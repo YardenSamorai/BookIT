@@ -225,9 +225,11 @@ export async function sendOwnerBookingNotification(
       }),
     ]);
 
-    const { plan, locale } = await getBusinessInfo(businessId);
+    const { plan, locale, messageQuotaOverride, isCancelled } = await getBusinessInfo(businessId);
+    if (isCancelled) return;
     const limits = getLimitsForPlan(plan);
     if (!limits.whatsappNotifications) return;
+    if (await isOverMessageQuota(businessId, plan, messageQuotaOverride)) return;
 
     const prefs = await getNotificationPrefs(businessId);
 
@@ -301,9 +303,11 @@ export async function sendStaffNotification(
       return;
     }
 
-    const { plan, locale } = await getBusinessInfo(businessId);
+    const { plan, locale, messageQuotaOverride, isCancelled } = await getBusinessInfo(businessId);
+    if (isCancelled) return;
     const limits = getLimitsForPlan(plan);
     if (!limits.whatsappNotifications) return;
+    if (await isOverMessageQuota(businessId, plan, messageQuotaOverride)) return;
 
     const prefs = await getNotificationPrefs(businessId);
 

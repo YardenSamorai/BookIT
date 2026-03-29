@@ -45,7 +45,7 @@ const bookings = [
 
 export function DashboardMockup() {
   return (
-    <div className="relative rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden select-none" dir="rtl">
+    <div className="relative rounded-xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden select-none" dir="rtl">
       <div className="flex h-[420px] sm:h-[480px]">
         {/* Sidebar */}
         <div className="hidden sm:flex w-48 shrink-0 flex-col border-s border-slate-200 bg-slate-50">

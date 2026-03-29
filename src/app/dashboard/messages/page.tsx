@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { eq, inArray, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, notificationPreferences, notificationLogs, users } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
+import { isModuleEnabled } from "@/lib/db/queries/business";
 import { getNotificationLogs, getNotificationStats, cleanupMisattributedLogs } from "@/lib/db/queries/notifications";
 import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
 import { getOrCreateTemplates } from "@/lib/notifications/templates";
@@ -11,6 +13,7 @@ import { MessagesPageClient } from "@/components/messages/messages-page-client";
 
 export default async function MessagesPage() {
   const { businessId } = await requireBusinessOwner();
+  if (!(await isModuleEnabled(businessId, "messages"))) redirect("/dashboard");
 
   await cleanupMisattributedLogs(businessId);
 

@@ -1,5 +1,6 @@
+import { redirect } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
-import { getBusinessLocale } from "@/lib/db/queries/business";
+import { getBusinessLocale, isModuleEnabled } from "@/lib/db/queries/business";
 import { getClassSchedules } from "@/lib/db/queries/classes";
 import { getServices } from "@/lib/db/queries/services";
 import { getStaffMembers } from "@/lib/db/queries/staff";
@@ -9,6 +10,7 @@ import { ClassScheduleList } from "@/components/classes/class-schedule-list";
 
 export default async function ClassesPage() {
   const { businessId } = await requireBusinessOwner();
+  if (!(await isModuleEnabled(businessId, "classes"))) redirect("/dashboard");
   const locale = await getBusinessLocale(businessId);
   const [schedules, allServices, allStaff] = await Promise.all([
     getClassSchedules(businessId),

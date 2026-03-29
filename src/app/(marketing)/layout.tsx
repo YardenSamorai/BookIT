@@ -9,7 +9,7 @@ export default function MarketingLayout({
   return (
     <SessionProvider>
       <LocaleProvider locale="he">
-        <div className="min-h-screen bg-background" dir="rtl">{children}</div>
+        <div className="min-h-screen" dir="rtl">{children}</div>
       </LocaleProvider>
     </SessionProvider>
   );

@@ -39,6 +39,7 @@ interface SiteEditorShellProps {
   hours: HoursRow[];
   products: Product[];
   maxGalleryImages?: number;
+  allThemePresets?: boolean;
 }
 
 const DEFAULT_SECTIONS: SiteSection[] = [
@@ -89,6 +90,7 @@ export function SiteEditorShell({
   hours,
   products: productList,
   maxGalleryImages = 50,
+  allThemePresets = false,
 }: SiteEditorShellProps) {
   const t = useT();
 
@@ -203,6 +205,7 @@ export function SiteEditorShell({
             brand={brand}
             themePresetId={themePresetId}
             fontId={fontId}
+            allThemePresets={allThemePresets}
             onBrandChange={updateBrand}
             onThemeChange={setThemePresetId}
             onFontChange={setFontId}

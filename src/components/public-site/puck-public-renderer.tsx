@@ -106,7 +106,7 @@ export function PuckPublicRenderer({
           theme={theme}
           socialLinks={socialLinks}
           locale={locale}
-          removeBranding={business.brandingRemoved}
+          removeBranding={business.brandingRemoved || business.subscriptionPlan === "PRO"}
         />
 
         {socialLinks.whatsapp && (

@@ -40,6 +40,7 @@ export default async function SiteEditorPage() {
 
   const planLimits = getLimitsForPlan(business.subscriptionPlan as PlanType);
   const maxGalleryImages = business.galleryQuotaOverride ?? planLimits.maxGalleryImages;
+  const allThemePresets = planLimits.allThemePresets;
 
   return (
     <div className="space-y-6">
@@ -55,6 +56,7 @@ export default async function SiteEditorPage() {
         hours={hours}
         products={activeProducts}
         maxGalleryImages={maxGalleryImages}
+        allThemePresets={allThemePresets}
       />
     </div>
   );

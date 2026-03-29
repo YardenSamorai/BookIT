@@ -1,10 +1,12 @@
 "use server";
 
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { products } from "@/lib/db/schema";
+import { products, businesses } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
+import { canAddProduct } from "@/lib/plans/gates";
+import type { PlanType } from "@/lib/plans/limits";
 import type { ActionResult } from "@/types";
 
 interface ProductInput {
@@ -29,6 +31,23 @@ export async function createProduct(
   const { businessId: authBizId } = await requireBusinessOwner();
   if (authBizId !== businessId) {
     return { success: false, error: "Unauthorized" };
+  }
+
+  const business = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { subscriptionPlan: true },
+  });
+  const [productCount] = await db
+    .select({ value: count() })
+    .from(products)
+    .where(eq(products.businessId, businessId));
+
+  const gate = canAddProduct(
+    (business?.subscriptionPlan ?? "FREE") as PlanType,
+    productCount.value
+  );
+  if (!gate.allowed) {
+    return { success: false, error: `הגעת למגבלת המוצרים (${gate.limit}). שדרג את החבילה כדי להוסיף עוד.` };
   }
 
   if (!input.title.trim()) {

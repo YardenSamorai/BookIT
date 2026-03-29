@@ -13,6 +13,7 @@ export interface ThemePreset {
   sectionStyle: "clean" | "alternating" | "spaced" | "colored";
   buttonStyle: "solid" | "outline" | "gradient";
   headingSize: "normal" | "large" | "xl";
+  premium?: boolean;
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
@@ -47,6 +48,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     sectionStyle: "spaced",
     buttonStyle: "outline",
     headingSize: "xl",
+    premium: true,
   },
   {
     id: "bold",
@@ -63,6 +65,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     sectionStyle: "colored",
     buttonStyle: "gradient",
     headingSize: "xl",
+    premium: true,
   },
   {
     id: "minimal",
@@ -95,6 +98,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     sectionStyle: "alternating",
     buttonStyle: "solid",
     headingSize: "large",
+    premium: true,
   },
   {
     id: "fresh",
@@ -111,6 +115,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     sectionStyle: "spaced",
     buttonStyle: "solid",
     headingSize: "large",
+    premium: true,
   },
 ];
 

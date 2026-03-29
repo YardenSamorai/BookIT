@@ -47,6 +47,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@serwist/turbopack": "^9.5.7",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.16",
     "@types/bcryptjs": "^2.4.6",
@@ -54,9 +55,11 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "drizzle-kit": "latest",
+    "esbuild": "^0.27.4",
     "eslint": "latest",
     "eslint-config-next": "latest",
     "postcss": "latest",
+    "serwist": "^9.5.7",
     "tailwindcss": "^4",
     "typescript": "latest"
   }

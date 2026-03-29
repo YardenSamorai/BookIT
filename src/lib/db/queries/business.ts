@@ -35,3 +35,22 @@ export async function isSlugAvailable(slug: string): Promise<boolean> {
   const existing = await getBusinessBySlug(slug);
   return !existing;
 }
+
+export async function getEnabledModules(businessId: string): Promise<string[] | null> {
+  const row = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { enabledModules: true },
+  });
+  if (!row?.enabledModules) return null;
+  try {
+    return JSON.parse(row.enabledModules) as string[];
+  } catch {
+    return null;
+  }
+}
+
+export async function isModuleEnabled(businessId: string, moduleKey: string): Promise<boolean> {
+  const modules = await getEnabledModules(businessId);
+  if (modules === null) return true;
+  return modules.includes(moduleKey);
+}

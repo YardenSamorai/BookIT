@@ -687,7 +687,7 @@ function AppointmentImportWizard({
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [showErrors, setShowErrors] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number; error?: string } | null>(null);
 
   const svcLookup = useMemo(() => {
     const map: Record<string, ServiceInfo> = {};
@@ -837,6 +837,10 @@ function AppointmentImportWizard({
       if (res.success) {
         imported += res.data.imported;
         skipped += res.data.skipped;
+      } else {
+        setResult({ imported, skipped, error: res.error });
+        router.refresh();
+        return;
       }
       setProgress({ done: Math.min(i + batchSize, mappedRows.length), total: mappedRows.length });
     }
@@ -1232,6 +1236,9 @@ function AppointmentImportWizard({
               </div>
               {result.skipped > 0 && (
                 <p className="text-xs text-center text-muted-foreground max-w-sm">{t("apt.import_skipped_note" as any)}</p>
+              )}
+              {result.error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{result.error}</div>
               )}
             </div>
           )}

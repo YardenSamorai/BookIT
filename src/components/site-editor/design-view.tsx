@@ -8,7 +8,7 @@ import { ColorPicker } from "@/components/onboarding/color-picker";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/themes/presets";
 import { SITE_FONTS, type SiteFont } from "@/lib/themes/fonts";
-import { Check, ChevronDown, ChevronRight, ChevronUp, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, Lock, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface DesignViewProps {
@@ -20,6 +20,7 @@ interface DesignViewProps {
   };
   themePresetId: string;
   fontId: string | null;
+  allThemePresets?: boolean;
   onBrandChange: (patch: Partial<DesignViewProps["brand"]>) => void;
   onThemeChange: (presetId: string) => void;
   onFontChange: (fontId: string | null) => void;
@@ -65,6 +66,7 @@ export function DesignView({
   brand,
   themePresetId,
   fontId,
+  allThemePresets = false,
   onBrandChange,
   onThemeChange,
   onFontChange,
@@ -86,15 +88,19 @@ export function DesignView({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {THEME_PRESETS.map((preset) => (
-              <ThemePresetCard
-                key={preset.id}
-                preset={preset}
-                isSelected={themePresetId === preset.id}
-                onSelect={() => onThemeChange(preset.id)}
-                t={t}
-              />
-            ))}
+            {THEME_PRESETS.map((preset) => {
+              const locked = !!preset.premium && !allThemePresets;
+              return (
+                <ThemePresetCard
+                  key={preset.id}
+                  preset={preset}
+                  isSelected={themePresetId === preset.id}
+                  locked={locked}
+                  onSelect={() => { if (!locked) onThemeChange(preset.id); }}
+                  t={t}
+                />
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -251,11 +257,13 @@ export function DesignView({
 function ThemePresetCard({
   preset,
   isSelected,
+  locked,
   onSelect,
   t,
 }: {
   preset: ThemePreset;
   isSelected: boolean;
+  locked?: boolean;
   onSelect: () => void;
   t: (key: any) => string;
 }) {
@@ -263,13 +271,21 @@ function ThemePresetCard({
     <button
       type="button"
       onClick={onSelect}
+      disabled={locked}
       className={`relative flex flex-col gap-2 rounded-xl border-2 p-3 text-start transition-all ${
-        isSelected
-          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-          : "border-muted hover:border-muted-foreground/30"
+        locked
+          ? "cursor-not-allowed border-muted opacity-60"
+          : isSelected
+            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+            : "border-muted hover:border-muted-foreground/30"
       }`}
     >
-      {isSelected && (
+      {locked && (
+        <div className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white">
+          <Lock className="size-3" />
+        </div>
+      )}
+      {!locked && isSelected && (
         <div className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-primary text-white">
           <Check className="size-3" />
         </div>
@@ -318,7 +334,10 @@ function ThemePresetCard({
         </div>
       </div>
       <div>
-        <p className="text-sm font-semibold">{t(preset.nameKey)}</p>
+        <p className="text-sm font-semibold">
+          {t(preset.nameKey)}
+          {locked && <span className="ms-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">PRO</span>}
+        </p>
         <p className="text-xs text-muted-foreground">{t(preset.descriptionKey)}</p>
       </div>
     </button>

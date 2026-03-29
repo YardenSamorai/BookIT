@@ -10,6 +10,9 @@ import { useT } from "@/lib/i18n/locale-context";
 
 type Step = "email" | "code" | "done";
 
+const inputClass =
+  "h-12 w-full rounded-xl border border-gray-200 bg-gray-50/50 ps-11 pe-4 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm";
+
 export function ForgotPasswordForm() {
   const t = useT();
   const k = (key: string) => key as Parameters<typeof t>[0];
@@ -67,16 +70,16 @@ export function ForgotPasswordForm() {
 
   if (step === "done") {
     return (
-      <div className="flex flex-col items-center gap-4 py-6 text-center">
-        <div className="flex size-16 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle2 className="size-8 text-green-600" />
+      <div className="flex flex-col items-center gap-4 py-8 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
+          <CheckCircle2 className="size-8 text-emerald-600" />
         </div>
         <p className="text-base font-medium text-gray-900">
           {t(k("auth.reset_success"))}
         </p>
         <Link
           href="/login"
-          className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-700"
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-700 active:scale-[0.98]"
         >
           {t(k("auth.login"))}
           <ArrowRight className="size-4 rtl:rotate-180" />
@@ -86,16 +89,16 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {step === "email" && (
         <form onSubmit={handleSendCode} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-[13px] font-medium text-gray-600">
               {t(k("auth.reset_email_label"))}
             </Label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
-                <Mail className="size-4 text-gray-400" />
+                <Mail className="size-[18px] text-gray-400" />
               </div>
               <input
                 id="email"
@@ -106,13 +109,13 @@ export function ForgotPasswordForm() {
                 required
                 autoComplete="email"
                 dir="ltr"
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50/50 ps-10 pe-4 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className={inputClass}
               />
             </div>
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
@@ -120,7 +123,7 @@ export function ForgotPasswordForm() {
           <Button
             type="submit"
             disabled={loading}
-            className="h-11 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/30 disabled:opacity-60"
+            className="h-12 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-60"
           >
             {loading ? (
               <span className="inline-flex items-center gap-2">
@@ -136,19 +139,19 @@ export function ForgotPasswordForm() {
 
       {step === "code" && (
         <form onSubmit={handleResetPassword} className="space-y-5">
-          <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {t(k("auth.reset_code_sent"))}
             <br />
             <span className="font-mono font-medium" dir="ltr">{phoneMasked}</span>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="code" className="text-sm font-medium text-gray-700">
+          <div className="space-y-1.5">
+            <Label htmlFor="code" className="text-[13px] font-medium text-gray-600">
               {t(k("auth.reset_code_label"))}
             </Label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
-                <KeyRound className="size-4 text-gray-400" />
+                <KeyRound className="size-[18px] text-gray-400" />
               </div>
               <input
                 id="code"
@@ -160,18 +163,18 @@ export function ForgotPasswordForm() {
                 required
                 maxLength={6}
                 dir="ltr"
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50/50 ps-10 pe-4 text-center text-lg font-mono tracking-[0.3em] text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50/50 ps-11 pe-4 text-center text-lg font-mono tracking-[0.3em] text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm"
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">
+          <div className="space-y-1.5">
+            <Label htmlFor="newPassword" className="text-[13px] font-medium text-gray-600">
               {t(k("auth.reset_new_password"))}
             </Label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
-                <Lock className="size-4 text-gray-400" />
+                <Lock className="size-[18px] text-gray-400" />
               </div>
               <input
                 id="newPassword"
@@ -182,13 +185,13 @@ export function ForgotPasswordForm() {
                 required
                 minLength={8}
                 dir="ltr"
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50/50 ps-10 pe-4 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className={inputClass}
               />
             </div>
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
@@ -196,7 +199,7 @@ export function ForgotPasswordForm() {
           <Button
             type="submit"
             disabled={loading}
-            className="h-11 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/30 disabled:opacity-60"
+            className="h-12 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-60"
           >
             {loading ? (
               <span className="inline-flex items-center gap-2">
@@ -210,12 +213,14 @@ export function ForgotPasswordForm() {
         </form>
       )}
 
-      <Link
-        href="/login"
-        className="flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50"
-      >
-        {t(k("auth.reset_back"))}
-      </Link>
+      <p className="text-center text-sm text-gray-500">
+        <Link
+          href="/login"
+          className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+        >
+          {t(k("auth.reset_back"))}
+        </Link>
+      </p>
     </div>
   );
 }

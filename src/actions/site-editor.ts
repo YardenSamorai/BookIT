@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { businesses, siteConfigs, services } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
+import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
 import {
   updateSectionsSchema,
   updateBrandSchema,
@@ -40,6 +41,21 @@ export async function updateSiteSections(
   }
 
   const sections = parsed.data as SiteSection[];
+
+  const business = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { subscriptionPlan: true, galleryQuotaOverride: true },
+  });
+  const limits = getLimitsForPlan((business?.subscriptionPlan ?? "FREE") as PlanType);
+  const maxGallery = business?.galleryQuotaOverride ?? limits.maxGalleryImages;
+
+  for (const section of sections) {
+    if (section.type === "gallery" && Array.isArray(section.content?.images)) {
+      if (section.content.images.length > maxGallery) {
+        return { success: false, error: `מגבלת תמונות גלריה: עד ${maxGallery} תמונות. שדרג את החבילה כדי להוסיף עוד.` };
+      }
+    }
+  }
 
   await db
     .update(siteConfigs)
@@ -81,6 +97,19 @@ export async function updateThemePreset(
   presetId: string
 ): Promise<ActionResult> {
   const { businessId } = await requireBusinessOwner();
+
+  const { getThemePreset } = await import("@/lib/themes/presets");
+  const preset = getThemePreset(presetId);
+  if (preset.premium) {
+    const { isFeatureEnabled } = await import("@/lib/plans/gates");
+    const biz = await db.query.businesses.findFirst({
+      where: eq(businesses.id, businessId),
+      columns: { subscriptionPlan: true },
+    });
+    if (!isFeatureEnabled((biz?.subscriptionPlan ?? "FREE") as PlanType, "allThemePresets")) {
+      return { success: false, error: "ערכת עיצוב זו זמינה רק בחבילת PRO. שדרג כדי לפתוח את כל הערכות." };
+    }
+  }
 
   await db
     .update(siteConfigs)

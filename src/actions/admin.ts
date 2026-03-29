@@ -561,6 +561,7 @@ export async function getAdminBusinessDetail(businessId: string) {
       messageQuotaOverride: biz.messageQuotaOverride,
       galleryQuotaOverride: biz.galleryQuotaOverride,
       brandingRemoved: biz.brandingRemoved,
+      enabledModules: biz.enabledModules ? JSON.parse(biz.enabledModules) as string[] : null,
       createdAt: biz.createdAt,
     },
     owner: owner ?? null,
@@ -901,4 +902,24 @@ export async function sendBulkEmail(input: {
   }
 
   return { success: true, sent, failed };
+}
+
+export async function updateBusinessModules(
+  businessId: string,
+  modules: string[] | null
+): Promise<ActionResult> {
+  await requireSuperAdmin();
+
+  await db
+    .update(businesses)
+    .set({
+      enabledModules: modules ? JSON.stringify(modules) : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(businesses.id, businessId));
+
+  revalidatePath(`/admin/businesses/${businessId}`);
+  revalidatePath("/dashboard");
+
+  return { success: true };
 }

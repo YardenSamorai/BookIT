@@ -23,7 +23,42 @@ import {
   updateGoogleEvent,
   deleteGoogleEvent,
 } from "@/lib/calendar/google-sync";
+import { canCreateBooking } from "@/lib/plans/gates";
+import type { PlanType } from "@/lib/plans/limits";
 import type { ActionResult } from "@/types";
+
+async function checkBookingQuota(businessId: string, countToAdd = 1): Promise<{ allowed: boolean; error?: string }> {
+  const business = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { subscriptionPlan: true, subscriptionStatus: true },
+  });
+  if (!business) return { allowed: false, error: "Business not found" };
+  if (business.subscriptionStatus === "CANCELLED") return { allowed: false, error: "ACCOUNT_SUSPENDED" };
+
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [{ value: monthlyCount }] = await db
+    .select({ value: count() })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.businessId, businessId),
+        gte(appointments.createdAt, monthStart),
+        ne(appointments.status, "CANCELLED")
+      )
+    );
+
+  const gate = canCreateBooking(
+    (business.subscriptionPlan ?? "FREE") as PlanType,
+    monthlyCount + countToAdd - 1
+  );
+  if (!gate.allowed) {
+    return { allowed: false, error: `הגעת למגבלת ההזמנות החודשית (${gate.limit}). שדרג את החבילה כדי להמשיך.` };
+  }
+  return { allowed: true };
+}
 
 async function findActivePackage(customerId: string, serviceId: string) {
   const now = new Date();
@@ -79,6 +114,9 @@ export async function createAppointment(
   if (!parsed.success) {
     return { success: false, error: parsed.error.errors[0].message };
   }
+
+  const quota = await checkBookingQuota(businessId);
+  if (!quota.allowed) return { success: false, error: quota.error! };
 
   const { serviceId, staffId, startTime: startTimeStr, notes, classInstanceId } = parsed.data;
   const startTime = new Date(startTimeStr);
@@ -373,6 +411,9 @@ export async function createManualAppointment(input: {
   const { requireBusinessOwner } = await import("@/lib/auth/guards");
   await requireBusinessOwner();
 
+  const quota = await checkBookingQuota(input.businessId);
+  if (!quota.allowed) return { success: false, error: quota.error! };
+
   const { businessId, customerPhone, customerName, serviceId, staffId, startTime: startTimeStr, notes, durationMinutes: customDurationMin, customerCardId: inputCardId } = input;
 
   if (!customerPhone?.trim() || !customerName?.trim()) {
@@ -636,6 +677,9 @@ export async function enrollCustomerInClass(input: {
 }): Promise<ActionResult<{ appointmentId: string }>> {
   const { requireBusinessOwner } = await import("@/lib/auth/guards");
   await requireBusinessOwner();
+
+  const quota = await checkBookingQuota(input.businessId);
+  if (!quota.allowed) return { success: false, error: quota.error! };
 
   const { businessId, customerPhone, customerName, classInstanceId, notes, customerCardId: inputClassCardId } = input;
 
@@ -1256,6 +1300,9 @@ export async function importAppointments(
   const { requireBusinessOwner: guard } = await import("@/lib/auth/guards");
   const { businessId } = await guard();
 
+  const quota = await checkBookingQuota(businessId, rows.length);
+  if (!quota.allowed) return { success: false, error: quota.error! };
+
   let imported = 0;
   let skipped = 0;
 
@@ -1378,15 +1425,18 @@ export async function createRecurringAppointments(input: {
   const { requireBusinessOwner } = await import("@/lib/auth/guards");
   await requireBusinessOwner();
 
-  const { businessId, customerPhone, customerName, serviceId, staffId, firstStartTime, intervalWeeks, count, notes, customerCardId } = input;
+  const { businessId, customerPhone, customerName, serviceId, staffId, firstStartTime, intervalWeeks, count: recurCount, notes, customerCardId } = input;
 
   if (!customerPhone?.trim() || !customerName?.trim()) {
     return { success: false, error: "Customer name and phone are required" };
   }
 
-  if (count < 2 || count > 52) {
+  if (recurCount < 2 || recurCount > 52) {
     return { success: false, error: "Count must be between 2 and 52" };
   }
+
+  const quota = await checkBookingQuota(businessId, recurCount);
+  if (!quota.allowed) return { success: false, error: quota.error! };
 
   const { users } = await import("@/lib/db/schema");
   const phone = customerPhone.replace(/[\s\-()]/g, "");
@@ -1423,7 +1473,7 @@ export async function createRecurringAppointments(input: {
   const createdIds: string[] = [];
   let skipped = 0;
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < recurCount; i++) {
     const startTime = new Date(new Date(firstStartTime).getTime() + i * intervalMs);
     const endTime = new Date(startTime.getTime() + durationMs);
 

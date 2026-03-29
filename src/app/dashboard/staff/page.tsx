@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getStaffMembers } from "@/lib/db/queries/staff";
-import { getBusinessLocale } from "@/lib/db/queries/business";
+import { getBusinessLocale, isModuleEnabled } from "@/lib/db/queries/business";
 import { t } from "@/lib/i18n";
 import { PageHeader } from "@/components/shared/page-header";
 import { StaffList } from "@/components/staff/staff-list";
@@ -8,6 +9,7 @@ import { CreateStaffButton } from "@/components/staff/create-staff-button";
 
 export default async function StaffPage() {
   const { businessId } = await requireBusinessOwner();
+  if (!(await isModuleEnabled(businessId, "staff"))) redirect("/dashboard");
   const [staff, locale] = await Promise.all([
     getStaffMembers(businessId),
     getBusinessLocale(businessId),
