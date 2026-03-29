@@ -1,3 +1,4 @@
+import { SessionProvider } from "next-auth/react";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 
 export default function MarketingLayout({
@@ -6,8 +7,10 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <LocaleProvider locale="he">
-      <div className="min-h-screen bg-background" dir="rtl">{children}</div>
-    </LocaleProvider>
+    <SessionProvider>
+      <LocaleProvider locale="he">
+        <div className="min-h-screen bg-background" dir="rtl">{children}</div>
+      </LocaleProvider>
+    </SessionProvider>
   );
 }
