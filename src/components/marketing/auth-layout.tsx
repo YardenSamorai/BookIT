@@ -14,7 +14,7 @@ import { t } from "@/lib/i18n";
 
 const locale = "he";
 
-const k = (key: string) => key as Parameters<typeof t>[0];
+const k = (key: string) => key as Parameters<typeof t>[1];
 
 const features = [
   { icon: CalendarDays, label: t(locale, k("auth.feature_calendar")) },
