@@ -27,6 +27,7 @@ export function SiteHero({
     t(locale, "pub.default_subtitle");
   const ctaText = (content.cta_text as string) || t(locale, "pub.book_appointment");
   const ctaSecondary = (content.cta_secondary_text as string) || "";
+  const ctaSecondaryLink = (content.cta_secondary_link as string) || "#gallery";
   const overlayOpacity = (content.overlay_opacity as number) ?? 0.5;
   const layout = (content.layout as string) || "center";
   const showBadge = (content.show_badge as boolean) ?? true;
@@ -179,7 +180,7 @@ export function SiteHero({
               </a>
               {ctaSecondary && (
                 <a
-                  href="#contact"
+                  href={ctaSecondaryLink}
                   className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta2Bg ? "" : ghostBorder}`}
                   style={secondaryButtonStyle}
                 >
@@ -242,7 +243,7 @@ export function SiteHero({
         </a>
         {ctaSecondary && (
           <a
-            href="#contact"
+            href={ctaSecondaryLink}
             className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta2Bg ? "" : ghostBorder}`}
             style={secondaryButtonStyle}
           >

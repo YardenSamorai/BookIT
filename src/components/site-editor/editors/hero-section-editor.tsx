@@ -178,6 +178,50 @@ export function HeroSectionEditor({ content, onChange, coverImageUrl = "" }: Her
               />
             </div>
           </div>
+
+          {(content.cta_secondary_text as string) && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t("hero.secondary_link" as any)}</Label>
+                <Select
+                  value={(content.cta_secondary_link as string) ?? "#gallery"}
+                  onValueChange={(v) => {
+                    if (v === "__custom__") {
+                      onChange({ cta_secondary_link: "" });
+                    } else {
+                      onChange({ cta_secondary_link: v });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="#gallery">{t("hero.link_gallery" as any)}</SelectItem>
+                    <SelectItem value="#services">{t("hero.link_services" as any)}</SelectItem>
+                    <SelectItem value="#contact">{t("hero.link_contact" as any)}</SelectItem>
+                    <SelectItem value="#about">{t("hero.link_about" as any)}</SelectItem>
+                    <SelectItem value="#testimonials">{t("hero.link_testimonials" as any)}</SelectItem>
+                    <SelectItem value="#booking">{t("hero.link_booking" as any)}</SelectItem>
+                    <SelectItem value="#team">{t("hero.link_team" as any)}</SelectItem>
+                    <SelectItem value="#products">{t("hero.link_products" as any)}</SelectItem>
+                    <SelectItem value="__custom__">{t("hero.link_custom" as any)}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {!(content.cta_secondary_link as string)?.startsWith("#") && (content.cta_secondary_link as string) !== undefined && (
+                <div className="space-y-2">
+                  <Label>URL</Label>
+                  <Input
+                    value={(content.cta_secondary_link as string) ?? ""}
+                    onChange={(e) => onChange({ cta_secondary_link: e.target.value })}
+                    placeholder="https://..."
+                    dir="ltr"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
