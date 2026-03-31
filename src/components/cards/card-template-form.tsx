@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, Scissors, Settings } from "lucide-react";
+import { CreditCard, Scissors, Settings, Dumbbell } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ interface Service {
   title: string;
   durationMinutes: number;
   price: string | null;
+  isGroup?: boolean;
 }
 
 interface TemplateData {
@@ -272,10 +273,26 @@ export function CardTemplateForm({
                       onChange={() => toggleService(svc.id)}
                       className="size-4 rounded border-gray-300"
                     />
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md" style={{
+                      backgroundColor: svc.isGroup ? "#ede9fe" : "#f0f9ff",
+                    }}>
+                      {svc.isGroup
+                        ? <Dumbbell className="size-3.5 text-violet-600" />
+                        : <Scissors className="size-3.5 text-blue-600" />}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {svc.title}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">
+                          {svc.title}
+                        </p>
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
+                          svc.isGroup
+                            ? "bg-violet-100 text-violet-700"
+                            : "bg-blue-50 text-blue-600"
+                        }`}>
+                          {svc.isGroup ? t("card.type_class" as never) : t("card.type_service" as never)}
+                        </span>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {svc.durationMinutes} min
                         {svc.price ? ` · ₪${svc.price}` : ""}

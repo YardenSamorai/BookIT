@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, count, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, ne, count, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   classSchedules,
@@ -96,7 +96,7 @@ export async function getInstanceBookingCount(instanceId: string) {
     .where(
       and(
         eq(appointments.classInstanceId, instanceId),
-        eq(appointments.status, "CONFIRMED")
+        ne(appointments.status, "CANCELLED")
       )
     );
   return result?.value ?? 0;

@@ -616,11 +616,12 @@ export async function cancelParticipantBooking(
 
   await db
     .update(appointments)
-    .set({ status: "CANCELLED" })
+    .set({ status: "CANCELLED", cancelledAt: new Date(), cancelledBy: "BUSINESS" })
     .where(eq(appointments.id, appointmentId));
 
   revalidatePath("/dashboard/classes");
   revalidatePath("/dashboard/calendar");
+  revalidatePath("/b");
 
   return { success: true, data: undefined };
 }

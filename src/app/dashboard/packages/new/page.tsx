@@ -9,7 +9,7 @@ export default async function NewCardTemplatePage() {
   const { businessId } = await requireBusinessOwner();
   const [locale, serviceList] = await Promise.all([
     getBusinessLocale(businessId),
-    getServices(businessId),
+    getServices(businessId, { includeAutoManaged: true }),
   ]);
 
   const activeServices = serviceList.filter((s) => s.isActive);

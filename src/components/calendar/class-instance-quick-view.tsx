@@ -74,6 +74,7 @@ export function ClassInstanceQuickView({
   const [editEnd, setEditEnd] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [participantsLoaded, setParticipantsLoaded] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -98,6 +99,7 @@ export function ClassInstanceQuickView({
       setParticipants([]);
     } finally {
       setLoadingParticipants(false);
+      setParticipantsLoaded(true);
     }
   }, [instance, businessId]);
 
@@ -115,6 +117,7 @@ export function ClassInstanceQuickView({
       setEditScope(null);
       setShowParticipants(false);
       setParticipants([]);
+      setParticipantsLoaded(false);
       setShowAddForm(false);
       setAddName("");
       setAddPhone("");
@@ -161,7 +164,7 @@ export function ClassInstanceQuickView({
 
   const startDate = new Date(instance.startTime);
   const endDate = new Date(instance.endTime);
-  const booked = participants.length > 0 ? participants.length : (instance.bookedCount ?? 0);
+  const booked = participantsLoaded ? participants.length : (instance.bookedCount ?? 0);
 
   const dateStr = startDate.toLocaleDateString(dtLocale, {
     weekday: "short",

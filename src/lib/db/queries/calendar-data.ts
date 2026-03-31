@@ -222,7 +222,7 @@ async function getClassInstancesWithCounts(
       cnt: count().as("cnt"),
     })
     .from(appointments)
-    .where(eq(appointments.status, "CONFIRMED"))
+    .where(ne(appointments.status, "CANCELLED"))
     .groupBy(appointments.classInstanceId)
     .as("booked");
 

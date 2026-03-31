@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lte, count, sql, inArray } from "drizzle-orm";
+import { and, eq, ne, gte, lte, count, sql, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   classInstances,
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               eq(appointments.customerId, customer.id),
-              eq(appointments.status, "CONFIRMED"),
+              ne(appointments.status, "CANCELLED"),
               sql`${appointments.classInstanceId} IS NOT NULL`
             )
           );
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               eq(appointments.classInstanceId, inst.id),
-              eq(appointments.status, "CONFIRMED")
+              ne(appointments.status, "CANCELLED")
             )
           );
         return {

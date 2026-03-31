@@ -18,7 +18,7 @@ export default async function EditCardTemplatePage({
   const [locale, template, serviceList] = await Promise.all([
     getBusinessLocale(businessId),
     getCardTemplateById(id),
-    getServices(businessId),
+    getServices(businessId, { includeAutoManaged: true }),
   ]);
 
   if (!template || template.businessId !== businessId) {
