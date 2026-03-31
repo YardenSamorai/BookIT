@@ -28,6 +28,8 @@ export function SiteHero({
   const ctaText = (content.cta_text as string) || t(locale, "pub.book_appointment");
   const ctaSecondary = (content.cta_secondary_text as string) || "";
   const ctaSecondaryLink = (content.cta_secondary_link as string) || "#gallery";
+  const ctaThird = (content.cta_third_text as string) || "";
+  const ctaThirdLink = (content.cta_third_link as string) || "#gallery";
   const overlayOpacity = (content.overlay_opacity as number) ?? 0.5;
   const layout = (content.layout as string) || "center";
   const showBadge = (content.show_badge as boolean) ?? true;
@@ -67,6 +69,8 @@ export function SiteHero({
   const customCtaText = content.cta_text_color as string | undefined;
   const customCta2Bg = content.cta2_bg_color as string | undefined;
   const customCta2Text = content.cta2_text_color as string | undefined;
+  const customCta3Bg = content.cta3_bg_color as string | undefined;
+  const customCta3Text = content.cta3_text_color as string | undefined;
 
   const headingColorStyle: React.CSSProperties = {
     color: customTitleColor || `var(--section-heading, ${defaultHeading})`,
@@ -92,6 +96,13 @@ export function SiteHero({
     ? {
         ...(customCta2Bg ? { backgroundColor: customCta2Bg, borderColor: customCta2Bg } : {}),
         ...(customCta2Text ? { color: customCta2Text } : {}),
+      }
+    : bodyColorStyle;
+
+  const thirdButtonStyle: React.CSSProperties = customCta3Bg || customCta3Text
+    ? {
+        ...(customCta3Bg ? { backgroundColor: customCta3Bg, borderColor: customCta3Bg } : {}),
+        ...(customCta3Text ? { color: customCta3Text } : {}),
       }
     : bodyColorStyle;
 
@@ -187,6 +198,15 @@ export function SiteHero({
                   {ctaSecondary}
                 </a>
               )}
+              {ctaThird && (
+                <a
+                  href={ctaThirdLink}
+                  className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta3Bg ? "" : ghostBorder}`}
+                  style={thirdButtonStyle}
+                >
+                  {ctaThird}
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -248,6 +268,15 @@ export function SiteHero({
             style={secondaryButtonStyle}
           >
             {ctaSecondary}
+          </a>
+        )}
+        {ctaThird && (
+          <a
+            href={ctaThirdLink}
+            className={`border px-6 py-3 text-sm font-semibold transition-all sm:px-8 sm:py-3.5 sm:text-base ${theme.radius.sm} ${customCta3Bg ? "" : ghostBorder}`}
+            style={thirdButtonStyle}
+          >
+            {ctaThird}
           </a>
         )}
       </div>

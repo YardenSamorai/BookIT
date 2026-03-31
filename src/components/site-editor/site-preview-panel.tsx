@@ -294,6 +294,8 @@ function PreviewSection({
         const customCtaText = c.cta_text_color as string | undefined;
         const customCta2Bg = c.cta2_bg_color as string | undefined;
         const customCta2Text = c.cta2_text_color as string | undefined;
+        const customCta3Bg = c.cta3_bg_color as string | undefined;
+        const customCta3Text = c.cta3_text_color as string | undefined;
 
         const previewCtaStyle: React.CSSProperties = customCtaBg
           ? { backgroundColor: customCtaBg, ...(customCtaText ? { color: customCtaText } : {}) }
@@ -345,6 +347,21 @@ function PreviewSection({
                   }}
                 >
                   {c.cta_secondary_text as string}
+                </div>
+              )}
+              {(c.cta_third_text as string) && (
+                <div
+                  className={cn(
+                    "inline-block border px-2 py-0.5 text-[8px] font-semibold",
+                    r,
+                    !customCta3Bg && !customCta3Text && (isDarkText ? "border-gray-300 text-gray-700" : "border-white/30 text-white")
+                  )}
+                  style={{
+                    ...(customCta3Bg ? { backgroundColor: customCta3Bg, borderColor: customCta3Bg } : {}),
+                    ...(customCta3Text ? { color: customCta3Text } : {}),
+                  }}
+                >
+                  {c.cta_third_text as string}
                 </div>
               )}
             </div>
