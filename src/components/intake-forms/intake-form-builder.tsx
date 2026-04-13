@@ -30,6 +30,9 @@ import {
   Save,
   Loader2,
   X,
+  Eye,
+  CheckCircle2,
+  ClipboardCheck,
 } from "lucide-react";
 
 const FIELD_TYPES = [
@@ -70,6 +73,7 @@ export function IntakeFormBuilder({
   );
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   function addField() {
     setFields((prev) => [
@@ -403,15 +407,314 @@ export function IntakeFormBuilder({
         </div>
       )}
 
-      {/* Save */}
-      <Button onClick={handleSave} disabled={isPending} className="w-full sm:w-auto">
-        {isPending ? (
-          <Loader2 className="mr-1.5 size-4 animate-spin" />
-        ) : (
-          <Save className="mr-1.5 size-4" />
-        )}
-        {t("common.save")}
-      </Button>
+      {/* Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={handleSave} disabled={isPending} className="w-full sm:w-auto">
+          {isPending ? (
+            <Loader2 className="mr-1.5 size-4 animate-spin" />
+          ) : (
+            <Save className="mr-1.5 size-4" />
+          )}
+          {t("common.save")}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowPreview(true)}
+          disabled={fields.length === 0}
+          className="w-full sm:w-auto"
+        >
+          <Eye className="mr-1.5 size-4" />
+          {t("intake.preview" as never)}
+        </Button>
+      </div>
+
+      {showPreview && (
+        <IntakeFormPreview
+          title={title || t("intake.form_title" as never)}
+          description={description}
+          fields={fields}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function IntakeFormPreview({
+  title,
+  description,
+  fields,
+  onClose,
+}: {
+  title: string;
+  description: string;
+  fields: IntakeFormField[];
+  onClose: () => void;
+}) {
+  const t = useT();
+  const [responses, setResponses] = useState<Record<string, unknown>>({});
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const secondaryColor = "#3B82F6";
+
+  function setValue(fieldId: string, value: unknown) {
+    setResponses((prev) => ({ ...prev, [fieldId]: value }));
+    setErrors((prev) => ({ ...prev, [fieldId]: false }));
+  }
+
+  function toggleCheckbox(fieldId: string, option: string) {
+    setResponses((prev) => {
+      const current = (prev[fieldId] as string[]) ?? [];
+      return {
+        ...prev,
+        [fieldId]: current.includes(option)
+          ? current.filter((o) => o !== option)
+          : [...current, option],
+      };
+    });
+    setErrors((prev) => ({ ...prev, [fieldId]: false }));
+  }
+
+  function validate(): boolean {
+    const newErrors: Record<string, boolean> = {};
+    let valid = true;
+    for (const field of fields) {
+      if (!field.required) continue;
+      const val = responses[field.id];
+      if (field.type === "consent") {
+        if (val !== true) { newErrors[field.id] = true; valid = false; }
+      } else if (field.type === "checkbox") {
+        if (!Array.isArray(val) || val.length === 0) { newErrors[field.id] = true; valid = false; }
+      } else {
+        if (val == null || String(val).trim() === "") { newErrors[field.id] = true; valid = false; }
+      }
+    }
+    setErrors(newErrors);
+    return valid;
+  }
+
+  function handleTestSubmit() {
+    if (validate()) setSubmitted(true);
+  }
+
+  function handleReset() {
+    setResponses({});
+    setErrors({});
+    setSubmitted(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-5 py-3.5 bg-slate-50">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <Eye className="size-4" />
+            {t("intake.preview" as never)}
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {submitted ? (
+            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+              <div className="flex size-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="size-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                {t("intake.test_success" as never)}
+              </h3>
+              <p className="text-sm text-slate-500">
+                {t("intake.test_success_desc" as never)}
+              </p>
+              <div className="mt-2 w-full rounded-xl border bg-slate-50 p-4 text-start">
+                <p className="mb-2 text-xs font-semibold text-slate-500 uppercase">
+                  {t("intake.test_data" as never)}
+                </p>
+                <div className="space-y-1.5">
+                  {fields.map((f) => {
+                    const val = responses[f.id];
+                    const display = Array.isArray(val) ? val.join(", ") : val === true ? "✓" : String(val ?? "—");
+                    return (
+                      <div key={f.id} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{f.label}</span>
+                        <span className="font-medium text-slate-900">{display}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" onClick={handleReset}>
+                  {t("intake.test_again" as never)}
+                </Button>
+                <Button onClick={onClose}>
+                  {t("common.close" as never)}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                <ClipboardCheck className="size-5 text-blue-500" />
+                <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+              </div>
+              {description && (
+                <p className="text-sm text-slate-400 mb-4">{description}</p>
+              )}
+              <div className="space-y-4">
+                {fields.map((field) => (
+                  <PreviewFieldRenderer
+                    key={field.id}
+                    field={field}
+                    value={responses[field.id]}
+                    error={errors[field.id]}
+                    secondaryColor={secondaryColor}
+                    onChange={(v) => setValue(field.id, v)}
+                    onToggleCheckbox={(opt) => toggleCheckbox(field.id, opt)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!submitted && (
+          <div className="border-t px-5 py-3.5">
+            <button
+              type="button"
+              onClick={handleTestSubmit}
+              className="flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
+              style={{ backgroundColor: secondaryColor }}
+            >
+              <CheckCircle2 className="size-5" />
+              {t("intake.test_submit" as never)}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PreviewFieldRenderer({
+  field,
+  value,
+  error,
+  secondaryColor,
+  onChange,
+  onToggleCheckbox,
+}: {
+  field: IntakeFormField;
+  value: unknown;
+  error?: boolean;
+  secondaryColor: string;
+  onChange: (value: unknown) => void;
+  onToggleCheckbox: (option: string) => void;
+}) {
+  const borderClass = error
+    ? "border-red-300 ring-1 ring-red-300"
+    : "border-gray-100 focus-within:border-gray-200 focus-within:shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
+
+  switch (field.type) {
+    case "text":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <input type="text" value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} className={`w-full rounded-xl border bg-white px-4 py-3 text-sm shadow-sm transition-all placeholder:text-gray-300 focus:outline-none ${borderClass}`} />
+        </div>
+      );
+    case "textarea":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <textarea value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} rows={3} className={`w-full rounded-xl border bg-white px-4 py-3 text-sm shadow-sm transition-all placeholder:text-gray-300 focus:outline-none ${borderClass}`} />
+        </div>
+      );
+    case "number":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <input type="number" value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} className={`w-full rounded-xl border bg-white px-4 py-3 text-sm shadow-sm transition-all placeholder:text-gray-300 focus:outline-none ${borderClass}`} />
+        </div>
+      );
+    case "date":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <input type="date" value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className={`w-full rounded-xl border bg-white px-4 py-3 text-sm shadow-sm transition-all focus:outline-none ${borderClass}`} />
+        </div>
+      );
+    case "select":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <select value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className={`w-full rounded-xl border bg-white px-4 py-3 text-sm shadow-sm transition-all focus:outline-none ${borderClass}`}>
+            <option value="">{field.placeholder || "—"}</option>
+            {(field.options ?? []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+        </div>
+      );
+    case "radio":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <div className="mt-1.5 space-y-2">
+            {(field.options ?? []).map((opt) => (
+              <label key={opt} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 text-sm">
+                <input type="radio" name={`preview-${field.id}`} checked={(value as string) === opt} onChange={() => onChange(opt)} style={{ accentColor: secondaryColor }} />
+                {opt}
+              </label>
+            ))}
+          </div>
+          {error && <p className="mt-1 text-xs text-red-500">*</p>}
+        </div>
+      );
+    case "checkbox":
+      return (
+        <div>
+          <PreviewLabel label={field.label} required={field.required} />
+          <div className="mt-1.5 space-y-2">
+            {(field.options ?? []).map((opt) => {
+              const checked = Array.isArray(value) && value.includes(opt);
+              return (
+                <label key={opt} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 text-sm">
+                  <input type="checkbox" checked={checked} onChange={() => onToggleCheckbox(opt)} style={{ accentColor: secondaryColor }} />
+                  {opt}
+                </label>
+              );
+            })}
+          </div>
+          {error && <p className="mt-1 text-xs text-red-500">*</p>}
+        </div>
+      );
+    case "consent":
+      return (
+        <div className={`rounded-xl border p-4 ${error ? "border-red-300 bg-red-50/50" : "border-gray-100 bg-gray-50/50"}`}>
+          <label className="flex cursor-pointer items-start gap-3 text-sm">
+            <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4" style={{ accentColor: secondaryColor }} />
+            <span className="flex-1 leading-relaxed text-gray-700">{field.label}</span>
+          </label>
+          {field.required && <p className="mt-1 ps-7 text-[11px] text-gray-400">*</p>}
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
+function PreviewLabel({ label, required }: { label: string; required: boolean }) {
+  return (
+    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+      {label}
+      {required && <span className="ms-0.5 text-red-400">*</span>}
+    </label>
   );
 }

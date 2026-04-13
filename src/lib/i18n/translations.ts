@@ -2290,6 +2290,12 @@ export const translations = {
     "intake.select_form": "Intake Form",
     "intake.select_form_none": "None",
     "intake.add_option": "Add Option",
+    "intake.preview": "Preview & Test",
+    "intake.test_submit": "Test Submit",
+    "intake.test_success": "Form works correctly!",
+    "intake.test_success_desc": "All validations passed. This is how the data looks.",
+    "intake.test_data": "Submitted Data",
+    "intake.test_again": "Test Again",
   },
 
   he: {
@@ -4581,6 +4587,12 @@ export const translations = {
     "intake.select_form": "טופס קליטה",
     "intake.select_form_none": "ללא",
     "intake.add_option": "הוסף אפשרות",
+    "intake.preview": "תצוגה מקדימה ובדיקה",
+    "intake.test_submit": "שלח לבדיקה",
+    "intake.test_success": "הטופס עובד תקין!",
+    "intake.test_success_desc": "כל הבדיקות עברו. כך הנתונים נראים.",
+    "intake.test_data": "נתונים שנשלחו",
+    "intake.test_again": "בדוק שוב",
   },
 } as const;
 
