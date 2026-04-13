@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { businesses } from "@/lib/db/schema";
 import { requireBusinessOwner, requireSuperAdmin } from "@/lib/auth/guards";
-import { eq, and, isNotNull, sql } from "drizzle-orm";
+import { eq, and, ne, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 const RESERVED_SUBDOMAINS = new Set([
@@ -51,6 +51,7 @@ export async function requestSubdomain(subdomain: string) {
   const existing = await db.query.businesses.findFirst({
     where: and(
       eq(businesses.customSubdomain, clean),
+      ne(businesses.subscriptionStatus, "CANCELLED"),
     ),
     columns: { id: true },
   });

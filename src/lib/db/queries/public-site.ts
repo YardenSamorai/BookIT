@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { eq, and, asc, desc, sql } from "drizzle-orm";
+import { eq, and, asc, desc, sql, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   businesses,
@@ -19,10 +19,25 @@ import { getBusinessRatingStats } from "./reviews";
 
 export const getPublicBusinessData = cache(async function getPublicBusinessData(slug: string) {
   let business = await db.query.businesses.findFirst({
-    where: eq(businesses.slug, slug),
+    where: and(eq(businesses.slug, slug), ne(businesses.subscriptionStatus, "CANCELLED")),
   });
 
-  // Fallback: try matching by approved custom subdomain
+  if (!business) {
+    business = await db.query.businesses.findFirst({
+      where: eq(businesses.slug, slug),
+    });
+  }
+
+  if (!business) {
+    business = await db.query.businesses.findFirst({
+      where: and(
+        eq(businesses.customSubdomain, slug),
+        eq(businesses.subdomainStatus, "APPROVED"),
+        ne(businesses.subscriptionStatus, "CANCELLED"),
+      ),
+    });
+  }
+
   if (!business) {
     business = await db.query.businesses.findFirst({
       where: and(

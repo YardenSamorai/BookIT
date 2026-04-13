@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { LayoutGrid, List, AlignLeft, GalleryHorizontal, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
+import { LayoutGrid, List, AlignLeft, ChevronUp, ChevronDown, GripVertical, CreditCard } from "lucide-react";
 
 interface ProductItem {
   id: string;
@@ -31,17 +31,20 @@ interface ProductsSectionEditorProps {
 
 const LAYOUTS = [
   { value: "cards", icon: LayoutGrid, labelKey: "products_editor.layout_cards", descKey: "products_editor.layout_cards_desc" },
+  { value: "showcase", icon: CreditCard, labelKey: "products_editor.layout_showcase", descKey: "products_editor.layout_showcase_desc" },
   { value: "list", icon: List, labelKey: "products_editor.layout_list", descKey: "products_editor.layout_list_desc" },
   { value: "minimal", icon: AlignLeft, labelKey: "products_editor.layout_minimal", descKey: "products_editor.layout_minimal_desc" },
-  { value: "carousel", icon: GalleryHorizontal, labelKey: "products_editor.layout_carousel", descKey: "products_editor.layout_carousel_desc" },
 ] as const;
 
 export function ProductsSectionEditor({ content, onChange, products }: ProductsSectionEditorProps) {
   const t = useT();
-  const layout = (content.layout as string) ?? "cards";
+  const raw = (content.layout as string) ?? "cards";
+  const layout = raw === "carousel" ? "cards" : raw;
   const showPrices = content.show_prices !== false;
   const showDescriptions = content.show_descriptions !== false;
   const showImages = content.show_images !== false;
+  const marquee = content.marquee === true || raw === "carousel";
+  const marqueeSpeed = (content.marquee_speed as string) || (content.carousel_speed as string) || "medium";
 
   const savedOrder = Array.isArray(content.product_order) ? (content.product_order as string[]) : null;
 
@@ -134,7 +137,7 @@ export function ProductsSectionEditor({ content, onChange, products }: ProductsS
           {t("products_editor.appearance" as any)}
         </p>
         <div className="space-y-0 divide-y rounded-lg border">
-          {layout === "cards" && (
+          {(layout === "cards" || layout === "showcase") && (
             <div className="flex items-center justify-between px-4 py-3">
               <Label className="text-sm font-normal">{t("products_editor.columns" as any)}</Label>
               <Select
@@ -148,25 +151,6 @@ export function ProductsSectionEditor({ content, onChange, products }: ProductsS
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="3">3</SelectItem>
                   <SelectItem value="4">4</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {layout === "carousel" && (
-            <div className="flex items-center justify-between px-4 py-3">
-              <Label className="text-sm font-normal">{t("products_editor.carousel_speed" as any)}</Label>
-              <Select
-                value={String(content.carousel_speed ?? "medium")}
-                onValueChange={(v) => onChange({ carousel_speed: v })}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="slow">{t("products_editor.speed_slow" as any)}</SelectItem>
-                  <SelectItem value="medium">{t("products_editor.speed_medium" as any)}</SelectItem>
-                  <SelectItem value="fast">{t("products_editor.speed_fast" as any)}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -206,6 +190,44 @@ export function ProductsSectionEditor({ content, onChange, products }: ProductsS
               onCheckedChange={(v) => onChange({ show_descriptions: !!v })}
             />
           </div>
+        </div>
+      </div>
+
+      {/* ── Marquee / Scrolling Strip ── */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {t("products_editor.marquee_section" as any)}
+        </p>
+        <div className="space-y-0 divide-y rounded-lg border">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <Label className="text-sm font-normal">{t("products_editor.marquee" as any)}</Label>
+              <p className="text-[11px] text-muted-foreground">{t("products_editor.marquee_desc" as any)}</p>
+            </div>
+            <Switch
+              checked={marquee}
+              onCheckedChange={(checked) => onChange({ marquee: checked, layout: layout === "carousel" ? "cards" : layout })}
+            />
+          </div>
+
+          {marquee && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <Label className="text-sm font-normal">{t("products_editor.carousel_speed" as any)}</Label>
+              <Select
+                value={marqueeSpeed}
+                onValueChange={(v) => onChange({ marquee_speed: v })}
+              >
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slow">{t("products_editor.speed_slow" as any)}</SelectItem>
+                  <SelectItem value="medium">{t("products_editor.speed_medium" as any)}</SelectItem>
+                  <SelectItem value="fast">{t("products_editor.speed_fast" as any)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

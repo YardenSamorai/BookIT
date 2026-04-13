@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses } from "@/lib/db/schema";
 
@@ -8,29 +8,44 @@ interface Props {
   children: React.ReactNode;
 }
 
+const BIZ_COLS = {
+  name: true,
+  displayName: true,
+  logoUrl: true,
+  primaryColor: true,
+} as const;
+
 async function getBusiness(slug: string) {
   let business = await db.query.businesses.findFirst({
-    where: eq(businesses.slug, slug),
-    columns: {
-      name: true,
-      displayName: true,
-      logoUrl: true,
-      primaryColor: true,
-    },
+    where: and(eq(businesses.slug, slug), ne(businesses.subscriptionStatus, "CANCELLED")),
+    columns: BIZ_COLS,
   });
+
+  if (!business) {
+    business = await db.query.businesses.findFirst({
+      where: eq(businesses.slug, slug),
+      columns: BIZ_COLS,
+    });
+  }
 
   if (!business) {
     business = await db.query.businesses.findFirst({
       where: and(
         eq(businesses.customSubdomain, slug),
-        eq(businesses.subdomainStatus, "APPROVED")
+        eq(businesses.subdomainStatus, "APPROVED"),
+        ne(businesses.subscriptionStatus, "CANCELLED"),
       ),
-      columns: {
-        name: true,
-        displayName: true,
-        logoUrl: true,
-        primaryColor: true,
-      },
+      columns: BIZ_COLS,
+    });
+  }
+
+  if (!business) {
+    business = await db.query.businesses.findFirst({
+      where: and(
+        eq(businesses.customSubdomain, slug),
+        eq(businesses.subdomainStatus, "APPROVED"),
+      ),
+      columns: BIZ_COLS,
     });
   }
 

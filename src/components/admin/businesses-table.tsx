@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
-import { Search, ExternalLink, Power, PowerOff, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, ExternalLink, Power, PowerOff, ArrowUp, ArrowDown, ArrowUpDown, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   changeBusinessPlan,
   changeBusinessStatus,
+  deleteBusiness,
 } from "@/actions/admin";
 
 interface BusinessRow {
@@ -288,13 +289,28 @@ export function BusinessesTable({ businesses }: { businesses: BusinessRow[] }) {
                       {new Date(biz.createdAt).toLocaleDateString("he-IL")}
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/b/${biz.slug}`}
-                        target="_blank"
-                        className="text-muted-foreground hover:text-blue-600"
-                      >
-                        <ExternalLink className="size-3.5" />
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/b/${biz.slug}`}
+                          target="_blank"
+                          className="text-muted-foreground hover:text-blue-600"
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </Link>
+                        <button
+                          disabled={pending}
+                          onClick={() => {
+                            if (!confirm(`למחוק את "${biz.name}" לצמיתות?\nכל הנתונים של העסק יימחקו ולא ניתן יהיה לשחזר.`)) return;
+                            startTransition(async () => {
+                              await deleteBusiness(biz.id);
+                            });
+                          }}
+                          className="rounded p-1 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                          title="מחק עסק"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

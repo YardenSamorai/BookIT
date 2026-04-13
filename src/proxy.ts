@@ -33,10 +33,10 @@ export function proxy(request: NextRequest) {
   const subdomain = getSubdomain(hostnameWithoutPort);
   const { pathname } = request.nextUrl;
 
-  // Skip internal Next.js paths and static files
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
+    pathname.startsWith("/serwist") ||
     pathname.includes(".")
   ) {
     return NextResponse.next();
@@ -62,6 +62,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|icons|manifest).*)",
   ],
 };

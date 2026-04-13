@@ -6,10 +6,10 @@ import { formatPrice } from "@/lib/utils/currencies";
 import type { InferSelectModel } from "drizzle-orm";
 import type { products } from "@/lib/db/schema";
 import type { SiteTheme } from "@/lib/themes/presets";
-import { CreditCard, ExternalLink, ShoppingBag, Wallet } from "lucide-react";
+import { CreditCard, ExternalLink, ShoppingBag, Wallet, Plus } from "lucide-react";
 import { PackagePurchaseButton } from "./package-purchase-button";
-import { CardPurchaseButton } from "./card-purchase-button";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
+import { useCart } from "./cart/cart-context";
 
 type Product = InferSelectModel<typeof products>;
 
@@ -36,12 +36,13 @@ interface SiteProductsProps {
 }
 
 interface DisplayOpts {
-  layout: "cards" | "list" | "minimal" | "carousel";
+  layout: "cards" | "showcase" | "list" | "minimal";
   columns: number;
   showPrices: boolean;
   showDescriptions: boolean;
   showImages: boolean;
-  carouselSpeed: "slow" | "medium" | "fast";
+  marquee: boolean;
+  marqueeSpeed: "slow" | "medium" | "fast";
 }
 
 const SPEED_SECONDS_PER_ITEM: Record<string, number> = {
@@ -51,16 +52,18 @@ const SPEED_SECONDS_PER_ITEM: Record<string, number> = {
 };
 
 function parseDisplayOpts(content: Record<string, unknown>): DisplayOpts {
-  const layout = (content.layout as string) ?? "cards";
-  const valid = ["cards", "list", "minimal", "carousel"] as const;
-  const speed = (content.carousel_speed as string) ?? "medium";
+  const raw = (content.layout as string) ?? "cards";
+  const valid = ["cards", "showcase", "list", "minimal"] as const;
+  const layout = (valid.includes(raw as any) ? raw : raw === "carousel" ? "cards" : "cards") as DisplayOpts["layout"];
+  const speed = (content.marquee_speed as string) || (content.carousel_speed as string) || "medium";
   return {
-    layout: (valid.includes(layout as any) ? layout : "cards") as DisplayOpts["layout"],
+    layout,
     columns: typeof content.columns === "number" ? content.columns : 4,
     showPrices: content.show_prices !== false,
     showDescriptions: content.show_descriptions !== false,
     showImages: layout === "minimal" ? false : content.show_images !== false,
-    carouselSpeed: (["slow", "medium", "fast"].includes(speed) ? speed : "medium") as DisplayOpts["carouselSpeed"],
+    marquee: content.marquee === true || raw === "carousel",
+    marqueeSpeed: (["slow", "medium", "fast"].includes(speed) ? speed : "medium") as DisplayOpts["marqueeSpeed"],
   };
 }
 
@@ -106,8 +109,8 @@ export function SiteProducts({
 
   return (
     <section id="products" className={`${bgClass} py-12 sm:py-24`}>
-      <div className={opts.layout === "carousel" ? "px-0" : "mx-auto max-w-6xl px-4 sm:px-6"}>
-        <div className={`mb-6 text-center sm:mb-12 ${opts.layout === "carousel" ? "px-4 sm:px-6" : ""}`}>
+      <div className={opts.marquee ? "px-0" : "mx-auto max-w-6xl px-4 sm:px-6"}>
+        <div className={`mb-6 text-center sm:mb-12 ${opts.marquee ? "px-4 sm:px-6" : ""}`}>
           <h2
             className={`${theme.headingSize.section} ${theme.headingWeight} ${theme.font} tracking-tight`}
             style={{ color: "var(--section-heading, #111827)" }}
@@ -259,6 +262,47 @@ function ProductGrid({
   businessId: string;
   opts: DisplayOpts;
 }) {
+  const CardComponent = opts.layout === "showcase" ? ProductShowcaseCard
+    : opts.layout === "list" ? ProductListRow
+    : opts.layout === "minimal" ? ProductMinimalRow
+    : ProductCard;
+
+  if (opts.marquee) {
+    return (
+      <ProductMarquee
+        products={products}
+        currency={currency}
+        bookingUrl={bookingUrl}
+        theme={theme}
+        locale={locale}
+        businessId={businessId}
+        opts={opts}
+        CardComponent={CardComponent}
+      />
+    );
+  }
+
+  if (opts.layout === "showcase") {
+    const showcaseCols: Record<number, string> = { 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-3" };
+    const colClass = showcaseCols[opts.columns] ?? showcaseCols[3];
+    return (
+      <div className={`grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 ${colClass}`}>
+        {products.map((product) => (
+          <ProductShowcaseCard
+            key={product.id}
+            product={product}
+            currency={currency}
+            bookingUrl={bookingUrl}
+            theme={theme}
+            locale={locale}
+            businessId={businessId}
+            opts={opts}
+          />
+        ))}
+      </div>
+    );
+  }
+
   if (opts.layout === "list") {
     return (
       <div className="space-y-3">
@@ -297,10 +341,6 @@ function ProductGrid({
     );
   }
 
-  if (opts.layout === "carousel") {
-    return <ProductCarousel products={products} currency={currency} bookingUrl={bookingUrl} theme={theme} locale={locale} businessId={businessId} opts={opts} />;
-  }
-
   const colClass = COL_CLASSES[opts.columns] ?? COL_CLASSES[4];
   return (
     <div className={`grid grid-cols-2 gap-3 sm:gap-6 ${colClass}`}>
@@ -317,6 +357,37 @@ function ProductGrid({
         />
       ))}
     </div>
+  );
+}
+
+function CardAddToCartButton({
+  card,
+  locale,
+  accentColor,
+}: {
+  card: CardTemplate;
+  locale: Locale;
+  accentColor: string;
+}) {
+  const { addItem } = useCart();
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        addItem({
+          productId: `card-${card.id}`,
+          title: card.name,
+          price: Number(card.price),
+          image: null,
+        })
+      }
+      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.97]"
+      style={{ backgroundColor: accentColor }}
+    >
+      <Plus className="size-4" />
+      {t(locale, "cart.add" as never)}
+    </button>
   );
 }
 
@@ -404,10 +475,10 @@ function CardsGrid({
 
               <div className="flex-1" />
 
-              <CardPurchaseButton
-                cardTemplateId={card.id}
-                businessId={businessId}
-                color={theme.secondaryColor || "#6366f1"}
+              <CardAddToCartButton
+                card={card}
+                locale={locale}
+                accentColor={theme.secondaryColor || "#6366f1"}
               />
             </div>
           </div>
@@ -459,11 +530,50 @@ function useProductHelpers(product: Product, currency: string, bookingUrl: strin
         }
       : {};
 
-  return { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps };
+  const canAddToCart = !isPackageProduct && !!product.price && Number(product.price) > 0;
+
+  return { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps, canAddToCart };
+}
+
+function AddToCartButton({
+  product,
+  locale,
+  accentColor,
+  size = "sm",
+}: {
+  product: Product;
+  locale: Locale;
+  accentColor: string;
+  size?: "sm" | "lg";
+}) {
+  const { addItem } = useCart();
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addItem({
+          productId: product.id,
+          title: product.title,
+          price: Number(product.price),
+          image: product.images?.[0] ?? null,
+        });
+      }}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl font-semibold text-white shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.97] ${
+        size === "lg" ? "px-5 py-2.5 text-sm" : "px-3 py-1.5 text-xs"
+      }`}
+      style={{ backgroundColor: accentColor }}
+    >
+      <Plus className={size === "lg" ? "size-4" : "size-3.5"} />
+      {t(locale, "cart.add" as never)}
+    </button>
+  );
 }
 
 function ProductCard({ product, currency, bookingUrl, theme, locale, businessId, opts }: ProductItemProps) {
-  const { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps } =
+  const { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps, canAddToCart } =
     useProductHelpers(product, currency, bookingUrl, locale);
 
   const Wrapper = !isPackageProduct && ctaUrl ? "a" : "div";
@@ -520,47 +630,37 @@ function ProductCard({ product, currency, bookingUrl, theme, locale, businessId,
           </p>
         )}
 
-        {opts.showPrices && price && (
-          <div className="mt-2 sm:mt-3">
+        <div className="flex-1" />
+
+        <div className="mt-2 flex items-center justify-between gap-2 sm:mt-3">
+          {opts.showPrices && price && (
             <span
               className="inline-block rounded-lg px-2.5 py-1 text-xs font-bold text-white sm:text-sm"
               style={{ backgroundColor: theme.secondaryColor }}
             >
               {price}
             </span>
-          </div>
-        )}
+          )}
 
-        {isPackageProduct && (
-          <PackagePurchaseButton
-            productId={product.id}
-            businessId={businessId}
-            color={theme.secondaryColor}
-          />
-        )}
+          {isPackageProduct && (
+            <PackagePurchaseButton
+              productId={product.id}
+              businessId={businessId}
+              color={theme.secondaryColor}
+            />
+          )}
 
-        {!isPackageProduct && ctaUrl && !(opts.showPrices && price) && (
-          <div className="mt-2 sm:mt-3">
-            <span
-              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white sm:text-sm"
-              style={{ backgroundColor: theme.secondaryColor }}
-            >
-              {product.ctaMode === "EXTERNAL_LINK" ? (
-                <ExternalLink className="size-3" />
-              ) : (
-                <ShoppingBag className="size-3" />
-              )}
-              {ctaLabel}
-            </span>
-          </div>
-        )}
+          {canAddToCart && (
+            <AddToCartButton product={product} locale={locale} accentColor={theme.secondaryColor} />
+          )}
+        </div>
       </div>
     </Wrapper>
   );
 }
 
 function ProductListRow({ product, currency, bookingUrl, theme, locale, businessId, opts }: ProductItemProps) {
-  const { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps } =
+  const { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps, canAddToCart } =
     useProductHelpers(product, currency, bookingUrl, locale);
 
   const Wrapper = !isPackageProduct && ctaUrl ? "a" : "div";
@@ -607,7 +707,7 @@ function ProductListRow({ product, currency, bookingUrl, theme, locale, business
         )}
       </div>
 
-      <div className="shrink-0 text-end">
+      <div className="flex shrink-0 items-center gap-2">
         {opts.showPrices && price && (
           <span
             className="inline-block rounded-lg px-3 py-1 text-sm font-bold text-white"
@@ -617,13 +717,14 @@ function ProductListRow({ product, currency, bookingUrl, theme, locale, business
           </span>
         )}
         {isPackageProduct && (
-          <div className="mt-2">
-            <PackagePurchaseButton
-              productId={product.id}
-              businessId={businessId}
-              color={theme.secondaryColor}
-            />
-          </div>
+          <PackagePurchaseButton
+            productId={product.id}
+            businessId={businessId}
+            color={theme.secondaryColor}
+          />
+        )}
+        {canAddToCart && (
+          <AddToCartButton product={product} locale={locale} accentColor={theme.secondaryColor} />
         )}
       </div>
     </Wrapper>
@@ -631,7 +732,7 @@ function ProductListRow({ product, currency, bookingUrl, theme, locale, business
 }
 
 function ProductMinimalRow({ product, currency, bookingUrl, theme, locale, businessId, opts }: ProductItemProps) {
-  const { price, isPackageProduct, ctaUrl, linkProps } =
+  const { price, isPackageProduct, ctaUrl, linkProps, canAddToCart } =
     useProductHelpers(product, currency, bookingUrl, locale);
 
   const Wrapper = !isPackageProduct && ctaUrl ? "a" : "div";
@@ -658,27 +759,132 @@ function ProductMinimalRow({ product, currency, bookingUrl, theme, locale, busin
         )}
       </div>
 
-      {opts.showPrices && price && (
-        <span
-          className="shrink-0 text-sm font-bold"
-          style={{ color: theme.secondaryColor }}
-        >
-          {price}
-        </span>
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {opts.showPrices && price && (
+          <span
+            className="text-sm font-bold"
+            style={{ color: theme.secondaryColor }}
+          >
+            {price}
+          </span>
+        )}
 
-      {isPackageProduct && (
-        <PackagePurchaseButton
-          productId={product.id}
-          businessId={businessId}
-          color={theme.secondaryColor}
-        />
-      )}
+        {isPackageProduct && (
+          <PackagePurchaseButton
+            productId={product.id}
+            businessId={businessId}
+            color={theme.secondaryColor}
+          />
+        )}
+
+        {canAddToCart && (
+          <AddToCartButton product={product} locale={locale} accentColor={theme.secondaryColor} />
+        )}
+      </div>
     </Wrapper>
   );
 }
 
-function ProductCarousel({
+function ProductShowcaseCard({ product, currency, bookingUrl, theme, locale, businessId, opts }: ProductItemProps) {
+  const { image, price, isPackageProduct, ctaUrl, ctaLabel, linkProps, canAddToCart } =
+    useProductHelpers(product, currency, bookingUrl, locale);
+
+  return (
+    <div className="group relative flex flex-col overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+      {opts.showImages && (
+        <div
+          className="relative aspect-square overflow-hidden"
+          style={{ backgroundColor: "#ffffff" }}
+        >
+          {image ? (
+            <img
+              src={image}
+              alt={product.title}
+              className="size-full object-contain p-6 drop-shadow-md transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-2deg]"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center">
+              {isPackageProduct ? (
+                <CreditCard className="size-16 text-gray-300" />
+              ) : (
+                <span className="text-6xl font-black text-gray-200">
+                  {product.title.charAt(0)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {isPackageProduct && (
+            <div className="absolute start-4 top-4 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-800 shadow-md backdrop-blur-sm">
+              <CreditCard className="size-3.5" />
+              {t(locale, "pkg.customer_title" as never)}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col border-t border-gray-100 bg-gradient-to-b from-white to-gray-50/50 p-5 sm:p-6">
+        <h3
+          className="text-xl font-bold tracking-tight"
+          style={{ color: "var(--section-heading, #111827)" }}
+        >
+          {product.title}
+        </h3>
+
+        {opts.showDescriptions && product.description && (
+          <p
+            className="mt-2 text-sm leading-relaxed line-clamp-3"
+            style={{ color: "var(--section-body, #6b7280)" }}
+          >
+            {product.description}
+          </p>
+        )}
+
+        <div className="flex-1" />
+
+        <div className="mt-5 flex items-end justify-between gap-4">
+          {opts.showPrices && price ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                {t(locale, "pub.price" as never)}
+              </p>
+              <p className="text-2xl font-black text-gray-900">{price}</p>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {isPackageProduct ? (
+            <PackagePurchaseButton
+              productId={product.id}
+              businessId={businessId}
+              color={theme.secondaryColor}
+            />
+          ) : ctaUrl ? (
+            <a
+              {...linkProps}
+              className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-bold text-white shadow-md transition-all duration-200 hover:bg-gray-800 hover:shadow-lg active:scale-[0.97]"
+            >
+              {ctaLabel}
+            </a>
+          ) : canAddToCart ? (
+            <AddToCartButton product={product} locale={locale} accentColor={theme.secondaryColor} size="lg" />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MARQUEE_ITEM_WIDTH: Record<DisplayOpts["layout"], string> = {
+  cards: "w-56 sm:w-72",
+  showcase: "w-72 sm:w-80",
+  list: "w-72 sm:w-96",
+  minimal: "w-56 sm:w-72",
+};
+
+function ProductMarquee({
   products,
   currency,
   bookingUrl,
@@ -686,6 +892,7 @@ function ProductCarousel({
   locale,
   businessId,
   opts,
+  CardComponent,
 }: {
   products: Product[];
   currency: string;
@@ -694,67 +901,113 @@ function ProductCarousel({
   locale: Locale;
   businessId: string;
   opts: DisplayOpts;
+  CardComponent: React.ComponentType<ProductItemProps>;
 }) {
+  const DRAG_THRESHOLD = 6;
   const doubled = [...products, ...products];
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
-  const touchState = useRef({ startX: 0, currentOffset: 0, dragging: false });
+  const drag = useRef({
+    pending: false,
+    active: false,
+    startX: 0,
+    startY: 0,
+    offset: 0,
+    pointerId: -1,
+  });
   const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const pauseAnimation = useCallback(() => {
+  const freezeStrip = useCallback(() => {
     const el = stripRef.current;
     if (!el) return;
-    const computed = getComputedStyle(el);
-    const matrix = new DOMMatrix(computed.transform);
-    touchState.current.currentOffset = matrix.m41;
-    el.style.animationPlayState = "paused";
+    const matrix = new DOMMatrix(getComputedStyle(el).transform);
+    drag.current.offset = matrix.m41;
+    el.style.animation = "none";
     el.style.transform = `translateX(${matrix.m41}px)`;
   }, []);
 
-  const resumeAnimation = useCallback(() => {
-    const el = stripRef.current;
-    if (!el) return;
-    el.style.transform = "";
-    el.style.animationPlayState = "running";
-  }, []);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
+  const resumeStrip = useCallback(() => {
     if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    touchState.current.startX = e.touches[0].clientX;
-    touchState.current.dragging = true;
-    pauseAnimation();
-  }, [pauseAnimation]);
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchState.current.dragging) return;
-    const el = stripRef.current;
-    if (!el) return;
-    const delta = e.touches[0].clientX - touchState.current.startX;
-    el.style.transform = `translateX(${touchState.current.currentOffset + delta}px)`;
+    resumeTimer.current = setTimeout(() => {
+      const el = stripRef.current;
+      if (!el) return;
+      el.style.animation = "";
+      el.style.transform = "";
+    }, 2000);
   }, []);
 
-  const onTouchEnd = useCallback(() => {
-    touchState.current.dragging = false;
-    resumeTimer.current = setTimeout(resumeAnimation, 2000);
-  }, [resumeAnimation]);
+  const handleDown = useCallback((e: React.PointerEvent) => {
+    const tag = (e.target as HTMLElement).closest("button, a, input, [role='button']");
+    if (tag) return;
 
-  const dur = Math.max(products.length * (SPEED_SECONDS_PER_ITEM[opts.carouselSpeed] ?? 2.5), 8);
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    drag.current.pending = true;
+    drag.current.active = false;
+    drag.current.startX = e.clientX;
+    drag.current.startY = e.clientY;
+    drag.current.pointerId = e.pointerId;
+    freezeStrip();
+  }, [freezeStrip]);
+
+  const handleMove = useCallback((e: React.PointerEvent) => {
+    if (!drag.current.pending && !drag.current.active) return;
+
+    const dx = e.clientX - drag.current.startX;
+    const dy = e.clientY - drag.current.startY;
+
+    if (drag.current.pending && !drag.current.active) {
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      drag.current.pending = false;
+      drag.current.active = true;
+      wrapperRef.current?.setPointerCapture(e.pointerId);
+    }
+
+    const el = stripRef.current;
+    if (!el) return;
+    el.style.transform = `translateX(${drag.current.offset + dx}px)`;
+  }, []);
+
+  const handleUp = useCallback((e: React.PointerEvent) => {
+    const wasDragging = drag.current.active;
+    drag.current.pending = false;
+    drag.current.active = false;
+
+    if (wasDragging) {
+      const el = stripRef.current;
+      if (el) {
+        const matrix = new DOMMatrix(getComputedStyle(el).transform);
+        drag.current.offset = matrix.m41;
+      }
+      try { wrapperRef.current?.releasePointerCapture(e.pointerId); } catch {}
+    }
+
+    resumeStrip();
+  }, [resumeStrip]);
+
+  const dur = Math.max(products.length * (SPEED_SECONDS_PER_ITEM[opts.marqueeSpeed] ?? 2.5), 8);
+  const widthClass = MARQUEE_ITEM_WIDTH[opts.layout] ?? MARQUEE_ITEM_WIDTH.cards;
 
   return (
-    <div className="relative overflow-hidden">
+    <div
+      ref={wrapperRef}
+      className="relative overflow-hidden"
+      style={{ touchAction: "pan-y" }}
+      onPointerDown={handleDown}
+      onPointerMove={handleMove}
+      onPointerUp={handleUp}
+      onPointerCancel={handleUp}
+    >
       <div className="absolute inset-y-0 start-0 z-10 w-12 bg-gradient-to-r from-white to-transparent pointer-events-none sm:w-20 rtl:bg-gradient-to-l" />
       <div className="absolute inset-y-0 end-0 z-10 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none sm:w-20 rtl:bg-gradient-to-r" />
 
       <div
         ref={stripRef}
-        className="flex animate-marquee gap-4 sm:gap-6 py-2"
-        style={{ touchAction: "pan-y" }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        className="flex prod-marquee-strip gap-4 sm:gap-6 py-2"
+        style={{ cursor: "grab" }}
       >
         {doubled.map((product, i) => (
-          <div key={`${product.id}-${i}`} className="w-56 shrink-0 sm:w-72">
-            <ProductCard
+          <div key={`${product.id}-${i}`} className={`${widthClass} shrink-0`}>
+            <CardComponent
               product={product}
               currency={currency}
               bookingUrl={bookingUrl}
@@ -768,20 +1021,20 @@ function ProductCarousel({
       </div>
 
       <style>{`
-        @keyframes marquee {
+        @keyframes prod-marquee {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .animate-marquee {
-          animation: marquee ${dur}s linear infinite;
+        .prod-marquee-strip {
+          animation: prod-marquee ${dur}s linear infinite;
         }
-        .animate-marquee:hover {
+        .prod-marquee-strip:hover {
           animation-play-state: paused;
         }
-        [dir="rtl"] .animate-marquee {
-          animation-name: marquee-rtl;
+        [dir="rtl"] .prod-marquee-strip {
+          animation-name: prod-marquee-rtl;
         }
-        @keyframes marquee-rtl {
+        @keyframes prod-marquee-rtl {
           0% { transform: translateX(0); }
           100% { transform: translateX(50%); }
         }

@@ -146,18 +146,7 @@ export function AiChat() {
 
   return (
     <>
-      {/* Floating button */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed z-50 flex size-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-blue-600 text-white shadow-lg shadow-violet-500/25 transition-all hover:scale-105 hover:shadow-xl hover:shadow-violet-500/30 active:scale-95 sm:size-14"
-        style={{
-          bottom: "1.5rem",
-          [dir === "rtl" ? "left" : "right"]: "1.5rem",
-        }}
-      >
-        <BotMessageSquare className="size-6 sm:size-7" />
-      </button>
+      {/* AI Chat trigger removed — accessible via sidebar */}
 
       {/* Chat sheet */}
       <Sheet open={open} onOpenChange={setOpen}>

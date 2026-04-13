@@ -18,6 +18,9 @@ import { SiteNav } from "./site-nav";
 import { WhatsAppButton } from "./whatsapp-button";
 import { UpcomingAppointmentBar } from "./upcoming-appointment-bar";
 import { AnimatedSection } from "./animated-section";
+import { CartProvider } from "./cart/cart-context";
+import { CartDrawer } from "./cart/cart-drawer";
+import { CartFab } from "./cart/cart-fab";
 
 interface PublicSiteProps {
   data: PublicBusinessData;
@@ -49,7 +52,12 @@ export function PublicSite({ data, locale, basePath }: PublicSiteProps) {
 
   let sectionIndex = 0;
 
+  const hasCartProducts =
+    products.some((p) => !p.servicePackageId && p.price && Number(p.price) > 0) ||
+    (cardTemplates ?? []).length > 0;
+
   return (
+    <CartProvider businessId={business.id}>
     <div className={`min-h-screen bg-white ${theme.font}`} dir={getDir(locale)}>
       {googleFontUrl && (
         // eslint-disable-next-line @next/next/no-page-custom-font
@@ -233,6 +241,19 @@ export function PublicSite({ data, locale, basePath }: PublicSiteProps) {
         secondaryColor={business.secondaryColor}
         locale={locale}
       />
+
+      {hasCartProducts && (
+        <>
+          <CartFab accentColor={business.secondaryColor} />
+          <CartDrawer
+            locale={locale}
+            currency={business.currency}
+            accentColor={business.secondaryColor}
+            businessId={business.id}
+          />
+        </>
+      )}
     </div>
+    </CartProvider>
   );
 }

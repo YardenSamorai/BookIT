@@ -629,6 +629,22 @@ export async function changeBusinessStatus(
   return { success: true };
 }
 
+export async function deleteBusiness(businessId: string): Promise<ActionResult> {
+  await requireSuperAdmin();
+
+  const biz = await db.query.businesses.findFirst({
+    where: eq(businesses.id, businessId),
+    columns: { id: true, name: true },
+  });
+
+  if (!biz) return { success: false, error: "Business not found" };
+
+  await db.delete(businesses).where(eq(businesses.id, businessId));
+
+  revalidatePath("/admin");
+  return { success: true };
+}
+
 export async function toggleBusinessBranding(
   businessId: string,
   removeBranding: boolean
