@@ -23,6 +23,16 @@ import { getDashboardData } from "@/lib/db/queries/dashboard";
 import { getActiveAnnouncements } from "@/lib/db/queries/announcements";
 import { t } from "@/lib/i18n";
 import { AnnouncementBanner } from "@/components/dashboard/announcement-banner";
+import { AiInsightsWidget } from "@/components/dashboard/ai-insights-widget";
+import { AiInsightsTeaser } from "@/components/dashboard/ai-insights-widget";
+import { getBusinessContext } from "@/lib/ai/business-context";
+import { orchestrate } from "@/lib/ai/orchestrator";
+import type { AnalysisResult } from "@/lib/ai/types";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { businesses } from "@/lib/db/schema";
+import { isFeatureEnabled } from "@/lib/plans/gates";
+import type { PlanType } from "@/lib/plans/limits";
 
 function formatCurrency(amount: number, currency: string) {
   const symbols: Record<string, string> = { ILS: "₪", USD: "$", EUR: "€", GBP: "£" };
@@ -63,11 +73,24 @@ function StatusBadge({ status, locale }: { status: string; locale: "en" | "he" }
 
 export default async function DashboardOverviewPage() {
   const { businessId } = await requireBusinessOwner();
-  const [locale, data, announcements] = await Promise.all([
+  const [locale, data, announcements, businessRow] = await Promise.all([
     getBusinessLocale(businessId),
     getDashboardData(businessId),
     getActiveAnnouncements(businessId),
+    db.query.businesses.findFirst({
+      where: eq(businesses.id, businessId),
+      columns: { subscriptionPlan: true },
+    }),
   ]);
+
+  const plan = (businessRow?.subscriptionPlan as PlanType) ?? "FREE";
+  const aiEnabled = isFeatureEnabled(plan, "aiInsights");
+
+  let aiInsights: AnalysisResult[] = [];
+  if (aiEnabled) {
+    const bizContext = await getBusinessContext(businessId).catch(() => null);
+    if (bizContext) aiInsights = orchestrate(bizContext, locale);
+  }
 
   const { stats, staffPerformance, popularServices, recentAppointments, currency } = data;
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
@@ -194,6 +217,13 @@ export default async function DashboardOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── AI Insights ── */}
+      {aiEnabled ? (
+        <AiInsightsWidget insights={aiInsights} locale={locale} />
+      ) : (
+        <AiInsightsTeaser locale={locale} />
+      )}
 
       {/* ── Main Content: Two Columns ── */}
       <div className="grid gap-6 lg:grid-cols-2">

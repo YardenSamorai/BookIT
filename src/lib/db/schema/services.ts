@@ -16,6 +16,7 @@ import {
 } from "./enums";
 import { businesses } from "./businesses";
 import { staffMembers } from "./staff";
+import { intakeForms } from "./intake-forms";
 
 export const serviceCategories = pgTable(
   "service_category",
@@ -60,6 +61,9 @@ export const services = pgTable(
     isGroup: boolean("is_group").notNull().default(false),
     maxParticipants: integer("max_participants").default(1),
     blocksAllStaff: boolean("blocks_all_staff").notNull().default(false),
+    intakeFormId: uuid("intake_form_id").references(() => intakeForms.id, {
+      onDelete: "set null",
+    }),
     autoManaged: boolean("auto_managed").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),

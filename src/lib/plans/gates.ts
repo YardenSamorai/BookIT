@@ -5,7 +5,7 @@ interface GateContext {
   currentCount: number;
 }
 
-function checkLimit(context: GateContext, limitKey: "maxStaff" | "maxServices" | "maxBookingsPerMonth" | "maxProducts" | "maxSessionPackages" | "maxCardTemplates"): { allowed: boolean; limit: number; current: number } {
+function checkLimit(context: GateContext, limitKey: "maxStaff" | "maxServices" | "maxBookingsPerMonth" | "maxProducts" | "maxSessionPackages" | "maxCardTemplates" | "maxIntakeForms"): { allowed: boolean; limit: number; current: number } {
   const limits = getLimitsForPlan(context.plan);
   const limit = limits[limitKey];
 
@@ -40,9 +40,13 @@ export function canAddCardTemplate(plan: PlanType, currentCount: number) {
   return checkLimit({ plan, currentCount }, "maxCardTemplates");
 }
 
+export function canAddIntakeForm(plan: PlanType, currentCount: number) {
+  return checkLimit({ plan, currentCount }, "maxIntakeForms");
+}
+
 export function isFeatureEnabled(
   plan: PlanType,
-  feature: "whatsappNotifications" | "allThemePresets" | "removeBranding"
+  feature: "whatsappNotifications" | "allThemePresets" | "removeBranding" | "aiInsights"
 ): boolean {
   const limits = getLimitsForPlan(plan);
   return limits[feature];

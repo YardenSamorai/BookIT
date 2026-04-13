@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { getServiceById } from "@/lib/db/queries/services";
 import { getServiceCategories } from "@/lib/db/queries/services";
+import { getIntakeForms } from "@/lib/db/queries/intake-forms";
 import { PageHeader } from "@/components/shared/page-header";
 import { ServiceEditPage } from "@/components/services/service-edit-page";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { getBusinessLocale } from "@/lib/db/queries/business";
-
 
 interface Props {
   params: Promise<{ serviceId: string }>;
@@ -18,10 +18,11 @@ export default async function EditServicePage({ params }: Props) {
   const { serviceId } = await params;
   const { businessId } = await requireBusinessOwner();
 
-  const [service, categories, locale] = await Promise.all([
+  const [service, categories, locale, intakeForms] = await Promise.all([
     getServiceById(serviceId),
     getServiceCategories(businessId),
     getBusinessLocale(businessId),
+    getIntakeForms(businessId),
   ]);
 
   if (!service || service.businessId !== businessId) {
@@ -43,7 +44,11 @@ export default async function EditServicePage({ params }: Props) {
           description={t(locale, "svc.edit_subtitle")}
         />
       </div>
-      <ServiceEditPage service={service} categories={categories} />
+      <ServiceEditPage
+        service={service}
+        categories={categories}
+        intakeForms={intakeForms.filter((f) => f.isActive).map((f) => ({ id: f.id, title: f.title }))}
+      />
     </div>
   );
 }

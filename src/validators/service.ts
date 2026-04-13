@@ -23,6 +23,7 @@ export const serviceSchema = z.object({
   autoManaged: z.boolean().default(false),
   cancelHoursBefore: z.coerce.number().int().min(0).optional(),
   rescheduleHoursBefore: z.coerce.number().int().min(0).optional(),
+  intakeFormId: z.string().uuid().optional().or(z.literal("")),
   isActive: z.boolean().default(true),
 });
 

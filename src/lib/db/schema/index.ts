@@ -16,3 +16,4 @@ export * from "./admin-billing";
 export * from "./admin";
 export * from "./calendar";
 export * from "./tickets";
+export * from "./intake-forms";

@@ -113,6 +113,7 @@ export async function createService(
       maxParticipants: data.maxParticipants,
       blocksAllStaff: data.blocksAllStaff,
       autoManaged: data.autoManaged,
+      intakeFormId: data.intakeFormId || null,
       isActive: data.isActive,
     })
     .returning({ id: services.id });
@@ -156,6 +157,7 @@ export async function updateService(
       maxParticipants: data.maxParticipants,
       blocksAllStaff: data.blocksAllStaff,
       autoManaged: data.autoManaged,
+      intakeFormId: data.intakeFormId || null,
       isActive: data.isActive,
       updatedAt: new Date(),
     })

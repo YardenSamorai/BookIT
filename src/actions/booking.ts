@@ -118,7 +118,7 @@ export async function createAppointment(
   const quota = await checkBookingQuota(businessId);
   if (!quota.allowed) return { success: false, error: quota.error! };
 
-  const { serviceId, staffId, startTime: startTimeStr, notes, classInstanceId } = parsed.data;
+  const { serviceId, staffId, startTime: startTimeStr, notes, classInstanceId, intakeFormId, intakeResponses } = parsed.data;
   const startTime = new Date(startTimeStr);
 
   const customerId = await findOrCreateCustomer(businessId, userId);
@@ -338,6 +338,17 @@ export async function createAppointment(
     newValue: status,
     performedBy: "CUSTOMER",
   });
+
+  if (intakeFormId && intakeResponses) {
+    const { intakeFormSubmissions } = await import("@/lib/db/schema");
+    await db.insert(intakeFormSubmissions).values({
+      formId: intakeFormId,
+      customerId,
+      businessId,
+      appointmentId: appointment.id,
+      responses: intakeResponses,
+    });
+  }
 
   // Send WhatsApp/SMS notifications
   try {

@@ -12,7 +12,14 @@ import { updateService } from "@/actions/services";
 import type { ServiceInput } from "@/validators/service";
 import type { InferSelectModel } from "drizzle-orm";
 import type { services, serviceCategories } from "@/lib/db/schema";
-import { Check, Clock, CreditCard, Loader2, Lock, Save, Settings2, Shield, Users, Video } from "lucide-react";
+import { Check, ClipboardCheck, Clock, CreditCard, Loader2, Lock, Save, Settings2, Shield, Users, Video } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useT } from "@/lib/i18n/locale-context";
 import type { TranslationKey } from "@/lib/i18n";
 
@@ -29,12 +36,18 @@ const PAYMENT_MODES: { value: ServiceInput["paymentMode"]; key: TranslationKey; 
   { value: "CONTACT_FOR_PRICE", key: "svc.pay_contact", icon: "📞" },
 ];
 
+interface IntakeFormOption {
+  id: string;
+  title: string;
+}
+
 interface ServiceEditPageProps {
   service: Service;
   categories: Category[];
+  intakeForms?: IntakeFormOption[];
 }
 
-export function ServiceEditPage({ service, categories }: ServiceEditPageProps) {
+export function ServiceEditPage({ service, categories, intakeForms = [] }: ServiceEditPageProps) {
   const router = useRouter();
   const t = useT();
   const [loading, setLoading] = useState(false);
@@ -60,6 +73,7 @@ export function ServiceEditPage({ service, categories }: ServiceEditPageProps) {
     autoManaged: service.autoManaged ?? false,
     cancelHoursBefore: service.cancelHoursBefore ?? 0,
     rescheduleHoursBefore: service.rescheduleHoursBefore ?? 0,
+    intakeFormId: service.intakeFormId ?? "",
     isActive: service.isActive,
   });
 
@@ -273,6 +287,31 @@ export function ServiceEditPage({ service, categories }: ServiceEditPageProps) {
           </div>
         )}
       </div>
+
+      {/* Intake form selector */}
+      {intakeForms.length > 0 && (
+        <div className="mt-4">
+          <SectionCard
+            icon={<ClipboardCheck className="size-4" />}
+            title={t("intake.select_form" as never)}
+          >
+            <Select
+              value={form.intakeFormId || "__none__"}
+              onValueChange={(v) => update({ intakeFormId: v === "__none__" ? "" : (v ?? "") })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("intake.select_form_none" as never)} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("intake.select_form_none" as never)}</SelectItem>
+                {intakeForms.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>{f.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SectionCard>
+        </div>
+      )}
 
       {/* ROW 3: Policies + Meeting Link — full width 3-col */}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">

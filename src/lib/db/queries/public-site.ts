@@ -34,7 +34,7 @@ export const getPublicBusinessData = cache(async function getPublicBusinessData(
 
   if (!business || !business.published) return null;
 
-  const [hours, serviceList, staff, siteConfig, staffServiceRows, productList, publishedReviews, ratingStats, activeClassSchedule, purchasableCards] = await Promise.all([
+  const [hours, serviceList, staff, siteConfig, staffServiceRows, productList, publishedReviews, ratingStats, activeClassSchedules, purchasableCards] = await Promise.all([
     db.query.businessHours.findMany({
       where: eq(businessHours.businessId, business.id),
       orderBy: [asc(businessHours.dayOfWeek)],
@@ -71,12 +71,12 @@ export const getPublicBusinessData = cache(async function getPublicBusinessData(
       .orderBy(desc(reviews.createdAt))
       .limit(20),
     getBusinessRatingStats(business.id),
-    db.query.classSchedules.findFirst({
+    db.query.classSchedules.findMany({
       where: and(
         eq(classSchedules.businessId, business.id),
         eq(classSchedules.isActive, true)
       ),
-      columns: { id: true },
+      columns: { id: true, serviceId: true },
     }),
     db
       .select({
@@ -101,7 +101,12 @@ export const getPublicBusinessData = cache(async function getPublicBusinessData(
   ]);
 
   const visibleProducts = productList.filter((p) => p.isVisible);
-  const activeServices = serviceList.filter((s) => s.isActive);
+  const scheduledGroupServiceIds = new Set(activeClassSchedules.map((s) => s.serviceId));
+  const activeServices = serviceList.filter((s) => {
+    if (!s.isActive) return false;
+    if (s.isGroup && !scheduledGroupServiceIds.has(s.id)) return false;
+    return true;
+  });
   const activeStaff = staff.filter((s) => s.isActive);
   const activeServiceIds = new Set(activeServices.map((s) => s.id));
   const activeStaffIds = new Set(activeStaff.map((s) => s.id));
@@ -156,7 +161,7 @@ export const getPublicBusinessData = cache(async function getPublicBusinessData(
     products: visibleProducts,
     reviews: publishedReviews,
     ratingStats,
-    hasWorkouts: !!activeClassSchedule,
+    hasWorkouts: activeClassSchedules.length > 0,
     cardTemplates: cardTemplatesWithServices,
   };
 });

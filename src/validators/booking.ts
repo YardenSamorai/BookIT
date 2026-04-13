@@ -6,6 +6,8 @@ export const bookingSchema = z.object({
   startTime: z.string().datetime(),
   notes: z.string().max(500).optional().or(z.literal("")),
   classInstanceId: z.string().uuid().optional(),
+  intakeFormId: z.string().uuid().optional(),
+  intakeResponses: z.record(z.unknown()).optional(),
 });
 
 export type BookingInput = z.infer<typeof bookingSchema>;

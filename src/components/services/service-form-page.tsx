@@ -15,7 +15,14 @@ import {
   updateServiceStaff,
 } from "@/actions/services";
 import { useT } from "@/lib/i18n/locale-context";
-import { Check, Clock, CreditCard, Loader2, Lock, Save, Settings2, Users } from "lucide-react";
+import { Check, ClipboardCheck, Clock, CreditCard, Loader2, Lock, Save, Settings2, Users } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ServiceInput } from "@/validators/service";
 import type { InferSelectModel } from "drizzle-orm";
 import type { serviceCategories, staffMembers } from "@/lib/db/schema";
@@ -34,11 +41,17 @@ const PAYMENT_MODES: { value: ServiceInput["paymentMode"]; key: TranslationKey; 
   { value: "CONTACT_FOR_PRICE", key: "svc.pay_contact", icon: "📞" },
 ];
 
+interface IntakeFormOption {
+  id: string;
+  title: string;
+}
+
 interface Props {
   categories: Category[];
   staff: StaffMember[];
   defaultValues?: ServiceInput & { id?: string };
   linkedStaffIds?: string[];
+  intakeForms?: IntakeFormOption[];
 }
 
 export function ServiceFormPage({
@@ -46,6 +59,7 @@ export function ServiceFormPage({
   staff,
   defaultValues,
   linkedStaffIds = [],
+  intakeForms = [],
 }: Props) {
   const t = useT();
   const router = useRouter();
@@ -72,6 +86,7 @@ export function ServiceFormPage({
     autoManaged: defaultValues?.autoManaged ?? false,
     cancelHoursBefore: defaultValues?.cancelHoursBefore ?? 0,
     rescheduleHoursBefore: defaultValues?.rescheduleHoursBefore ?? 0,
+    intakeFormId: defaultValues?.intakeFormId ?? "",
     isActive: defaultValues?.isActive ?? true,
   });
 
@@ -311,6 +326,31 @@ export function ServiceFormPage({
           </div>
         )}
       </div>
+
+      {/* Intake form selector */}
+      {intakeForms.length > 0 && (
+        <div className="mt-4">
+          <SectionCard
+            icon={<ClipboardCheck className="size-4" />}
+            title={t("intake.select_form" as never)}
+          >
+            <Select
+              value={form.intakeFormId || "__none__"}
+              onValueChange={(v) => update({ intakeFormId: v === "__none__" ? "" : (v ?? "") })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("intake.select_form_none" as never)} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("intake.select_form_none" as never)}</SelectItem>
+                {intakeForms.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>{f.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SectionCard>
+        </div>
+      )}
 
       {/* ROW 3: Staff selection — full width */}
       {staff.length > 0 && (

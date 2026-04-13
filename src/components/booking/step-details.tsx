@@ -20,7 +20,9 @@ import {
 import { motion } from "framer-motion";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { BookingAuth } from "./booking-auth";
+import { StepIntakeForm } from "./step-intake-form";
 import { BUSINESS_TZ } from "@/lib/tz";
+import type { IntakeFormField } from "@/actions/intake-forms";
 
 type Service = InferSelectModel<typeof services>;
 type StaffMember = InferSelectModel<typeof staffMembers>;
@@ -64,7 +66,37 @@ export function StepDetails({
     name: string;
   } | null>(null);
 
+  const [intakeForm, setIntakeForm] = useState<{
+    formId: string;
+    formTitle: string;
+    formDescription?: string;
+    fields: IntakeFormField[];
+  } | null>(null);
+  const [showIntakeForm, setShowIntakeForm] = useState(false);
+  const [intakeChecked, setIntakeChecked] = useState(false);
+
   const isLoggedIn = !!session?.user?.id;
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    fetch(
+      `/api/intake-forms/check?businessId=${businessId}&serviceId=${service.id}`
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.required) {
+          setIntakeForm({
+            formId: data.formId,
+            formTitle: data.formTitle,
+            formDescription: data.formDescription,
+            fields: data.fields,
+          });
+        }
+        setIntakeChecked(true);
+      })
+      .catch(() => setIntakeChecked(true));
+  }, [isLoggedIn, businessId, service.id]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -128,6 +160,11 @@ export function StepDetails({
       return;
     }
 
+    if (intakeForm && !showIntakeForm) {
+      setShowIntakeForm(true);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -148,8 +185,47 @@ export function StepDetails({
     onConfirm(result.data.appointmentId);
   }
 
+  async function handleIntakeSubmit(responses: Record<string, unknown>) {
+    if (!session?.user?.id) return;
+
+    setLoading(true);
+    setError("");
+
+    const result = await createAppointment(businessId, session.user.id, {
+      serviceId: service.id,
+      staffId: staff.id,
+      startTime,
+      notes,
+      intakeFormId: intakeForm!.formId,
+      intakeResponses: responses,
+    });
+
+    if (!result.success) {
+      setError(result.error === "CUSTOMER_BLOCKED" ? "CUSTOMER_BLOCKED" : result.error);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    onConfirm(result.data.appointmentId);
+  }
+
   async function handleAuthenticated() {
     await updateSession();
+  }
+
+  if (showIntakeForm && intakeForm) {
+    return (
+      <StepIntakeForm
+        formTitle={intakeForm.formTitle}
+        formDescription={intakeForm.formDescription}
+        fields={intakeForm.fields}
+        secondaryColor={secondaryColor}
+        onSubmit={handleIntakeSubmit}
+        onBack={() => setShowIntakeForm(false)}
+        loading={loading}
+      />
+    );
   }
 
   return (

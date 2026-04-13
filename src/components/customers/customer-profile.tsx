@@ -14,12 +14,21 @@ import { CardsTab } from "./tabs/cards-tab";
 import { FinancialTab } from "./tabs/financial-tab";
 import { NotesTab } from "./tabs/notes-tab";
 import { ProfileTab } from "./tabs/profile-tab";
+import { IntakeFormsTab } from "./tabs/intake-forms-tab";
 import type { CustomerProfile as CustomerProfileType, CustomerActivity, FinancialActivityRow, CustomerPackageRow } from "@/lib/db/queries/customers";
 import type { CustomerCardRow, CardTemplateRow } from "@/lib/db/queries/cards";
 import type { InferSelectModel } from "drizzle-orm";
 import type { servicePackages } from "@/lib/db/schema";
 
 type ServicePackage = InferSelectModel<typeof servicePackages>;
+
+interface IntakeSubmission {
+  id: string;
+  formId: string;
+  formTitle: string;
+  responses: unknown;
+  submittedAt: Date;
+}
 
 interface Props {
   customer: CustomerProfileType;
@@ -30,6 +39,7 @@ interface Props {
   cardTemplates: CardTemplateRow[];
   customerPackages: CustomerPackageRow[];
   servicePackages: ServicePackage[];
+  intakeSubmissions?: IntakeSubmission[];
 }
 
 export function CustomerProfileView({
@@ -41,6 +51,7 @@ export function CustomerProfileView({
   cardTemplates,
   customerPackages,
   servicePackages: svcPkgs,
+  intakeSubmissions = [],
 }: Props) {
   const t = useT();
   const router = useRouter();
@@ -78,6 +89,9 @@ export function CustomerProfileView({
             <TabsTrigger value="cards" className="min-w-fit">{t("cust.tab_cards")}</TabsTrigger>
             <TabsTrigger value="financial" className="min-w-fit">{t("cust.tab_financial")}</TabsTrigger>
             <TabsTrigger value="notes" className="min-w-fit">{t("cust.tab_notes")}</TabsTrigger>
+            {intakeSubmissions.length > 0 && (
+              <TabsTrigger value="intake" className="min-w-fit">{t("intake.customer_forms" as never)}</TabsTrigger>
+            )}
             <TabsTrigger value="profile" className="min-w-fit">{t("cust.tab_profile")}</TabsTrigger>
           </TabsList>
         </div>
@@ -121,6 +135,12 @@ export function CustomerProfileView({
             onRefresh={refresh}
           />
         </TabsContent>
+
+        {intakeSubmissions.length > 0 && (
+          <TabsContent value="intake" className="mt-4">
+            <IntakeFormsTab submissions={intakeSubmissions} />
+          </TabsContent>
+        )}
 
         <TabsContent value="profile" className="mt-4">
           <ProfileTab customer={customer} onEdit={() => setEditOpen(true)} />

@@ -9,8 +9,11 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { SuspendedScreen } from "@/components/dashboard/suspended-screen";
 import { ReportBugButton } from "@/components/dashboard/report-bug-button";
+import { AiChat } from "@/components/dashboard/ai-chat";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getDir, type Locale } from "@/lib/i18n";
+import { isFeatureEnabled } from "@/lib/plans/gates";
+import type { PlanType } from "@/lib/plans/limits";
 
 export default async function DashboardLayout({
   children,
@@ -30,7 +33,7 @@ export default async function DashboardLayout({
   const business = session.user.businessId
     ? await db.query.businesses.findFirst({
         where: eq(businesses.id, session.user.businessId),
-        columns: { name: true, slug: true, language: true, subscriptionStatus: true, enabledModules: true },
+        columns: { name: true, slug: true, language: true, subscriptionStatus: true, subscriptionPlan: true, enabledModules: true },
       })
     : await getBusinessByOwnerId(session.user.id);
 
@@ -43,6 +46,9 @@ export default async function DashboardLayout({
   if ((business as { subscriptionStatus?: string }).subscriptionStatus === "CANCELLED") {
     return <SuspendedScreen locale={locale} />;
   }
+
+  const plan = ((business as { subscriptionPlan?: string }).subscriptionPlan ?? "FREE") as PlanType;
+  const aiEnabled = isFeatureEnabled(plan, "aiInsights");
 
   const rawModules = (business as { enabledModules?: string | null }).enabledModules;
   let enabledModules: string[] | null = null;
@@ -64,6 +70,7 @@ export default async function DashboardLayout({
             <main className="flex-1 p-6">{children}</main>
           </SidebarInset>
           <ReportBugButton />
+          {aiEnabled && <AiChat />}
         </SidebarProvider>
       </div>
     </LocaleProvider>

@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/queries/customers";
 import { getServicePackages } from "@/lib/db/queries/services";
 import { getCustomerCards, getCardTemplates } from "@/lib/db/queries/cards";
+import { getCustomerSubmissions } from "@/lib/db/queries/intake-forms";
 import { CustomerProfileView } from "@/components/customers/customer-profile";
 
 export default async function CustomerDetailPage({
@@ -28,6 +29,7 @@ export default async function CustomerDetailPage({
     cardTemplatesList,
     activities,
     financialActivity,
+    intakeSubmissions,
   ] = await Promise.all([
     getCustomerProfile(customerId, businessId),
     getCustomerPackages(customerId, businessId),
@@ -36,6 +38,7 @@ export default async function CustomerDetailPage({
     getCardTemplates(businessId),
     getCustomerActivities(customerId, businessId, 20, 0),
     getCustomerFinancialActivity(customerId, businessId),
+    getCustomerSubmissions(customerId, businessId),
   ]);
 
   if (!customer) notFound();
@@ -50,6 +53,7 @@ export default async function CustomerDetailPage({
       cardTemplates={cardTemplatesList}
       customerPackages={customerPkgs}
       servicePackages={servicePkgs}
+      intakeSubmissions={intakeSubmissions}
     />
   );
 }

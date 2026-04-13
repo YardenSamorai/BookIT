@@ -20,6 +20,7 @@ import {
   Repeat,
   MessageSquare,
   LifeBuoy,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -107,6 +108,7 @@ export function AppSidebar({ businessSlug, enabledModules }: { businessSlug?: st
     { title: t("dash.classes"), href: "/dashboard/classes", icon: Repeat, module: "classes" },
     { title: t("dash.staff"), href: "/dashboard/staff", icon: UserCog, module: "staff" },
     { title: t("dash.products"), href: "/dashboard/products", icon: ShoppingBag, module: "products" },
+    { title: t("dash.intake_forms" as never), href: "/dashboard/intake-forms", icon: ClipboardCheck },
   ];
 
   const systemNav: NavItem[] = [

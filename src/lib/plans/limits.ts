@@ -12,6 +12,8 @@ export interface PlanLimits {
   whatsappNotifications: boolean;
   allThemePresets: boolean;
   removeBranding: boolean;
+  maxIntakeForms: number;
+  aiInsights: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
@@ -24,9 +26,11 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCardTemplates: 2,
     maxMonthlyMessages: 100,
     maxGalleryImages: 10,
+    maxIntakeForms: 1,
     whatsappNotifications: true,
     allThemePresets: false,
     removeBranding: false,
+    aiInsights: false,
   },
   STARTER: {
     maxStaff: 3,
@@ -37,9 +41,11 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCardTemplates: 5,
     maxMonthlyMessages: 300,
     maxGalleryImages: 25,
+    maxIntakeForms: 3,
     whatsappNotifications: true,
     allThemePresets: false,
     removeBranding: false,
+    aiInsights: false,
   },
   PRO: {
     maxStaff: Infinity,
@@ -50,9 +56,11 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCardTemplates: Infinity,
     maxMonthlyMessages: 1500,
     maxGalleryImages: 50,
+    maxIntakeForms: Infinity,
     whatsappNotifications: true,
     allThemePresets: true,
     removeBranding: true,
+    aiInsights: true,
   },
 };
 
