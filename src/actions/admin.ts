@@ -286,7 +286,19 @@ export async function getBusinessesNeedingAttention() {
     .orderBy(desc(adminBillingRecords.createdAt))
     .limit(10);
 
-  return { overdue };
+  const pendingSubdomains = await db
+    .select({
+      id: businesses.id,
+      name: businesses.name,
+      customSubdomain: businesses.customSubdomain,
+      requestedAt: businesses.subdomainRequestedAt,
+    })
+    .from(businesses)
+    .where(eq(businesses.subdomainStatus, "PENDING"))
+    .orderBy(desc(businesses.subdomainRequestedAt))
+    .limit(10);
+
+  return { overdue, pendingSubdomains };
 }
 
 // ── Business List ──

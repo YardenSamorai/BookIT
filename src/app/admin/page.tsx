@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Percent,
   BarChart3,
+  Globe,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,7 +127,7 @@ export default async function AdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {attention.overdue.length === 0 && ticketStats.open === 0 ? (
+            {attention.overdue.length === 0 && attention.pendingSubdomains.length === 0 && ticketStats.open === 0 ? (
               <p className="text-sm text-muted-foreground">הכל תקין, אין פריטים שדורשים תשומת לב.</p>
             ) : (
               <div className="space-y-2">
@@ -146,6 +147,26 @@ export default async function AdminDashboardPage() {
                     </Badge>
                   </Link>
                 )}
+                {attention.pendingSubdomains.map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/admin/subdomains"
+                    className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 transition-colors hover:bg-blue-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Globe className="size-4 text-blue-600" />
+                      <div>
+                        <span className="text-sm font-medium text-blue-800">{item.name}</span>
+                        <span className="mr-2 text-xs text-blue-600">
+                          {item.customSubdomain}.book2it.app
+                        </span>
+                      </div>
+                    </div>
+                    <Badge className="bg-blue-600 text-xs">
+                      ממתין לאישור
+                    </Badge>
+                  </Link>
+                ))}
                 {attention.overdue.map((item) => (
                   <Link
                     key={item.id}
