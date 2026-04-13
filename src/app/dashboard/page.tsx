@@ -23,6 +23,7 @@ import { getDashboardData } from "@/lib/db/queries/dashboard";
 import { getActiveAnnouncements } from "@/lib/db/queries/announcements";
 import { t } from "@/lib/i18n";
 import { AnnouncementBanner } from "@/components/dashboard/announcement-banner";
+import { SpotlightKpiCards } from "@/components/dashboard/spotlight-kpi-cards";
 import { AiInsightsWidget } from "@/components/dashboard/ai-insights-widget";
 import { AiInsightsTeaser } from "@/components/dashboard/ai-insights-widget";
 import { getBusinessContext } from "@/lib/ai/business-context";
@@ -104,68 +105,43 @@ export default async function DashboardOverviewPage() {
         description={t(locale, "dash.welcome")}
       />
 
-      {/* ── Top Stats Grid ── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-s-4 border-s-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t(locale, "dash.today_appointments")}
-            </CardTitle>
-            <CalendarDays className="size-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.todayCount}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t(locale, "dash.avg_per_day")}: {stats.avgPerDay}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-s-4 border-s-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t(locale, "dash.revenue_month")}
-            </CardTitle>
-            <TrendingUp className="size-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(stats.monthRevenue, currency)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t(locale, "dash.total_revenue")}: {formatCurrency(stats.totalRevenue, currency)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-s-4 border-s-violet-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t(locale, "dash.customers")}
-            </CardTitle>
-            <Users className="size-4 text-violet-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.totalCustomers}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              +{stats.newCustomersMonth} {t(locale, "dash.new_customers_month")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-s-4 border-s-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t(locale, "dash.month_appointments")}
-            </CardTitle>
-            <BarChart3 className="size-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.monthCount}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t(locale, "dash.total_appointments")}: {stats.totalCount}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── Top Stats Grid (Spotlight) ── */}
+      <SpotlightKpiCards
+        cards={[
+          {
+            label: t(locale, "dash.today_appointments"),
+            value: stats.todayCount,
+            subtitle: `${t(locale, "dash.avg_per_day")}: ${stats.avgPerDay}`,
+            icon: <CalendarDays className="size-5 text-blue-500" />,
+            glowColor: "rgba(59,130,246,0.4)",
+            accentColor: "#3B82F6",
+          },
+          {
+            label: t(locale, "dash.revenue_month"),
+            value: formatCurrency(stats.monthRevenue, currency),
+            subtitle: `${t(locale, "dash.total_revenue")}: ${formatCurrency(stats.totalRevenue, currency)}`,
+            icon: <TrendingUp className="size-5 text-emerald-500" />,
+            glowColor: "rgba(16,185,129,0.4)",
+            accentColor: "#10B981",
+          },
+          {
+            label: t(locale, "dash.customers"),
+            value: stats.totalCustomers,
+            subtitle: `+${stats.newCustomersMonth} ${t(locale, "dash.new_customers_month")}`,
+            icon: <Users className="size-5 text-violet-500" />,
+            glowColor: "rgba(139,92,246,0.4)",
+            accentColor: "#8B5CF6",
+          },
+          {
+            label: t(locale, "dash.month_appointments"),
+            value: stats.monthCount,
+            subtitle: `${t(locale, "dash.total_appointments")}: ${stats.totalCount}`,
+            icon: <BarChart3 className="size-5 text-amber-500" />,
+            glowColor: "rgba(245,158,11,0.4)",
+            accentColor: "#F59E0B",
+          },
+        ]}
+      />
 
       {/* ── Status Breakdown ── */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
