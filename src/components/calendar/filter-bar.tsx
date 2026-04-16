@@ -9,14 +9,19 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { Staff, FilterState } from "./calendar-types";
-import { STAFF_COLORS, hasActiveFilters } from "./calendar-types";
+import type { Staff, FilterState, StaffCardVisual } from "./calendar-types";
+import { hasActiveFilters } from "./calendar-types";
 
 interface FilterBarProps {
   staff: Staff[];
   services: { id: string; title: string }[];
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
+  /**
+   * Resolved staff calendar visuals. Keyed by staff id. When the business has
+   * a single staff member the map is empty and the staff section is hidden.
+   */
+  staffVisualMap: Map<string, StaffCardVisual>;
 }
 
 const STATUS_OPTIONS = [
@@ -26,7 +31,13 @@ const STATUS_OPTIONS = [
   { value: "NO_SHOW", label: "לא הגיע", dot: "bg-red-500" },
 ];
 
-export function FilterBar({ staff, services, filters, onFiltersChange }: FilterBarProps) {
+export function FilterBar({
+  staff,
+  services,
+  filters,
+  onFiltersChange,
+  staffVisualMap,
+}: FilterBarProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const activeCount =
     filters.staffIds.length +
@@ -80,8 +91,9 @@ export function FilterBar({ staff, services, filters, onFiltersChange }: FilterB
         {staff.length > 1 && (
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground me-1">צוות:</span>
-            {staff.map((s, i) => {
-              const clr = STAFF_COLORS[i % STAFF_COLORS.length];
+            {staff.map((s) => {
+              const visual = staffVisualMap.get(s.id);
+              const dotColor = visual?.accent ?? "#94A3B8";
               const active = filters.staffIds.includes(s.id);
               return (
                 <button
@@ -93,20 +105,20 @@ export function FilterBar({ staff, services, filters, onFiltersChange }: FilterB
                       : "bg-muted/60 text-muted-foreground hover:bg-muted"
                   }`}
                   style={
-                    active
+                    active && visual
                       ? {
-                          backgroundColor: clr.bg,
-                          color: clr.text,
-                          borderColor: clr.border,
+                          backgroundColor: visual.bg,
+                          color: visual.text,
+                          borderColor: visual.accent,
                           // @ts-expect-error CSS var for ring
-                          "--tw-ring-color": clr.border,
+                          "--tw-ring-color": visual.accent,
                         }
                       : undefined
                   }
                 >
                   <span
                     className="size-1.5 rounded-full"
-                    style={{ backgroundColor: clr.border }}
+                    style={{ backgroundColor: dotColor }}
                   />
                   {s.name.split(" ")[0]}
                 </button>
@@ -202,8 +214,9 @@ export function FilterBar({ staff, services, filters, onFiltersChange }: FilterB
             {staff.length > 1 && (
               <FilterSection title="צוות">
                 <div className="flex flex-wrap gap-2">
-                  {staff.map((s, i) => {
-                    const clr = STAFF_COLORS[i % STAFF_COLORS.length];
+                  {staff.map((s) => {
+                    const visual = staffVisualMap.get(s.id);
+                    const dotColor = visual?.accent ?? "#94A3B8";
                     const active = filters.staffIds.includes(s.id);
                     return (
                       <button
@@ -215,19 +228,19 @@ export function FilterBar({ staff, services, filters, onFiltersChange }: FilterB
                             : "bg-muted/60 text-muted-foreground"
                         }`}
                         style={
-                          active
+                          active && visual
                             ? {
-                                backgroundColor: clr.bg,
-                                color: clr.text,
+                                backgroundColor: visual.bg,
+                                color: visual.text,
                                 // @ts-expect-error CSS var for ring
-                                "--tw-ring-color": clr.border,
+                                "--tw-ring-color": visual.accent,
                               }
                             : undefined
                         }
                       >
                         <span
                           className="size-2 rounded-full"
-                          style={{ backgroundColor: clr.border }}
+                          style={{ backgroundColor: dotColor }}
                         />
                         {s.name}
                       </button>

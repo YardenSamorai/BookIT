@@ -212,7 +212,10 @@ export async function getAppointmentsForBusiness(
   businessId: string,
   filters?: AppointmentFilters
 ) {
-  const conditions = [eq(appointments.businessId, businessId)];
+  const conditions = [
+    eq(appointments.businessId, businessId),
+    isNull(appointments.hiddenFromListAt),
+  ];
 
   if (filters?.status) {
     conditions.push(eq(appointments.status, filters.status as any));

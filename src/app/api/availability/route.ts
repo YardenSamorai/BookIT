@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { services, classSchedules } from "@/lib/db/schema";
+import { services, classSchedules, businesses } from "@/lib/db/schema";
 import { getAvailability } from "@/lib/scheduling/availability";
 import {
   getClassInstancesForRange,
@@ -24,15 +24,32 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [availability, service] = await Promise.all([
+    const [availability, service, policyBusiness] = await Promise.all([
       getAvailability({ businessId, serviceId, staffId, dateFrom, dateTo }),
       db.query.services.findFirst({
         where: eq(services.id, serviceId),
         columns: { isGroup: true, maxParticipants: true },
       }),
+      db.query.businesses.findFirst({
+        where: eq(businesses.id, businessId),
+        columns: {
+          timezone: true,
+          minBookingAdvanceHours: true,
+          disableSameDayBookings: true,
+        },
+      }),
     ]);
 
     const isGroup = service?.isGroup ?? false;
+
+    const tz = policyBusiness?.timezone || "Asia/Jerusalem";
+    const minAdvanceHours = policyBusiness?.minBookingAdvanceHours ?? 0;
+    const disableSameDay = policyBusiness?.disableSameDayBookings ?? false;
+    const now = new Date();
+    const earliestBookable = new Date(
+      now.getTime() + minAdvanceHours * 3_600_000
+    );
+    const todayInTz = now.toLocaleDateString("en-CA", { timeZone: tz });
 
     let classInstanceSlots: {
       id: string;
@@ -58,7 +75,21 @@ export async function GET(request: NextRequest) {
 
       if (hasSchedules) {
         const instances = await getClassInstancesForRange(businessId, dateFrom, dateTo);
-        const serviceInstances = instances.filter((ci) => ci.serviceId === serviceId);
+        const serviceInstances = instances
+          .filter((ci) => ci.serviceId === serviceId)
+          // Apply the business's booking policy: hide class instances that
+          // cannot be booked (same-day disabled, or starting before the
+          // earliest allowed booking time).
+          .filter((ci) => {
+            const start = new Date(ci.startTime);
+            if (start <= now) return false;
+            if (disableSameDay) {
+              const ciDate = start.toLocaleDateString("en-CA", { timeZone: tz });
+              if (ciDate === todayInTz) return false;
+            }
+            if (minAdvanceHours > 0 && start < earliestBookable) return false;
+            return true;
+          });
 
         classInstanceSlots = await Promise.all(
           serviceInstances.map(async (ci) => ({

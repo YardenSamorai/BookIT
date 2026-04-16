@@ -37,6 +37,10 @@ export const businesses = pgTable(
     language: text("language").notNull().default("he"),
     slotGranularityMin: integer("slot_granularity_min").notNull().default(30),
     defaultBufferMin: integer("default_buffer_min").notNull().default(0),
+    // Booking policy: minimum hours in advance required to book (0 = no restriction)
+    minBookingAdvanceHours: integer("min_booking_advance_hours").notNull().default(0),
+    // Booking policy: when true, customers cannot book appointments for today
+    disableSameDayBookings: boolean("disable_same_day_bookings").notNull().default(false),
     phone: text("phone"),
     email: text("email"),
     address: text("address"),

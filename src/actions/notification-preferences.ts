@@ -10,6 +10,7 @@ import type { ActionResult } from "@/types";
 export async function updateNotificationPreferences(input: {
   whatsappEnabled: boolean;
   smsBookingEnabled: boolean;
+  remindersEnabled: boolean;
   reminderHoursBefore: number;
   reminderHoursBefore2: number | null;
   notificationPhones?: string[];
@@ -28,6 +29,7 @@ export async function updateNotificationPreferences(input: {
   const values = {
     whatsappEnabled: input.whatsappEnabled,
     smsBookingEnabled: input.smsBookingEnabled,
+    remindersEnabled: input.remindersEnabled,
     reminderHoursBefore: input.reminderHoursBefore,
     reminderHoursBefore2: input.reminderHoursBefore2 && input.reminderHoursBefore2 > 0
       ? input.reminderHoursBefore2

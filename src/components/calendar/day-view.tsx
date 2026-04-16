@@ -12,9 +12,9 @@ import type {
   TimeOffPeriod,
   BusinessHoursEntry,
   CardTier,
+  StaffCardVisual,
 } from "./calendar-types";
 import {
-  STAFF_COLORS,
   isSameDay,
   formatTime,
   getHoursInTz,
@@ -37,7 +37,7 @@ interface DayViewProps {
   appointments: Appointment[];
   classInstances?: ClassInstance[];
   staff: Staff[];
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
+  staffVisualMap: Map<string, StaffCardVisual>;
   staffFilter: string | null;
   staffSchedules?: StaffDaySchedule[];
   staffBlockedSlots?: BlockedSlot[];
@@ -57,6 +57,16 @@ interface DayViewProps {
 const DEFAULT_HOUR_START = 7;
 const DEFAULT_HOUR_END = 22;
 const ROW_HEIGHT = 64;
+/**
+ * Minimum rendered height for very short bookings (≈15–25m). The natural
+ * height of a 20-min card is ~21px, which was previously clamped to 24px —
+ * not enough vertical room for the `small` tier's 2-line layout, so those
+ * cards fell into `tiny` and showed only the start time (no service name).
+ * 32px guarantees two readable rows (time + service name), matches the
+ * week-view minimum, and only overflows the natural slot by ~11px which
+ * is still visually clean against the next 60px hour grid line.
+ */
+const MIN_APT_HEIGHT = 32;
 const PX_PER_MIN = ROW_HEIGHT / 60;
 const SNAP_MINUTES = 5;
 const DRAG_THRESHOLD = 5;
@@ -126,7 +136,7 @@ export function DayView({
   appointments,
   classInstances = [],
   staff,
-  staffColorMap,
+  staffVisualMap,
   staffFilter,
   staffSchedules = [],
   staffBlockedSlots = [],
@@ -239,7 +249,7 @@ export function DayView({
         getHoursInTz(start) * 60 + getMinutesInTz(start);
       const durationMins = (end.getTime() - start.getTime()) / 60_000;
       const offsetMins = startMins - hourStart * 60;
-      const heightPx = Math.max(durationMins * PX_PER_MIN, 24);
+      const heightPx = Math.max(durationMins * PX_PER_MIN, MIN_APT_HEIGHT);
 
       const state: DragState = {
         instanceId: ci.id,
@@ -338,15 +348,16 @@ export function DayView({
       {multiStaff && (
         <div className="sticky top-0 z-20 flex border-b bg-card/95 backdrop-blur-sm">
           <div className="w-14 shrink-0" />
-          {staff.map((s, i) => {
-            const clr = STAFF_COLORS[i % STAFF_COLORS.length];
+          {staff.map((s) => {
+            const visual = staffVisualMap.get(s.id);
+            const dotColor = visual?.accent ?? "#94A3B8";
             const dimmed = staffFilter !== null && staffFilter !== s.id;
             const isOff = isStaffOnTimeOff(s.id, dateStr, staffTimeOff);
             return (
               <ProviderHeaderPopover
                 key={s.id}
                 staff={s}
-                staffIndex={i}
+                staffList={staff}
                 appointments={appointments}
                 classInstances={classInstances}
                 currentDate={currentDate}
@@ -356,7 +367,7 @@ export function DayView({
                 >
                   <span
                     className="size-2.5 rounded-full"
-                    style={{ backgroundColor: clr.border }}
+                    style={{ backgroundColor: dotColor }}
                   />
                   <span className="text-xs font-semibold truncate">
                     {s.name}
@@ -407,7 +418,7 @@ export function DayView({
                   key={s.id}
                   staff={s}
                   staffIndex={si}
-                  staffColorMap={staffColorMap}
+                  staffVisualMap={staffVisualMap}
                   appointments={dayApts.filter((a) => a.staffId === s.id)}
                   classInstances={dayClassInstances.filter((ci) => ci.staffId === s.id)}
                   dimmed={staffFilter !== null && staffFilter !== s.id}
@@ -435,7 +446,7 @@ export function DayView({
               <StaffColumn
                 staff={staff[0]}
                 staffIndex={0}
-                staffColorMap={staffColorMap}
+                staffVisualMap={staffVisualMap}
                 appointments={dayApts}
                 classInstances={dayClassInstances}
                 dimmed={false}
@@ -524,7 +535,7 @@ export function DayView({
 function StaffColumn({
   staff: s,
   staffIndex,
-  staffColorMap,
+  staffVisualMap,
   appointments,
   classInstances,
   dimmed,
@@ -549,7 +560,7 @@ function StaffColumn({
 }: {
   staff: Staff;
   staffIndex: number;
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
+  staffVisualMap: Map<string, StaffCardVisual>;
   appointments: Appointment[];
   classInstances: ClassInstance[];
   dimmed: boolean;
@@ -639,6 +650,7 @@ function StaffColumn({
             apt={apt}
             hourStart={hourStart}
             dateLocale={dateLocale}
+            staffVisual={staffVisualMap.get(apt.staffId)}
             onAptClick={onAptClick}
             overlapIndex={layout?.overlapIndex ?? 0}
             overlapCount={layout?.overlapCount ?? 1}
@@ -653,6 +665,7 @@ function StaffColumn({
           instance={ci}
           hourStart={hourStart}
           dateLocale={dateLocale}
+          staffVisual={staffVisualMap.get(ci.staffId)}
           isDragging={drag?.instanceId === ci.id && drag.hasMoved}
           onPointerDown={(e) => handleClassPointerDown(e, ci)}
           draggable={!!onClassTimeChange}
@@ -753,6 +766,7 @@ function AptBlock({
   apt,
   hourStart,
   dateLocale,
+  staffVisual,
   onAptClick,
   overlapIndex,
   overlapCount,
@@ -760,6 +774,8 @@ function AptBlock({
   apt: Appointment;
   hourStart: number;
   dateLocale: string;
+  /** Present only when the business has 2+ staff members. */
+  staffVisual: StaffCardVisual | undefined;
   onAptClick: (apt: Appointment) => void;
   overlapIndex: number;
   overlapCount: number;
@@ -770,7 +786,7 @@ function AptBlock({
     getHoursInTz(start) * 60 + getMinutesInTz(start) - hourStart * 60;
   const durationMins = (end.getTime() - start.getTime()) / 60_000;
   const top = (startMins / 60) * ROW_HEIGHT;
-  const heightPx = Math.max(durationMins * PX_PER_MIN, 24);
+  const heightPx = Math.max(durationMins * PX_PER_MIN, MIN_APT_HEIGHT);
   const style = getStatusStyle(apt.status);
   const tier: CardTier = getCardTier(heightPx);
 
@@ -784,37 +800,74 @@ function AptBlock({
   const widthPct = hasConflict ? 100 / overlapCount : 100;
   const leftPct = hasConflict ? overlapIndex * widthPct : 0;
 
+  const useStaffColor = Boolean(staffVisual);
+  // When a staff color is applied, the status is conveyed via the status dot
+  // (always visible) and, for non-happy paths, the PENDING/NO_SHOW badge on
+  // large tiers. The card's inline-start accent stripe becomes the staff
+  // color, so identity is instantly scannable across the day grid.
+  const textClass = useStaffColor ? "" : style.text;
+
   return (
     <button
       type="button"
       data-event-block
       onClick={() => onAptClick(apt)}
-      className={`absolute overflow-hidden rounded-lg border-s-[3px] ${style.border} text-start shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-black/10 ${style.bg} ${hasConflict ? "ring-1 ring-red-300/50" : ""}`}
+      className={`absolute overflow-hidden rounded-lg border-s-[3px] text-start shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-black/10 ${
+        useStaffColor ? "" : `${style.border} ${style.bg}`
+      } ${hasConflict ? "ring-1 ring-red-300/50" : ""}`}
       style={{
         top,
         height: heightPx,
         left: `calc(${leftPct}% + 2px)`,
         width: `calc(${widthPct}% - 4px)`,
+        ...(useStaffColor && staffVisual
+          ? {
+              backgroundColor: staffVisual.bg,
+              borderInlineStartColor: staffVisual.accent,
+              color: staffVisual.text,
+            }
+          : undefined),
       }}
     >
       {tier === "tiny" && (
-        <p className="flex items-center h-full px-1.5 text-[11px] truncate gap-1">
-          <span className={`size-1.5 rounded-full shrink-0 ${style.dot}`} />
-          <span className={`font-semibold ${style.text} tabular-nums`}>
-            {timeStart}
-          </span>
-        </p>
+        // Defensive 2-line layout for the smallest possible cards (<28px).
+        // With MIN_APT_HEIGHT=32 this tier is unreachable for real bookings,
+        // but keeping a compact time+service rendering means a future tweak
+        // to the clamp can't regress back to the "empty card" bug.
+        <div className="flex h-full flex-col justify-center px-1.5 py-0.5">
+          <p className="flex items-center gap-1 leading-none">
+            <span className={`size-1.5 rounded-full shrink-0 ${style.dot}`} />
+            <span
+              className={`text-[10px] font-semibold tabular-nums ${textClass}`}
+            >
+              {timeStart}
+            </span>
+          </p>
+          <p
+            className={`truncate text-[10px] font-medium leading-tight ${textClass}`}
+          >
+            {apt.serviceName}
+          </p>
+        </div>
       )}
       {tier === "small" && (
-        <div className="px-1.5 py-0.5">
+        // Two-line compact layout. We used to stack service + customer on
+        // separate lines which wasted vertical space on already-short cards.
+        // Merging them with a " - " separator matches the owner's preferred
+        // format ("שעווה ידיים - ירדן סמוראי") and lets `line-clamp-2` keep
+        // the whole string readable even when it has to wrap.
+        <div className="px-1 py-0.5">
           <p className="flex items-center gap-1 text-[11px] leading-tight">
             <span className={`size-1.5 rounded-full shrink-0 ${style.dot}`} />
-            <span className={`font-medium ${style.text} tabular-nums`}>
+            <span className={`font-medium ${textClass} tabular-nums`}>
               {timeStart}-{timeEnd}
             </span>
           </p>
-          <p className={`truncate text-xs font-semibold leading-tight ${style.text}`}>
+          <p
+            className={`line-clamp-2 break-words text-[11px] font-semibold leading-[1.15] ${textClass}`}
+          >
             {apt.serviceName}
+            {apt.customerName ? ` - ${apt.customerName}` : ""}
           </p>
         </div>
       )}
@@ -822,16 +875,16 @@ function AptBlock({
         <div className="px-2 py-1">
           <p className="flex items-center gap-1 text-[11px] leading-tight">
             <span className={`size-1.5 rounded-full shrink-0 ${style.dot}`} />
-            <span className={`font-medium ${style.text} tabular-nums`}>
+            <span className={`font-medium ${textClass} tabular-nums`}>
               {timeStart}-{timeEnd}
             </span>
             <span className="text-[10px] opacity-60">· {durLabel}</span>
           </p>
-          <p className={`truncate text-xs font-bold leading-tight mt-0.5 ${style.text}`}>
+          <p
+            className={`line-clamp-2 break-words text-xs font-semibold leading-tight mt-0.5 ${textClass}`}
+          >
             {apt.serviceName}
-          </p>
-          <p className={`truncate text-[11px] leading-tight mt-0.5 ${style.text} opacity-75`}>
-            {apt.customerName}
+            {apt.customerName ? ` - ${apt.customerName}` : ""}
           </p>
         </div>
       )}
@@ -839,16 +892,16 @@ function AptBlock({
         <div className="px-2 py-1">
           <p className="flex items-center gap-1 text-[11px] leading-tight">
             <span className={`size-1.5 rounded-full shrink-0 ${style.dot}`} />
-            <span className={`font-medium ${style.text} tabular-nums`}>
+            <span className={`font-medium ${textClass} tabular-nums`}>
               {timeStart}-{timeEnd}
             </span>
             <span className="text-[10px] opacity-60">· {durLabel}</span>
           </p>
-          <p className={`truncate text-xs font-bold leading-tight mt-0.5 ${style.text}`}>
+          <p
+            className={`line-clamp-2 break-words text-xs font-semibold leading-tight mt-0.5 ${textClass}`}
+          >
             {apt.serviceName}
-          </p>
-          <p className={`truncate text-[11px] leading-tight mt-0.5 ${style.text} opacity-75`}>
-            {apt.customerName}
+            {apt.customerName ? ` - ${apt.customerName}` : ""}
           </p>
           {(apt.status === "PENDING" || apt.status === "NO_SHOW") && (
             <span
@@ -871,6 +924,7 @@ function ClassBlock({
   instance,
   hourStart,
   dateLocale,
+  staffVisual,
   isDragging,
   onPointerDown,
   draggable,
@@ -878,6 +932,8 @@ function ClassBlock({
   instance: ClassInstance;
   hourStart: number;
   dateLocale: string;
+  /** Present only when the business has 2+ staff members. */
+  staffVisual: StaffCardVisual | undefined;
   isDragging?: boolean;
   onPointerDown?: (e: React.PointerEvent) => void;
   draggable?: boolean;
@@ -888,14 +944,18 @@ function ClassBlock({
     getHoursInTz(start) * 60 + getMinutesInTz(start) - hourStart * 60;
   const durationMins = (end.getTime() - start.getTime()) / 60_000;
   const top = (startMins / 60) * ROW_HEIGHT;
-  const heightPx = Math.max(durationMins * PX_PER_MIN, 24);
+  const heightPx = Math.max(durationMins * PX_PER_MIN, MIN_APT_HEIGHT);
   const timeStart = formatTime(start, dateLocale);
   const timeEnd = formatTime(end, dateLocale);
   const booked = instance.bookedCount ?? 0;
   const capacityStr = `${booked}/${instance.maxParticipants}`;
   const isFull = booked >= instance.maxParticipants;
   const tier = getCardTier(heightPx);
-  const vis = getClassCardVisual(instance.calendarColor);
+  // When multi-staff is active, tint by the teaching staff's resolved color so
+  // the same staff reads consistently across 1:1 appointments and classes.
+  const vis = staffVisual
+    ? getClassCardVisual(staffVisual.accent)
+    : getClassCardVisual(instance.calendarColor);
 
   if (startMins < 0) return null;
 
@@ -916,10 +976,22 @@ function ClassBlock({
       }}
     >
       {tier === "tiny" && (
-        <p className="flex items-center h-full px-1.5 text-[11px] truncate gap-1">
-          <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: vis.accent }} />
-          <span className="font-semibold">⟳ {timeStart}</span>
-        </p>
+        // Mirrors AptBlock's defensive tiny layout so class instances
+        // under 28px also show their service name, not just the start time.
+        <div className="flex h-full flex-col justify-center px-1.5 py-0.5">
+          <p className="flex items-center gap-1 leading-none">
+            <span
+              className="size-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: vis.accent }}
+            />
+            <span className="text-[10px] font-semibold tabular-nums">
+              ⟳ {timeStart}
+            </span>
+          </p>
+          <p className="truncate text-[10px] font-medium leading-tight">
+            {instance.serviceName}
+          </p>
+        </div>
       )}
       {tier === "small" && (
         <div className="px-1.5 py-0.5">

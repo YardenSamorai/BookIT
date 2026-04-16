@@ -34,6 +34,13 @@ export async function GET(request: NextRequest) {
   });
 
   for (const prefs of allPrefs) {
+    // Honor the master "send reminders" toggle. When the business owner turns
+    // reminders off in the messages settings page, we skip the entire business
+    // here regardless of which channels (WhatsApp/SMS) are still enabled —
+    // those channels are still used for booking/cancellation notifications,
+    // just not for time-before-appointment reminders.
+    if (prefs.remindersEnabled === false) continue;
+
     const reminderWindows: number[] = [];
 
     const r1 = prefs.reminderHoursBefore ?? 24;

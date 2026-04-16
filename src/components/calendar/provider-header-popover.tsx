@@ -13,11 +13,12 @@ import {
   User,
 } from "lucide-react";
 import type { Appointment, ClassInstance, Staff } from "./calendar-types";
-import { STAFF_COLORS, isSameDay } from "./calendar-types";
+import { isSameDay, resolveStaffCalendarColor } from "./calendar-types";
 
 interface ProviderHeaderPopoverProps {
   staff: Staff;
-  staffIndex: number;
+  /** All staff members (used to resolve this staff's calendar color). */
+  staffList: Staff[];
   appointments: Appointment[];
   classInstances: ClassInstance[];
   currentDate: Date;
@@ -26,13 +27,13 @@ interface ProviderHeaderPopoverProps {
 
 export function ProviderHeaderPopover({
   staff,
-  staffIndex,
+  staffList,
   appointments,
   classInstances,
   currentDate,
   children,
 }: ProviderHeaderPopoverProps) {
-  const clr = STAFF_COLORS[staffIndex % STAFF_COLORS.length];
+  const dotColor = resolveStaffCalendarColor(staff.id, staffList);
 
   const stats = useMemo(() => {
     const dayApts = appointments.filter(
@@ -79,7 +80,7 @@ export function ProviderHeaderPopover({
         <div className="flex items-center gap-2 mb-3">
           <span
             className="size-3 rounded-full"
-            style={{ backgroundColor: clr.border }}
+            style={{ backgroundColor: dotColor }}
           />
           <span className="text-sm font-semibold">{staff.name}</span>
         </div>

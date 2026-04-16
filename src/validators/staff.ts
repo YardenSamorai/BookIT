@@ -8,6 +8,13 @@ export const staffMemberSchema = z.object({
   bio: z.string().max(500).optional().or(z.literal("")),
   imageUrl: z.string().optional().or(z.literal("")),
   isActive: z.boolean().default(true),
+  // Optional hex color used to tint this staff member's appointment cells
+  // in the owner's calendar. Empty string → clear the override.
+  calendarColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const staffScheduleEntrySchema = z.object({

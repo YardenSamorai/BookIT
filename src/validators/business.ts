@@ -12,6 +12,8 @@ export const businessInfoSchema = z.object({
   currency: z.string().min(3).max(3),
   slotGranularityMin: z.coerce.number().int().min(5).max(120),
   defaultBufferMin: z.coerce.number().int().min(0).max(60),
+  minBookingAdvanceHours: z.coerce.number().int().min(0).max(720).optional(),
+  disableSameDayBookings: z.coerce.boolean().optional(),
   language: z.enum(["en", "he"]).optional(),
 });
 

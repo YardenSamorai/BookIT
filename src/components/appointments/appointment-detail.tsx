@@ -1,12 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { updateAppointmentStatus, cancelAppointment } from "@/actions/booking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CancelAppointmentDialog } from "@/components/appointments/cancel-appointment-dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -111,6 +112,7 @@ export function AppointmentDetail({ appointment }: AppointmentDetailProps) {
   const locale = useLocale();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const dtLocale = locale === "he" ? "he-IL" : "en-US";
 
@@ -152,9 +154,15 @@ export function AppointmentDetail({ appointment }: AppointmentDetailProps) {
     });
   }
 
-  function handleCancel() {
+  function handleCancel(opts: { reason: string; notifyCustomer: boolean }) {
     startTransition(async () => {
-      await cancelAppointment(appointment.id, "BUSINESS");
+      await cancelAppointment(
+        appointment.id,
+        "BUSINESS",
+        opts.reason.trim() || undefined,
+        { notifyCustomer: opts.notifyCustomer }
+      );
+      setCancelDialogOpen(false);
       router.refresh();
     });
   }
@@ -385,7 +393,7 @@ export function AppointmentDetail({ appointment }: AppointmentDetailProps) {
                   variant="destructive"
                   className="w-full"
                   disabled={isPending}
-                  onClick={handleCancel}
+                  onClick={() => setCancelDialogOpen(true)}
                 >
                   <XCircle className="size-4" />
                   {t("apt.cancel")}
@@ -456,6 +464,20 @@ export function AppointmentDetail({ appointment }: AppointmentDetailProps) {
           )}
         </CardContent>
       </Card>
+
+      <CancelAppointmentDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        disabled={isPending}
+        summary={{
+          customerName: appointment.customerName,
+          serviceName: appointment.serviceName,
+          staffName: appointment.staffName,
+          dateStr: formatDate(appointment.startTime),
+          timeStr: formatTime(appointment.startTime),
+        }}
+        onConfirm={handleCancel}
+      />
     </div>
   );
 }

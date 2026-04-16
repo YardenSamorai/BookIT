@@ -3,14 +3,19 @@
 import { useMemo } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-context";
-import type { Appointment, Staff, ClassInstance } from "./calendar-types";
-import { STAFF_COLORS, isSameDay } from "./calendar-types";
+import type {
+  Appointment,
+  Staff,
+  ClassInstance,
+  StaffCardVisual,
+} from "./calendar-types";
+import { isSameDay } from "./calendar-types";
 
 interface MonthViewProps {
   appointments: Appointment[];
   classInstances?: ClassInstance[];
   staff: Staff[];
-  staffColorMap: Map<string, (typeof STAFF_COLORS)[number]>;
+  staffVisualMap: Map<string, StaffCardVisual>;
   currentDate: Date;
   onAptClick: (apt: Appointment) => void;
   onClassClick?: (ci: ClassInstance) => void;
@@ -29,13 +34,19 @@ type DaySummary = {
   loadPct: number;
   isCurrentMonth: boolean;
   isToday: boolean;
+  /**
+   * Staff ids that have at least one appointment or class on this day,
+   * ordered by the business's staff list. Used to render colored dots when
+   * the business has 2+ staff members.
+   */
+  activeStaffIds: string[];
 };
 
 export function MonthView({
   appointments,
   classInstances = [],
   staff,
-  staffColorMap,
+  staffVisualMap,
   currentDate,
   onAptClick,
   onClassClick,
@@ -45,6 +56,7 @@ export function MonthView({
   const isRtl = locale === "he";
   const dayHeaders = isRtl ? DAY_HEADERS_HE : DAY_HEADERS_EN;
   const today = new Date();
+  const showStaffDots = staffVisualMap.size > 0;
 
   const { weeks, month, daySummaries } = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -98,6 +110,16 @@ export function MonthView({
           (a) => a.status === "PENDING"
         ).length;
         const total = oneToOne.length + dayCIs.length;
+
+        const activeSet = new Set<string>();
+        for (const a of oneToOne) activeSet.add(a.staffId);
+        for (const ci of dayCIs) activeSet.add(ci.staffId);
+        // Preserve staff list ordering so the dots read left-to-right in the
+        // same order as the filter bar / day-view columns.
+        const activeStaffIds = staff
+          .map((s) => s.id)
+          .filter((id) => activeSet.has(id));
+
         summaries.set(key, {
           date: day,
           aptCount: oneToOne.length,
@@ -106,12 +128,16 @@ export function MonthView({
           loadPct: total > 0 ? Math.min(100, (total / 10) * 100) : 0,
           isCurrentMonth: day.getMonth() === mo,
           isToday: isSameDay(day, today),
+          activeStaffIds,
         });
       }
     }
 
     return { weeks: rows, month: mo, daySummaries: summaries };
-  }, [currentDate, appointments, classInstances]);
+    // `today` is stable enough for the lifetime of this render; re-computing
+    // would invalidate the memo every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, appointments, classInstances, staff]);
 
   return (
     <>
@@ -163,8 +189,34 @@ export function MonthView({
                       {day.getDate()}
                     </span>
                     {summary.pendingCount > 0 && (
-                      <span className="size-1.5 rounded-full bg-amber-500" />
+                      <span
+                        className="size-1.5 rounded-full bg-amber-500"
+                        title="ממתין לאישור"
+                      />
                     )}
+                    {showStaffDots &&
+                      summary.activeStaffIds.length > 0 && (
+                        <div className="ms-auto flex items-center gap-0.5">
+                          {summary.activeStaffIds.slice(0, 4).map((sid) => {
+                            const visual = staffVisualMap.get(sid);
+                            const s = staff.find((x) => x.id === sid);
+                            if (!visual) return null;
+                            return (
+                              <span
+                                key={sid}
+                                className="size-1.5 rounded-full"
+                                style={{ backgroundColor: visual.accent }}
+                                title={s?.name}
+                              />
+                            );
+                          })}
+                          {summary.activeStaffIds.length > 4 && (
+                            <span className="text-[9px] font-semibold text-muted-foreground">
+                              +{summary.activeStaffIds.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )}
                   </div>
 
                   {/* Load bar */}
@@ -272,18 +324,41 @@ export function MonthView({
                         </span>
                       )}
                     </div>
-                    {/* Load bar */}
-                    <div className="mt-1 h-1 w-28 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          summary.loadPct > 90
-                            ? "bg-red-400"
-                            : summary.loadPct > 70
-                              ? "bg-amber-400"
-                              : "bg-emerald-400"
-                        }`}
-                        style={{ width: `${summary.loadPct}%` }}
-                      />
+                    {/* Load bar + staff dots */}
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1 w-28 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            summary.loadPct > 90
+                              ? "bg-red-400"
+                              : summary.loadPct > 70
+                                ? "bg-amber-400"
+                                : "bg-emerald-400"
+                          }`}
+                          style={{ width: `${summary.loadPct}%` }}
+                        />
+                      </div>
+                      {showStaffDots &&
+                        summary.activeStaffIds.length > 0 && (
+                          <div className="flex items-center gap-0.5">
+                            {summary.activeStaffIds.slice(0, 4).map((sid) => {
+                              const visual = staffVisualMap.get(sid);
+                              if (!visual) return null;
+                              return (
+                                <span
+                                  key={sid}
+                                  className="size-1.5 rounded-full"
+                                  style={{ backgroundColor: visual.accent }}
+                                />
+                              );
+                            })}
+                            {summary.activeStaffIds.length > 4 && (
+                              <span className="text-[9px] font-semibold text-muted-foreground">
+                                +{summary.activeStaffIds.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        )}
                     </div>
                   </>
                 )}

@@ -13,6 +13,10 @@ import {
   ChevronRight,
   Scissors,
   User,
+  Sparkles,
+  Lightbulb,
+  TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
 
 const sidebarItems = [
@@ -336,6 +340,67 @@ export function OpsMockup() {
               <span className="text-[10px] text-slate-600">{staff}</span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AiMockup() {
+  const insights = [
+    {
+      icon: TrendingUp,
+      iconColor: "text-emerald-600",
+      bgColor: "bg-emerald-50",
+      borderColor: "border-emerald-200",
+      title: "צמיחה של 23% בתורים השבוע",
+      desc: "יותר תורים מהשבוע שעבר — שיא חדש!",
+    },
+    {
+      icon: AlertTriangle,
+      iconColor: "text-amber-600",
+      bgColor: "bg-amber-50",
+      borderColor: "border-amber-200",
+      title: "35% ביטולים ביום שלישי",
+      desc: "שקלו להוסיף מדיניות ביטולים לשירותי צבע.",
+    },
+    {
+      icon: Lightbulb,
+      iconColor: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+      title: "שעות פיק: 10:00-12:00",
+      desc: "הוסיפו איש צוות בבוקר כדי למנוע אובר-בוקינג.",
+    },
+  ];
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden select-none" dir="rtl">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 bg-gradient-to-l from-violet-50 to-white">
+        <div className="flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
+          <Sparkles className="size-3 text-white" />
+        </div>
+        <span className="text-xs font-semibold text-slate-900">תובנות AI לעסק שלכם</span>
+      </div>
+      <div className="p-3 sm:p-4 space-y-2.5">
+        {insights.map((item, i) => (
+          <div
+            key={i}
+            className={`rounded-lg border ${item.borderColor} ${item.bgColor} px-3 py-2.5`}
+          >
+            <div className="flex items-start gap-2">
+              <item.icon className={`size-4 mt-0.5 shrink-0 ${item.iconColor}`} />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-800">{item.title}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <Sparkles className="size-3.5 text-violet-500" />
+          <span className="text-[10px] text-slate-400 flex-1">שאלו אותי כל שאלה על העסק שלכם...</span>
+          <div className="rounded-md bg-violet-600 px-2 py-0.5 text-[9px] font-semibold text-white">שלח</div>
         </div>
       </div>
     </div>

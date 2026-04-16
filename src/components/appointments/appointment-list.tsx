@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useTransition, useMemo, useRef } from "react";
+import { useState, useTransition, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
-import { updateAppointmentStatus, cancelAppointment, importAppointments } from "@/actions/booking";
+import {
+  updateAppointmentStatus,
+  cancelAppointment,
+  importAppointments,
+  hideAppointmentFromList,
+  unhideAppointmentFromList,
+  deleteAppointment,
+} from "@/actions/booking";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CancelAppointmentDialog } from "@/components/appointments/cancel-appointment-dialog";
 import {
   Select,
   SelectContent,
@@ -31,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertCircle,
+  Archive,
   CalendarDays,
   CalendarX2,
   CheckCircle2,
@@ -40,8 +49,11 @@ import {
   Loader2,
   MoreVertical,
   Search,
+  Trash2,
+  Undo2,
   Upload,
   UserX,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -181,6 +193,27 @@ export function AppointmentList({
   const [search, setSearch] = useState("");
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
+  // Dialog state for the two destructive flows. Kept local so the list keeps
+  // its single source of truth for row actions (desktop table + mobile cards
+  // both trigger them).
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Appointment | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Appointment | null>(null);
+
+  // Undo snackbar for the "hide from list" action. Shown for ~8s with a single
+  // Undo button; timing is long enough for the owner to reverse a misclick but
+  // short enough to not clutter the screen.
+  const [undoState, setUndoState] = useState<{
+    apt: Appointment;
+  } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     let list = appointments;
     if (statusFilter !== "ALL") {
@@ -216,9 +249,55 @@ export function AppointmentList({
     });
   }
 
-  function handleCancel(id: string) {
+  function handleCancelConfirm(
+    appointmentId: string,
+    opts: { reason: string; notifyCustomer: boolean }
+  ) {
     startTransition(async () => {
-      await cancelAppointment(id, "BUSINESS");
+      await cancelAppointment(
+        appointmentId,
+        "BUSINESS",
+        opts.reason.trim() || undefined,
+        { notifyCustomer: opts.notifyCustomer }
+      );
+      setCancelTarget(null);
+      router.refresh();
+    });
+  }
+
+  function showUndoFor(apt: Appointment) {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoState({ apt });
+    undoTimerRef.current = setTimeout(() => setUndoState(null), 8000);
+  }
+
+  function handleHide(apt: Appointment) {
+    startTransition(async () => {
+      const res = await hideAppointmentFromList(apt.id);
+      setRemoveTarget(null);
+      if (res.success) {
+        showUndoFor(apt);
+        router.refresh();
+      }
+    });
+  }
+
+  function handleUndoHide() {
+    if (!undoState) return;
+    const { apt } = undoState;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoState(null);
+    startTransition(async () => {
+      await unhideAppointmentFromList(apt.id);
+      router.refresh();
+    });
+  }
+
+  function handleDeleteForever(apt: Appointment) {
+    startTransition(async () => {
+      await deleteAppointment(apt.id);
+      setDeleteConfirm(null);
+      setRemoveTarget(null);
       router.refresh();
     });
   }
@@ -404,7 +483,8 @@ export function AppointmentList({
                                 appointment={apt}
                                 disabled={isPending}
                                 onStatusUpdate={handleStatusUpdate}
-                                onCancel={handleCancel}
+                                onRequestCancel={(a) => setCancelTarget(a)}
+                                onRequestRemove={(a) => setRemoveTarget(a)}
                               />
                             </td>
                           </tr>
@@ -455,7 +535,8 @@ export function AppointmentList({
                             appointment={apt}
                             disabled={isPending}
                             onStatusUpdate={handleStatusUpdate}
-                            onCancel={handleCancel}
+                            onRequestCancel={(a) => setCancelTarget(a)}
+                            onRequestRemove={(a) => setRemoveTarget(a)}
                           />
                         </div>
                       </div>
@@ -474,6 +555,59 @@ export function AppointmentList({
         services={services}
         staff={staff}
       />
+
+      <CancelAppointmentDialog
+        open={!!cancelTarget}
+        onOpenChange={(v) => { if (!v) setCancelTarget(null); }}
+        disabled={isPending}
+        summary={
+          cancelTarget
+            ? {
+                customerName: cancelTarget.customerName,
+                serviceName: cancelTarget.serviceName,
+                staffName: cancelTarget.staffName,
+                dateStr: new Date(cancelTarget.startTime).toLocaleDateString(
+                  dtLocale,
+                  { weekday: "long", day: "numeric", month: "long" }
+                ),
+                timeStr: new Date(cancelTarget.startTime).toLocaleTimeString(
+                  dtLocale,
+                  { hour: "2-digit", minute: "2-digit" }
+                ),
+              }
+            : undefined
+        }
+        onConfirm={(opts) => {
+          if (cancelTarget) handleCancelConfirm(cancelTarget.id, opts);
+        }}
+      />
+
+      <RemoveAppointmentDialog
+        appointment={removeTarget}
+        disabled={isPending}
+        onClose={() => setRemoveTarget(null)}
+        onHide={handleHide}
+        onRequestDelete={(a) => setDeleteConfirm(a)}
+      />
+
+      <DeleteForeverDialog
+        appointment={deleteConfirm}
+        disabled={isPending}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDeleteForever}
+      />
+
+      {undoState && (
+        <UndoSnackbar
+          appointment={undoState.apt}
+          onUndo={handleUndoHide}
+          onDismiss={() => {
+            if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+            setUndoState(null);
+          }}
+          dtLocale={dtLocale}
+        />
+      )}
     </div>
   );
 }
@@ -500,7 +634,8 @@ function ActionsMenu({
   appointment,
   disabled,
   onStatusUpdate,
-  onCancel,
+  onRequestCancel,
+  onRequestRemove,
 }: {
   appointment: Appointment;
   disabled: boolean;
@@ -508,15 +643,20 @@ function ActionsMenu({
     id: string,
     status: "CONFIRMED" | "COMPLETED" | "NO_SHOW"
   ) => void;
-  onCancel: (id: string) => void;
+  onRequestCancel: (apt: Appointment) => void;
+  onRequestRemove: (apt: Appointment) => void;
 }) {
   const t = useT();
   const { status, id } = appointment;
 
-  const hasActions =
-    status === "PENDING" || status === "CONFIRMED";
+  const isLive = status === "PENDING" || status === "CONFIRMED";
+  const isSettled =
+    status === "CANCELLED" || status === "NO_SHOW" || status === "COMPLETED";
 
-  if (!hasActions) return null;
+  // Guard against statuses that provide no actionable options (shouldn't happen
+  // today but keeps the menu from rendering an empty popover if an edge status
+  // sneaks in).
+  if (!isLive && !isSettled) return null;
 
   return (
     <DropdownMenu>
@@ -527,12 +667,13 @@ function ActionsMenu({
             size="sm"
             className="size-8 p-0"
             disabled={disabled}
+            onClick={(e) => e.stopPropagation()}
           />
         }
       >
         <MoreVertical className="size-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
         {status === "PENDING" && (
           <DropdownMenuItem onClick={() => onStatusUpdate(id, "CONFIRMED")}>
             <CheckCircle2 className="mr-2 size-4 text-blue-500" />
@@ -551,20 +692,237 @@ function ActionsMenu({
             </DropdownMenuItem>
           </>
         )}
-        {(status === "PENDING" || status === "CONFIRMED") && (
+        {isLive && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => onCancel(id)}
+              onClick={() => onRequestCancel(appointment)}
             >
               <XCircle className="mr-2 size-4" />
               {t("apt.cancel")}
             </DropdownMenuItem>
           </>
         )}
+        {isSettled && (
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => onRequestRemove(appointment)}
+          >
+            <X className="mr-2 size-4" />
+            {t("apt.remove_menu_item" as any)}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// ─── Remove dialog (hide from list vs delete permanently) ───────────────────
+
+function RemoveAppointmentDialog({
+  appointment,
+  disabled,
+  onClose,
+  onHide,
+  onRequestDelete,
+}: {
+  appointment: Appointment | null;
+  disabled: boolean;
+  onClose: () => void;
+  onHide: (apt: Appointment) => void;
+  onRequestDelete: (apt: Appointment) => void;
+}) {
+  const t = useT();
+  const locale = useLocale();
+
+  if (!appointment) return null;
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent
+        dir={locale === "he" ? "rtl" : "ltr"}
+        className="sm:max-w-md"
+      >
+        <DialogHeader>
+          <DialogTitle>{t("apt.remove_title" as any)}</DialogTitle>
+          <DialogDescription>
+            {t("apt.remove_desc" as any)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2.5">
+          {/* Option A: Hide from list (recommended) */}
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onHide(appointment)}
+            className="w-full rounded-lg border border-primary/30 bg-primary/5 p-3.5 text-start transition-colors hover:bg-primary/10 disabled:opacity-50"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Archive className="size-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">
+                  {t("apt.remove_hide_title" as any)}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t("apt.remove_hide_desc" as any)}
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Option B: Delete permanently */}
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onRequestDelete(appointment)}
+            className="w-full rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-start transition-colors hover:bg-destructive/10 disabled:opacity-50"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <Trash2 className="size-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-destructive">
+                  {t("apt.remove_delete_title" as any)}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t("apt.remove_delete_desc" as any)}
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={disabled}>
+            {t("common.cancel")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Delete forever confirmation (second step) ──────────────────────────────
+
+function DeleteForeverDialog({
+  appointment,
+  disabled,
+  onClose,
+  onConfirm,
+}: {
+  appointment: Appointment | null;
+  disabled: boolean;
+  onClose: () => void;
+  onConfirm: (apt: Appointment) => void;
+}) {
+  const t = useT();
+  const locale = useLocale();
+
+  if (!appointment) return null;
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent
+        dir={locale === "he" ? "rtl" : "ltr"}
+        className="sm:max-w-md"
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="size-5" />
+            {t("apt.delete_confirm_title" as any)}
+          </DialogTitle>
+          <DialogDescription>
+            {t("apt.delete_confirm_desc" as any)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+          <p className="font-semibold">{appointment.customerName}</p>
+          <p className="text-xs text-muted-foreground">
+            {appointment.serviceName} · {appointment.staffName}
+          </p>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={onClose} disabled={disabled}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => onConfirm(appointment)}
+            disabled={disabled}
+          >
+            {disabled && <Loader2 className="me-1.5 size-4 animate-spin" />}
+            {t("apt.delete_confirm_btn" as any)}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Undo snackbar (after a hide) ───────────────────────────────────────────
+
+function UndoSnackbar({
+  appointment,
+  onUndo,
+  onDismiss,
+  dtLocale,
+}: {
+  appointment: Appointment;
+  onUndo: () => void;
+  onDismiss: () => void;
+  dtLocale: string;
+}) {
+  const t = useT();
+  const dateStr = new Date(appointment.startTime).toLocaleDateString(dtLocale, {
+    day: "numeric",
+    month: "short",
+  });
+  const timeStr = new Date(appointment.startTime).toLocaleTimeString(dtLocale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-4 start-1/2 z-50 -translate-x-1/2 rtl:translate-x-1/2 max-w-[95vw]"
+    >
+      <div className="flex items-center gap-3 rounded-full border bg-foreground px-4 py-2.5 text-background shadow-lg">
+        <Archive className="size-4 shrink-0 opacity-80" />
+        <div className="flex flex-col text-start leading-tight">
+          <span className="text-sm font-medium">
+            {t("apt.hide_toast" as any)}
+          </span>
+          <span className="text-[11px] opacity-70 tabular-nums" dir="ltr">
+            {appointment.customerName} · {dateStr} {timeStr}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onUndo}
+          className="ms-2 inline-flex items-center gap-1 rounded-full bg-background/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-background/25"
+        >
+          <Undo2 className="size-3.5" />
+          {t("apt.hide_undo" as any)}
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="ms-1 inline-flex size-7 items-center justify-center rounded-full text-background/70 hover:text-background"
+          aria-label="Dismiss"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+    </div>
   );
 }
 

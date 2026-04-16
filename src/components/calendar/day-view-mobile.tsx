@@ -11,9 +11,9 @@ import type {
   BlockedSlot,
   TimeOffPeriod,
   BusinessHoursEntry,
+  StaffCardVisual,
 } from "./calendar-types";
 import {
-  STAFF_COLORS,
   isSameDay,
   formatTime,
   getHoursInTz,
@@ -30,6 +30,7 @@ interface DayViewMobileProps {
   appointments: Appointment[];
   classInstances?: ClassInstance[];
   staff: Staff[];
+  staffVisualMap: Map<string, StaffCardVisual>;
   staffSchedules?: StaffDaySchedule[];
   staffBlockedSlots?: BlockedSlot[];
   staffTimeOff?: TimeOffPeriod[];
@@ -52,6 +53,7 @@ export function DayViewMobile({
   appointments,
   classInstances = [],
   staff,
+  staffVisualMap,
   staffSchedules = [],
   staffBlockedSlots = [],
   staffTimeOff = [],
@@ -65,10 +67,13 @@ export function DayViewMobile({
   const dateLocale = locale === "he" ? "he-IL" : "en-US";
   const multiStaff = staff.length > 1;
 
-  const showAllPill = multiStaff && staff.length <= 3;
-  const [activeStaffId, setActiveStaffId] = useState<string | null>(
-    multiStaff ? staff[0]?.id ?? null : null
-  );
+  // The "All" pill is always available when there is more than one staff
+  // member: it's the default landing state (so the owner sees the full day
+  // across the whole team without having to flip pills) and we always need
+  // a way back to it after picking an individual staff. The pill row scrolls
+  // horizontally, so showing "All" alongside many staff doesn't break layout.
+  const showAllPill = multiStaff;
+  const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Day-scoped data ─────────────────────────────────────
@@ -221,27 +226,32 @@ export function DayViewMobile({
   ]);
 
   // ── Provider pill navigation ────────────────────────────
+  // Cycle order with the always-visible "All" pill is:
+  //   All → staff[0] → staff[1] → ... → staff[n-1] → All → ...
   const staffIdx = staff.findIndex((s) => s.id === activeStaffId);
 
   function goNext() {
-    if (showAllPill && activeStaffId === null) {
+    if (activeStaffId === null) {
       setActiveStaffId(staff[0]?.id ?? null);
-    } else {
-      const nextIdx = (staffIdx + 1) % staff.length;
-      setActiveStaffId(staff[nextIdx].id);
+      return;
     }
+    if (staffIdx === staff.length - 1) {
+      setActiveStaffId(null);
+      return;
+    }
+    setActiveStaffId(staff[staffIdx + 1].id);
   }
 
   function goPrev() {
-    if (staffIdx <= 0) {
-      if (showAllPill) {
-        setActiveStaffId(null);
-      } else {
-        setActiveStaffId(staff[staff.length - 1].id);
-      }
-    } else {
-      setActiveStaffId(staff[staffIdx - 1].id);
+    if (activeStaffId === null) {
+      setActiveStaffId(staff[staff.length - 1]?.id ?? null);
+      return;
     }
+    if (staffIdx === 0) {
+      setActiveStaffId(null);
+      return;
+    }
+    setActiveStaffId(staff[staffIdx - 1].id);
   }
 
   const noItems =
@@ -269,8 +279,9 @@ export function DayViewMobile({
                 הכל
               </button>
             )}
-            {staff.map((s, i) => {
-              const clr = STAFF_COLORS[i % STAFF_COLORS.length];
+            {staff.map((s) => {
+              const visual = staffVisualMap.get(s.id);
+              const dotColor = visual?.accent ?? "#94A3B8";
               const active = activeStaffId === s.id;
               return (
                 <button
@@ -282,19 +293,19 @@ export function DayViewMobile({
                       : "bg-muted/60 text-muted-foreground"
                   }`}
                   style={
-                    active
+                    active && visual
                       ? {
-                          backgroundColor: clr.bg,
-                          color: clr.text,
+                          backgroundColor: visual.bg,
+                          color: visual.text,
                           // @ts-expect-error CSS var
-                          "--tw-ring-color": clr.border,
+                          "--tw-ring-color": visual.accent,
                         }
                       : undefined
                   }
                 >
                   <span
                     className="size-2 rounded-full"
-                    style={{ backgroundColor: clr.border }}
+                    style={{ backgroundColor: dotColor }}
                   />
                   {s.name.split(" ")[0]}
                 </button>
@@ -384,7 +395,7 @@ export function DayViewMobile({
               <MobileAptCard
                 key={entry.data.id}
                 apt={entry.data}
-                staff={staff}
+                staffVisual={staffVisualMap.get(entry.data.staffId)}
                 dateLocale={dateLocale}
                 showProvider={activeStaffId === null}
                 onClick={() => onAptClick(entry.data)}
@@ -398,6 +409,7 @@ export function DayViewMobile({
                 key={entry.data.id}
                 instance={entry.data}
                 dateLocale={dateLocale}
+                staffVisual={staffVisualMap.get(entry.data.staffId)}
                 onClick={() => onClassClick?.(entry.data)}
               />
             );
@@ -426,13 +438,14 @@ export function DayViewMobile({
 
 function MobileAptCard({
   apt,
-  staff,
+  staffVisual,
   dateLocale,
   showProvider,
   onClick,
 }: {
   apt: Appointment;
-  staff: Staff[];
+  /** Present only when the business has 2+ staff members. */
+  staffVisual: StaffCardVisual | undefined;
   dateLocale: string;
   showProvider: boolean;
   onClick: () => void;
@@ -443,39 +456,45 @@ function MobileAptCard({
     (end.getTime() - start.getTime()) / 60_000
   );
   const style = getStatusStyle(apt.status);
-
-  const staffIdx = staff.findIndex((s) => s.id === apt.staffId);
-  const staffClr = STAFF_COLORS[staffIdx >= 0 ? staffIdx % STAFF_COLORS.length : 0];
+  const useStaffColor = Boolean(staffVisual);
+  const textClass = useStaffColor ? "" : style.text;
 
   return (
     <button
       onClick={onClick}
-      className={`w-full rounded-xl border-s-[3px] ${style.border} ${style.bg} p-3 text-start transition-shadow active:shadow-md`}
+      className={`w-full rounded-xl border-s-[3px] p-3 text-start transition-shadow active:shadow-md ${
+        useStaffColor ? "" : `${style.border} ${style.bg}`
+      }`}
+      style={
+        useStaffColor && staffVisual
+          ? {
+              backgroundColor: staffVisual.bg,
+              borderInlineStartColor: staffVisual.accent,
+              color: staffVisual.text,
+            }
+          : undefined
+      }
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="flex items-center gap-1.5 text-sm">
             <span className={`size-2 rounded-full shrink-0 ${style.dot}`} />
-            <span className={`font-semibold ${style.text}`}>
+            <span className={`font-semibold ${textClass}`}>
               {formatTime(start, dateLocale)} – {formatTime(end, dateLocale)}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs opacity-70">
               · {durationMins}m
             </span>
           </p>
-          <p className={`text-sm font-bold mt-0.5 ${style.text}`}>
+          <p className={`text-sm font-bold mt-0.5 break-words ${textClass}`}>
             {apt.serviceName}
+            {apt.customerName ? ` - ${apt.customerName}` : ""}
           </p>
-          {apt.customerName && (
-            <p className={`text-xs mt-0.5 ${style.text} opacity-75`}>
-              {apt.customerName}
-            </p>
-          )}
           {showProvider && (
-            <p className="flex items-center gap-1 text-xs mt-0.5 text-muted-foreground">
+            <p className={`flex items-center gap-1 text-xs mt-0.5 ${textClass} opacity-80`}>
               <span
                 className="size-1.5 rounded-full"
-                style={{ backgroundColor: staffClr.border }}
+                style={{ backgroundColor: staffVisual?.accent ?? "#94A3B8" }}
               />
               {apt.staffName}
             </p>
@@ -500,17 +519,23 @@ function MobileAptCard({
 function MobileClassCard({
   instance,
   dateLocale,
+  staffVisual,
   onClick,
 }: {
   instance: ClassInstance;
   dateLocale: string;
+  /** Present only when the business has 2+ staff members. */
+  staffVisual: StaffCardVisual | undefined;
   onClick: () => void;
 }) {
   const start = new Date(instance.startTime);
   const end = new Date(instance.endTime);
   const booked = instance.bookedCount ?? 0;
   const isFull = booked >= instance.maxParticipants;
-  const vis = getClassCardVisual(instance.calendarColor);
+  // Same rule as 1:1 cards — tint by staff when multi-staff, else class color.
+  const vis = staffVisual
+    ? getClassCardVisual(staffVisual.accent)
+    : getClassCardVisual(instance.calendarColor);
 
   return (
     <button

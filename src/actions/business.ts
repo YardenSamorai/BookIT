@@ -32,6 +32,12 @@ export async function updateBusinessInfo(
       currency: parsed.data.currency,
       slotGranularityMin: parsed.data.slotGranularityMin,
       defaultBufferMin: parsed.data.defaultBufferMin,
+      ...(parsed.data.minBookingAdvanceHours !== undefined
+        ? { minBookingAdvanceHours: parsed.data.minBookingAdvanceHours }
+        : {}),
+      ...(parsed.data.disableSameDayBookings !== undefined
+        ? { disableSameDayBookings: parsed.data.disableSameDayBookings }
+        : {}),
       ...(parsed.data.language ? { language: parsed.data.language } : {}),
       updatedAt: new Date(),
     })

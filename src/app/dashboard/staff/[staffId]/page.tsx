@@ -37,6 +37,7 @@ export default async function StaffDetailPage({ params }: Props) {
           bio: member.bio ?? "",
           imageUrl: member.imageUrl ?? "",
           isActive: member.isActive,
+          calendarColor: member.calendarColor ?? "",
         }}
       />
     </div>

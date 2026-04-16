@@ -54,6 +54,14 @@ type MessageTemplate = InferSelectModel<typeof messageTemplates>;
 interface NotificationPrefs {
   whatsappEnabled: boolean;
   smsBookingEnabled: boolean;
+  /**
+   * Master switch for pre-appointment reminders. When `false`, the cron
+   * skips this business entirely — regardless of the hour windows below.
+   * The owner can still configure the hour values; they just stay dormant
+   * until reminders are re-enabled, so toggling back on doesn't lose the
+   * previously chosen timing.
+   */
+  remindersEnabled: boolean;
   reminderHoursBefore: number;
   reminderHoursBefore2: number;
   notificationPhones: string[];
@@ -254,8 +262,6 @@ export function MessagesPageClient({
             prefs={prefs}
             whatsappAllowed={whatsappAllowed}
             businessPhone={businessPhone}
-            waConfig={waConfig}
-            configuredTemplateCount={configuredTemplateCount}
           />
         </TabsContent>
       </Tabs>
@@ -808,14 +814,10 @@ function SettingsTab({
   prefs,
   whatsappAllowed,
   businessPhone,
-  waConfig,
-  configuredTemplateCount,
 }: {
   prefs: NotificationPrefs;
   whatsappAllowed: boolean;
   businessPhone: string;
-  waConfig?: WaConfig;
-  configuredTemplateCount: number;
 }) {
   const t = useT();
   const router = useRouter();
@@ -828,6 +830,7 @@ function SettingsTab({
 
   const [whatsappEnabled, setWhatsappEnabled] = useState(prefs.whatsappEnabled);
   const [smsBookingEnabled, setSmsBookingEnabled] = useState(prefs.smsBookingEnabled);
+  const [remindersEnabled, setRemindersEnabled] = useState(prefs.remindersEnabled);
   const [reminderHours, setReminderHours] = useState(prefs.reminderHoursBefore);
   const [reminderHours2, setReminderHours2] = useState(prefs.reminderHoursBefore2);
   const [notifPhones, setNotifPhones] = useState<string[]>(prefs.notificationPhones);
@@ -853,6 +856,7 @@ function SettingsTab({
       await updateNotificationPreferences({
         whatsappEnabled,
         smsBookingEnabled,
+        remindersEnabled,
         reminderHoursBefore: reminderHours,
         reminderHoursBefore2: reminderHours2 > 0 ? reminderHours2 : null,
         notificationPhones: notifPhones,
@@ -892,47 +896,15 @@ function SettingsTab({
     }
   }
 
-  const waNumber = waConfig?.number;
+  // The WhatsApp status card was removed intentionally — the business owner
+  // has no actionable control over the platform-level WhatsApp connection
+  // (it's a Twilio config managed by the operator), so showing "connected /
+  // not configured" only added noise. The connection state is still surfaced
+  // implicitly via the Templates tab, where unconfigured templates are
+  // highlighted.
 
   return (
     <div className="space-y-4">
-      {/* WhatsApp Status Card */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-3 border-b bg-muted/30">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MessageCircle className="size-4 text-green-600" />
-            {t("msg.wa_status" as never)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{t("msg.wa_number" as never)}:</span>
-              {waNumber ? (
-                <span className="text-sm font-medium font-mono" dir="ltr">{waNumber}</span>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
-            </div>
-            <Badge className={waNumber
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 gap-1"
-              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 gap-1"
-            }>
-              {waNumber ? (
-                <><CheckCircle2 className="size-3" />{t("msg.wa_connected" as never)}</>
-              ) : (
-                <><AlertCircle className="size-3" />{t("msg.wa_not_configured" as never)}</>
-              )}
-            </Badge>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{t("msg.wa_templates_title" as never)}:</span>
-            <span className="text-sm font-medium">{configuredTemplateCount} / 5</span>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Channel Settings */}
       <Card>
         <CardHeader className="pb-3">
@@ -1036,6 +1008,25 @@ function SettingsTab({
               </Button>
             </div>
           </div>
+          {/*
+            Master "send reminders" switch. When OFF, both hour inputs below
+            are disabled (but their values are preserved on the server) and
+            the cron skips this business entirely. We keep the values around
+            so the owner can flip reminders back on without re-entering the
+            timing they had configured.
+          */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">{t("msg.settings_reminders_toggle" as never)}</Label>
+              <p className="text-xs text-muted-foreground">{t("msg.settings_reminders_toggle_desc" as never)}</p>
+            </div>
+            <Switch
+              checked={remindersEnabled}
+              onCheckedChange={(v) => { setRemindersEnabled(v); setSaved(false); }}
+              disabled={pending}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label className="text-sm font-medium">{t("settings.notif_reminder_hours" as never)}</Label>
             <p className="text-xs text-muted-foreground">{t("settings.notif_reminder_desc" as never)}</p>
@@ -1045,7 +1036,7 @@ function SettingsTab({
               max={72}
               value={reminderHours}
               onChange={(e) => { setReminderHours(Number(e.target.value)); setSaved(false); }}
-              disabled={!whatsappAllowed || pending}
+              disabled={!whatsappAllowed || pending || !remindersEnabled}
               className="max-w-[120px] h-9"
             />
           </div>
@@ -1059,7 +1050,7 @@ function SettingsTab({
               max={72}
               value={reminderHours2}
               onChange={(e) => { setReminderHours2(Number(e.target.value)); setSaved(false); }}
-              disabled={!whatsappAllowed || pending}
+              disabled={!whatsappAllowed || pending || !remindersEnabled}
               className="max-w-[120px] h-9"
             />
           </div>

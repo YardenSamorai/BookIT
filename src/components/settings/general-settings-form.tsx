@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { updateBusinessInfo } from "@/actions/business";
 import { BUSINESS_TYPES, SLOT_GRANULARITY_OPTIONS } from "@/lib/utils/constants";
 import { SUPPORTED_CURRENCIES } from "@/lib/utils/currencies";
@@ -54,6 +55,8 @@ export function GeneralSettingsForm({ business }: GeneralSettingsFormProps) {
     currency: business.currency,
     slotGranularityMin: business.slotGranularityMin,
     defaultBufferMin: business.defaultBufferMin,
+    minBookingAdvanceHours: business.minBookingAdvanceHours ?? 0,
+    disableSameDayBookings: business.disableSameDayBookings ?? false,
     language: (business.language ?? "he") as "en" | "he",
   });
 
@@ -230,6 +233,50 @@ export function GeneralSettingsForm({ business }: GeneralSettingsFormProps) {
               />
             </FormField>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.booking_policy")}</CardTitle>
+          <CardDescription>{t("settings.booking_policy_desc")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">
+                {t("settings.disable_same_day")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.disable_same_day_desc")}
+              </p>
+            </div>
+            <Switch
+              checked={form.disableSameDayBookings}
+              onCheckedChange={(checked) =>
+                update({ disableSameDayBookings: Boolean(checked) })
+              }
+              disabled={loading}
+            />
+          </div>
+
+          <FormField label={t("settings.min_advance_hours")}>
+            <Input
+              type="number"
+              min={0}
+              max={720}
+              value={form.minBookingAdvanceHours}
+              onChange={(e) =>
+                update({
+                  minBookingAdvanceHours: Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("settings.min_advance_hours_desc")}
+            </p>
+          </FormField>
         </CardContent>
       </Card>
 

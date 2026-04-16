@@ -163,8 +163,34 @@ export async function createAppointment(
 
   const business = await db.query.businesses.findFirst({
     where: eq(businesses.id, businessId),
-    columns: { defaultBufferMin: true },
+    columns: {
+      defaultBufferMin: true,
+      timezone: true,
+      minBookingAdvanceHours: true,
+      disableSameDayBookings: true,
+    },
   });
+
+  // Enforce booking advance policy server-side so customers cannot bypass
+  // the UI by calling the action directly.
+  const minAdvanceHours = business?.minBookingAdvanceHours ?? 0;
+  const disableSameDay = business?.disableSameDayBookings ?? false;
+  const policyTz = business?.timezone || "Asia/Jerusalem";
+
+  if (disableSameDay) {
+    const todayInTz = new Date().toLocaleDateString("en-CA", { timeZone: policyTz });
+    const slotDateInTz = startTime.toLocaleDateString("en-CA", { timeZone: policyTz });
+    if (slotDateInTz === todayInTz) {
+      return { success: false, error: "BOOKING_SAME_DAY_DISABLED" };
+    }
+  }
+
+  if (minAdvanceHours > 0) {
+    const minMs = minAdvanceHours * 3_600_000;
+    if (startTime.getTime() - Date.now() < minMs) {
+      return { success: false, error: `BOOKING_TOO_SOON:${minAdvanceHours}` };
+    }
+  }
 
   const bufferMin = service.bufferMinutes ?? business?.defaultBufferMin ?? 0;
 
@@ -931,8 +957,14 @@ export async function getDayAppointments(
 export async function cancelAppointment(
   appointmentId: string,
   cancelledBy: "CUSTOMER" | "BUSINESS",
-  reason?: string
+  reason?: string,
+  options?: { notifyCustomer?: boolean }
 ): Promise<ActionResult> {
+  // When the business cancels, the owner can opt out of notifying the customer
+  // (e.g. already reached them on the phone). Customer-initiated cancellations
+  // always notify the customer so they get their own confirmation record.
+  const notifyCustomer =
+    cancelledBy === "CUSTOMER" ? true : options?.notifyCustomer !== false;
   const appointment = await db.query.appointments.findFirst({
     where: eq(appointments.id, appointmentId),
   });
@@ -1049,7 +1081,7 @@ export async function cancelAppointment(
         staff: "",
       };
 
-      if (user?.phone) {
+      if (user?.phone && notifyCustomer) {
         sendBookingNotificationSafe({
           businessId: appointment.businessId,
           appointmentId,
@@ -1077,6 +1109,81 @@ export async function cancelAppointment(
 
   revalidatePath(`/b`);
   revalidatePath(`/dashboard`);
+  return { success: true, data: undefined };
+}
+
+// ─── Appointment list cleanup (owner) ────────────────────────────────────────
+//
+// Two separate actions so the owner can decide per-row whether they want the
+// row out of their view (`hideAppointmentFromList`) or removed permanently
+// (`deleteAppointment`). Both are restricted to "settled" statuses — a live
+// PENDING/CONFIRMED appointment must be cancelled first, so we never silently
+// lose a commitment to a customer.
+
+const HIDEABLE_STATUSES = ["CANCELLED", "NO_SHOW", "COMPLETED"] as const;
+
+async function assertOwnerOwnsAppointment(appointmentId: string) {
+  const { requireBusinessOwner } = await import("@/lib/auth/guards");
+  const { businessId } = await requireBusinessOwner();
+  const apt = await db.query.appointments.findFirst({
+    where: eq(appointments.id, appointmentId),
+    columns: { id: true, businessId: true, status: true },
+  });
+  if (!apt || apt.businessId !== businessId) return null;
+  return { apt, businessId };
+}
+
+export async function hideAppointmentFromList(
+  appointmentId: string
+): Promise<ActionResult> {
+  const ctx = await assertOwnerOwnsAppointment(appointmentId);
+  if (!ctx) return { success: false, error: "Appointment not found" };
+  if (!HIDEABLE_STATUSES.includes(ctx.apt.status as (typeof HIDEABLE_STATUSES)[number])) {
+    return { success: false, error: "APT_NOT_HIDEABLE" };
+  }
+
+  await db
+    .update(appointments)
+    .set({ hiddenFromListAt: new Date(), updatedAt: new Date() })
+    .where(eq(appointments.id, appointmentId));
+
+  revalidatePath("/dashboard/appointments");
+  return { success: true, data: undefined };
+}
+
+export async function unhideAppointmentFromList(
+  appointmentId: string
+): Promise<ActionResult> {
+  const ctx = await assertOwnerOwnsAppointment(appointmentId);
+  if (!ctx) return { success: false, error: "Appointment not found" };
+
+  await db
+    .update(appointments)
+    .set({ hiddenFromListAt: null, updatedAt: new Date() })
+    .where(eq(appointments.id, appointmentId));
+
+  revalidatePath("/dashboard/appointments");
+  return { success: true, data: undefined };
+}
+
+export async function deleteAppointment(
+  appointmentId: string
+): Promise<ActionResult> {
+  const ctx = await assertOwnerOwnsAppointment(appointmentId);
+  if (!ctx) return { success: false, error: "Appointment not found" };
+  if (!HIDEABLE_STATUSES.includes(ctx.apt.status as (typeof HIDEABLE_STATUSES)[number])) {
+    return { success: false, error: "APT_NOT_DELETABLE" };
+  }
+
+  // appointment_log rows have ON DELETE CASCADE on appointment_id, so we don't
+  // need to clean them up manually. Google event (if any) was already torn down
+  // when the appointment was cancelled, but try once more defensively.
+  deleteGoogleEvent(appointmentId).catch(() => {});
+
+  await db.delete(appointments).where(eq(appointments.id, appointmentId));
+
+  revalidatePath("/dashboard/appointments");
+  revalidatePath("/dashboard");
   return { success: true, data: undefined };
 }
 

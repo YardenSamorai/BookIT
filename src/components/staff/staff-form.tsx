@@ -10,6 +10,8 @@ import { ImageUpload } from "@/components/shared/image-upload";
 import type { StaffMemberInput } from "@/validators/staff";
 import { Loader2 } from "lucide-react";
 import { useT } from "@/lib/i18n/locale-context";
+import { cn } from "@/lib/utils";
+import { STAFF_CALENDAR_COLOR_PRESETS } from "@/components/calendar/calendar-types";
 
 interface StaffFormProps {
   onSuccess: () => void;
@@ -30,6 +32,7 @@ export function StaffForm({ onSuccess, defaultValues }: StaffFormProps) {
     bio: defaultValues?.bio ?? "",
     imageUrl: defaultValues?.imageUrl ?? "",
     isActive: defaultValues?.isActive ?? true,
+    calendarColor: defaultValues?.calendarColor ?? "",
   });
 
   function update(patch: Partial<StaffMemberInput>) {
@@ -109,6 +112,45 @@ export function StaffForm({ onSuccess, defaultValues }: StaffFormProps) {
           placeholder={t("staff.bio_ph")}
           disabled={loading}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("staff.calendar_color")}</Label>
+        <p className="text-xs text-muted-foreground">
+          {t("staff.calendar_color_hint")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {STAFF_CALENDAR_COLOR_PRESETS.map((hex) => (
+            <button
+              key={hex}
+              type="button"
+              disabled={loading}
+              title={hex}
+              onClick={() => update({ calendarColor: hex })}
+              className={cn(
+                "size-8 rounded-full border-2 shadow-sm transition-transform hover:scale-105 disabled:opacity-50",
+                form.calendarColor === hex
+                  ? "border-foreground ring-2 ring-ring ring-offset-2 ring-offset-background"
+                  : "border-white/90"
+              )}
+              style={{ backgroundColor: hex }}
+            />
+          ))}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => update({ calendarColor: "" })}
+            className={cn(
+              "flex size-8 items-center justify-center rounded-full border-2 border-dashed text-muted-foreground transition-colors hover:bg-muted/80 disabled:opacity-50",
+              !form.calendarColor
+                ? "border-foreground ring-2 ring-ring ring-offset-2 ring-offset-background"
+                : "border-muted-foreground/40"
+            )}
+            title={t("staff.calendar_color_auto")}
+          >
+            <span className="text-xs font-semibold leading-none">·</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

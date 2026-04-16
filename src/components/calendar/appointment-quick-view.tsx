@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
 import { updateAppointmentStatus, cancelAppointment, rescheduleAppointment } from "@/actions/booking";
+import { CancelAppointmentDialog } from "@/components/appointments/cancel-appointment-dialog";
 import { BUSINESS_TZ, wallClockToDate } from "./calendar-types";
 
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "NO_SHOW";
@@ -179,6 +180,7 @@ export function AppointmentQuickView({
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
   const [rescheduleError, setRescheduleError] = useState("");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   if (!appointment) return null;
 
@@ -221,9 +223,15 @@ export function AppointmentQuickView({
     });
   }
 
-  function handleCancel() {
+  function handleCancelConfirm(opts: { reason: string; notifyCustomer: boolean }) {
     startTransition(async () => {
-      await cancelAppointment(appointment!.id, "BUSINESS");
+      await cancelAppointment(
+        appointment!.id,
+        "BUSINESS",
+        opts.reason.trim() || undefined,
+        { notifyCustomer: opts.notifyCustomer }
+      );
+      setCancelDialogOpen(false);
       router.refresh();
       onOpenChange(false);
     });
@@ -436,7 +444,7 @@ export function AppointmentQuickView({
                 <Button
                   variant="destructive"
                   disabled={isPending}
-                  onClick={handleCancel}
+                  onClick={() => setCancelDialogOpen(true)}
                 >
                   <XCircle className="size-4" />
                   {t("apt.cancel")}
@@ -455,6 +463,20 @@ export function AppointmentQuickView({
           </Link>
         </div>
       </SheetContent>
+
+      <CancelAppointmentDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        disabled={isPending}
+        summary={{
+          customerName: appointment.customerName,
+          serviceName: appointment.serviceName,
+          staffName: appointment.staffName,
+          dateStr,
+          timeStr,
+        }}
+        onConfirm={handleCancelConfirm}
+      />
     </Sheet>
   );
 }

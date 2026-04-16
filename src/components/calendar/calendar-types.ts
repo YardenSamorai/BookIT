@@ -30,6 +30,8 @@ export type Staff = {
   id: string;
   name: string;
   imageUrl: string | null;
+  /** Optional persisted hex (e.g. "#3B82F6"); null → fallback by staff order. */
+  calendarColor?: string | null;
 };
 
 export type Appointment = {
@@ -263,23 +265,72 @@ export function getStatusStyle(status: string): StatusStyle {
 }
 
 // ---------------------------------------------------------------------------
-// Staff color palette (used for provider identification dots in week/month)
+// Persisted staff calendar colors (used to tint 1:1 appointment cells so
+// the owner can visually distinguish different staff members). This replaces
+// the previous hard-coded STAFF_COLORS palette — a single source of truth for
+// a staff member's color (explicit override OR preset by staff order) keeps
+// the calendar, filter bar and header popovers in sync.
 // ---------------------------------------------------------------------------
 
-export const STAFF_COLORS = [
-  { bg: "#DCFCE7", border: "#22C55E", text: "#14532D" },
-  { bg: "#EFF6FF", border: "#3B82F6", text: "#1E3A5F" },
-  { bg: "#FFF7ED", border: "#F97316", text: "#7C2D12" },
-  { bg: "#FAF5FF", border: "#A855F7", text: "#3B0764" },
-  { bg: "#FFF1F2", border: "#F43F5E", text: "#881337" },
-  { bg: "#ECFEFF", border: "#06B6D4", text: "#164E63" },
-  { bg: "#FFFBEB", border: "#EAB308", text: "#713F12" },
-  { bg: "#FDF2F8", border: "#EC4899", text: "#831843" },
-];
+/** Preset hex colors offered as a quick picker in the staff form. */
+export const STAFF_CALENDAR_COLOR_PRESETS = [
+  "#3B82F6", // blue
+  "#22C55E", // green
+  "#F97316", // orange
+  "#A855F7", // violet
+  "#F43F5E", // rose
+  "#06B6D4", // cyan
+  "#EAB308", // yellow
+  "#EC4899", // pink
+  "#14B8A6", // teal
+  "#6366F1", // indigo
+] as const;
 
-export function getStaffColor(staffId: string, staffList: Staff[]) {
+/**
+ * Resolve the hex color to use for a given staff member in the calendar.
+ * Priority:
+ *   1. Explicit `staff.calendarColor` (owner's override)
+ *   2. Auto-assigned preset by staff index in the `staffList`
+ */
+export function resolveStaffCalendarColor(
+  staffId: string,
+  staffList: Staff[]
+): string {
   const idx = staffList.findIndex((s) => s.id === staffId);
-  return STAFF_COLORS[idx >= 0 ? idx % STAFF_COLORS.length : 0];
+  const explicit = idx >= 0 ? staffList[idx].calendarColor : null;
+  if (explicit && /^#[0-9A-Fa-f]{6}$/.test(explicit.trim())) {
+    return explicit.trim();
+  }
+  const fallbackIdx = idx >= 0 ? idx : 0;
+  return STAFF_CALENDAR_COLOR_PRESETS[
+    fallbackIdx % STAFF_CALENDAR_COLOR_PRESETS.length
+  ];
+}
+
+export type StaffCardVisual = {
+  accent: string;
+  bg: string;
+  text: string;
+  softBorder: string;
+};
+
+/**
+ * Build the visual tokens used to tint an appointment card with a staff's
+ * calendar color. The status is conveyed separately (e.g. via the inline-end
+ * border or a status dot), so this visual is purely staff-identity.
+ */
+export function getStaffCardVisual(hex: string): StaffCardVisual {
+  const c = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : "#3B82F6";
+  const r = parseInt(c.slice(1, 3), 16);
+  const g = parseInt(c.slice(3, 5), 16);
+  const b = parseInt(c.slice(5, 7), 16);
+  const tc = (n: number) => Math.max(38, Math.min(118, Math.round(n * 0.34 + 14)));
+  return {
+    accent: c,
+    bg: `rgba(${r},${g},${b},0.14)`,
+    softBorder: `rgba(${r},${g},${b},0.45)`,
+    text: `rgb(${tc(r)}, ${tc(g)}, ${tc(b)})`,
+  };
 }
 
 // ---------------------------------------------------------------------------

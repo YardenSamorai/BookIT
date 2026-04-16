@@ -11,8 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { createStaffMember, updateStaffMember } from "@/actions/staff";
 import { useT } from "@/lib/i18n/locale-context";
-import { Bell, Check, Loader2, Phone, Save, User, Camera, FileText } from "lucide-react";
+import { Bell, Check, Loader2, Phone, Save, User, Camera, FileText, Palette } from "lucide-react";
 import type { StaffMemberInput } from "@/validators/staff";
+import { cn } from "@/lib/utils";
+import { STAFF_CALENDAR_COLOR_PRESETS } from "@/components/calendar/calendar-types";
 
 interface Props {
   defaultValues?: StaffMemberInput & { id?: string };
@@ -35,6 +37,7 @@ export function StaffFormPage({ defaultValues }: Props) {
     bio: defaultValues?.bio ?? "",
     imageUrl: defaultValues?.imageUrl ?? "",
     isActive: defaultValues?.isActive ?? true,
+    calendarColor: defaultValues?.calendarColor ?? "",
   });
 
   function update(patch: Partial<StaffMemberInput>) {
@@ -159,7 +162,53 @@ export function StaffFormPage({ defaultValues }: Props) {
         </div>
       )}
 
-      {/* ROW 3: Toggle + Actions */}
+      {/* ROW 3: Calendar color */}
+      <div className="mt-4">
+        <SectionCard
+          icon={<Palette className="size-4" />}
+          title={t("staff.calendar_color")}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t("staff.calendar_color_hint")}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {STAFF_CALENDAR_COLOR_PRESETS.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  disabled={loading}
+                  title={hex}
+                  onClick={() => update({ calendarColor: hex })}
+                  className={cn(
+                    "size-8 rounded-full border-2 shadow-sm transition-transform hover:scale-105 disabled:opacity-50",
+                    form.calendarColor === hex
+                      ? "border-foreground ring-2 ring-ring ring-offset-2 ring-offset-background"
+                      : "border-white/90"
+                  )}
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => update({ calendarColor: "" })}
+                className={cn(
+                  "flex items-center gap-1 rounded-full border-2 border-dashed px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80 disabled:opacity-50",
+                  !form.calendarColor
+                    ? "border-foreground ring-2 ring-ring ring-offset-2 ring-offset-background"
+                    : "border-muted-foreground/40"
+                )}
+                title={t("staff.calendar_color_auto")}
+              >
+                {t("staff.calendar_color_auto")}
+              </button>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      {/* ROW 4: Toggle + Actions */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="overflow-hidden">
           <CardContent className="flex items-center justify-between gap-2 p-3">

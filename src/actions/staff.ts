@@ -51,6 +51,7 @@ export async function createStaffMember(
       bio: parsed.data.bio || null,
       imageUrl: parsed.data.imageUrl || null,
       isActive: parsed.data.isActive,
+      calendarColor: parsed.data.calendarColor || null,
     })
     .returning({ id: staffMembers.id });
 
@@ -90,11 +91,13 @@ export async function updateStaffMember(
       bio: parsed.data.bio || null,
       imageUrl: parsed.data.imageUrl || null,
       isActive: parsed.data.isActive,
+      calendarColor: parsed.data.calendarColor || null,
       updatedAt: new Date(),
     })
     .where(and(eq(staffMembers.id, staffId), eq(staffMembers.businessId, businessId)));
 
   revalidatePath("/dashboard/staff");
+  revalidatePath("/dashboard/calendar");
   return { success: true, data: undefined };
 }
 

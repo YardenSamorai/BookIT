@@ -20,6 +20,13 @@ import {
   Star,
   Quote,
   Sparkles,
+  Repeat,
+  ShieldCheck,
+  ShoppingBag,
+  ClipboardList,
+  FileSpreadsheet,
+  Link2,
+  Bot,
 } from "lucide-react";
 import { t, isRtl, type Locale } from "@/lib/i18n";
 import { MobileNav } from "./components/mobile-nav";
@@ -32,6 +39,7 @@ import {
   CrmMockup,
   WhatsAppMockup,
   OpsMockup,
+  AiMockup,
 } from "./components/dashboard-mockup";
 
 const LOCALE: Locale = "he";
@@ -43,6 +51,14 @@ function T(key: string): string {
 const ArrowIcon = isRtl(LOCALE) ? ArrowLeft : ArrowRight;
 
 const featureBlocks = [
+  {
+    titleKey: "landing.feat_ai_title",
+    descKey: "landing.feat_ai_desc",
+    bullets: ["landing.feat_ai_1", "landing.feat_ai_2", "landing.feat_ai_3", "landing.feat_ai_4"],
+    icon: Bot,
+    gradient: "from-violet-500 to-purple-600",
+    mockup: "ai" as const,
+  },
   {
     titleKey: "landing.feat_site_title",
     descKey: "landing.feat_site_desc",
@@ -72,17 +88,27 @@ const featureBlocks = [
     descKey: "landing.feat_ops_desc",
     bullets: ["landing.feat_ops_1", "landing.feat_ops_2", "landing.feat_ops_3", "landing.feat_ops_4"],
     icon: CalendarDays,
-    gradient: "from-violet-500 to-purple-600",
+    gradient: "from-sky-500 to-blue-600",
     mockup: "ops" as const,
   },
 ];
 
 const mockupComponents = {
+  ai: AiMockup,
   site: SiteMockup,
   crm: CrmMockup,
   whatsapp: WhatsAppMockup,
   ops: OpsMockup,
 };
+
+const newFeatures = [
+  { titleKey: "landing.nf_recurring_title", descKey: "landing.nf_recurring_desc", icon: Repeat, gradient: "from-blue-500 to-indigo-600" },
+  { titleKey: "landing.nf_cancel_policy_title", descKey: "landing.nf_cancel_policy_desc", icon: ShieldCheck, gradient: "from-amber-500 to-orange-600" },
+  { titleKey: "landing.nf_shop_title", descKey: "landing.nf_shop_desc", icon: ShoppingBag, gradient: "from-emerald-500 to-teal-600" },
+  { titleKey: "landing.nf_intake_title", descKey: "landing.nf_intake_desc", icon: ClipboardList, gradient: "from-rose-500 to-pink-600" },
+  { titleKey: "landing.nf_import_title", descKey: "landing.nf_import_desc", icon: FileSpreadsheet, gradient: "from-cyan-500 to-blue-600" },
+  { titleKey: "landing.nf_subdomain_title", descKey: "landing.nf_subdomain_desc", icon: Link2, gradient: "from-violet-500 to-purple-600" },
+];
 
 const differentiators = [
   { titleKey: "landing.why1_title", descKey: "landing.why1_desc", icon: Layers, gradient: "from-violet-500 to-purple-600" },
@@ -125,6 +151,7 @@ const proFeatures = [
 ];
 
 const allPlansInclude = [
+  { key: "landing.plan_includes_ai", icon: Sparkles },
   { key: "landing.plan_includes_site", icon: Globe },
   { key: "landing.plan_includes_crm", icon: Users },
   { key: "landing.plan_includes_wa", icon: MessageCircle },
@@ -134,11 +161,13 @@ const allPlansInclude = [
 ];
 
 const proofItems = [
+  { icon: Sparkles, key: "landing.proof_ai" },
   { icon: Globe, key: "landing.proof_site" },
   { icon: Users, key: "landing.proof_crm" },
   { icon: MessageCircle, key: "landing.proof_whatsapp" },
   { icon: Dumbbell, key: "landing.proof_classes" },
   { icon: CreditCard, key: "landing.proof_cards" },
+  { icon: ShoppingBag, key: "landing.proof_shop" },
 ];
 
 const WHATSAPP_NUMBER = process.env.LANDING_WHATSAPP_NUMBER || "972500000000";
@@ -315,6 +344,39 @@ export default function MarketingPage() {
           </section>
         ))}
       </div>
+
+      {/* ─── New Features Grid ─── */}
+      <section className="bg-white py-20 sm:py-28">
+        <div className="mx-auto max-w-7xl px-5 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-700">
+              <Sparkles className="size-3.5" />
+              {T("landing.new_features_title")}
+            </div>
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
+              {T("landing.new_features_title")}
+            </h2>
+            <p className="mt-4 text-base text-slate-500 sm:text-lg">
+              {T("landing.new_features_subtitle")}
+            </p>
+          </div>
+
+          <div className="mx-auto mt-14 grid max-w-5xl gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {newFeatures.map((nf) => (
+              <div
+                key={nf.titleKey}
+                className="group rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+              >
+                <div className={`mb-4 inline-flex rounded-xl bg-gradient-to-br ${nf.gradient} p-2.5 shadow-md transition-transform duration-300 group-hover:scale-110`}>
+                  <nf.icon className="size-5 text-white" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">{T(nf.titleKey)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{T(nf.descKey)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ─── Why Bookit (6 cards) ─── */}
       <section className="bg-gradient-to-b from-blue-50/80 to-indigo-50/50 py-20 sm:py-28">
@@ -495,7 +557,7 @@ export default function MarketingPage() {
             <p className="mb-5 text-center text-sm font-bold text-slate-900">
               {T("landing.plan_includes_title")}
             </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
               {allPlansInclude.map((item) => (
                 <div
                   key={item.key}

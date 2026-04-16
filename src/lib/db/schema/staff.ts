@@ -27,6 +27,10 @@ export const staffMembers = pgTable(
     bio: text("bio"),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    // Optional hex color (e.g. "#3B82F6") used to tint this staff member's
+    // appointment cells in the calendar views. When null, the UI falls back
+    // to a palette color assigned by staff order.
+    calendarColor: text("calendar_color"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

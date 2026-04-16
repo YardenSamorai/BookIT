@@ -25,6 +25,13 @@ export const notificationPreferences = pgTable(
     businessId: uuid("business_id")
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
+    /**
+     * Master switch for pre-appointment reminders. When `false`, the reminder
+     * cron skips this business entirely regardless of the hour windows
+     * configured below. Defaults to `true` to preserve the existing behavior
+     * for businesses that existed before this column was added.
+     */
+    remindersEnabled: boolean("reminders_enabled").notNull().default(true),
     reminderHoursBefore: integer("reminder_hours_before").notNull().default(24),
     reminderHoursBefore2: integer("reminder_hours_before_2"),
     whatsappEnabled: boolean("whatsapp_enabled").notNull().default(true),

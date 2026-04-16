@@ -52,6 +52,7 @@ export default async function MessagesPage() {
   const prefs = {
     whatsappEnabled: notifPrefs?.whatsappEnabled ?? true,
     smsBookingEnabled: notifPrefs?.smsBookingEnabled ?? false,
+    remindersEnabled: notifPrefs?.remindersEnabled ?? true,
     reminderHoursBefore: notifPrefs?.reminderHoursBefore ?? 24,
     reminderHoursBefore2: notifPrefs?.reminderHoursBefore2 ?? 0,
     notificationPhones: (notifPrefs?.notificationPhones as string[] | null) ?? [],

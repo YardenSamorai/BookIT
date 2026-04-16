@@ -33,7 +33,13 @@ export async function getAvailability(opts: {
       db.query.services.findFirst({ where: eq(services.id, serviceId) }),
       db.query.businesses.findFirst({
         where: eq(businesses.id, businessId),
-        columns: { slotGranularityMin: true, defaultBufferMin: true, timezone: true },
+        columns: {
+          slotGranularityMin: true,
+          defaultBufferMin: true,
+          timezone: true,
+          minBookingAdvanceHours: true,
+          disableSameDayBookings: true,
+        },
       }),
       db.query.businessHours.findMany({ where: eq(businessHours.businessId, businessId) }),
       getEligibleStaff(businessId, serviceId, staffId),
@@ -50,6 +56,14 @@ export async function getAvailability(opts: {
   const isGroup = service.isGroup;
   const maxParticipants = service.maxParticipants ?? 1;
   const blocksAllStaff = service.blocksAllStaff;
+
+  // Booking policy settings
+  const minAdvanceHours = business.minBookingAdvanceHours ?? 0;
+  const disableSameDay = business.disableSameDayBookings ?? false;
+  const tz = business.timezone || "Asia/Jerusalem";
+  const now = new Date();
+  const earliestBookable = new Date(now.getTime() + minAdvanceHours * 3_600_000);
+  const todayInTz = now.toLocaleDateString("en-CA", { timeZone: tz });
 
   const startDate = new Date(dateFrom + "T00:00:00");
   const endDate = new Date(dateTo + "T23:59:59");
@@ -190,8 +204,27 @@ export async function getAvailability(opts: {
         slots = generateSlots(dayStart, dayEnd, durationMin, granularity, unavailable);
       }
 
-      const now = new Date();
-      const futureSlots = slots.filter((s) => s.start > now);
+      // Filter out slots strictly in the past (no point showing them), then
+      // mark remaining slots as `disabled` if they violate the business's
+      // booking policy (min advance hours / same-day disabled). Disabled slots
+      // are still returned so the UI can render them as greyed out with a
+      // tooltip explaining why.
+      const futureSlots = slots
+        .filter((s) => s.start > now)
+        .map<TimeSlot>((s) => {
+          if (disableSameDay) {
+            const slotDate = s.start.toLocaleDateString("en-CA", {
+              timeZone: tz,
+            });
+            if (slotDate === todayInTz) {
+              return { ...s, disabled: true, disabledReason: "SAME_DAY" };
+            }
+          }
+          if (minAdvanceHours > 0 && s.start < earliestBookable) {
+            return { ...s, disabled: true, disabledReason: "MIN_ADVANCE" };
+          }
+          return s;
+        });
 
       if (futureSlots.length > 0) {
         staffAvailability.push({

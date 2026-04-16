@@ -65,6 +65,12 @@ interface ClassInstanceSlot {
   serviceName: string;
 }
 
+type DisabledReason = "MIN_ADVANCE" | "SAME_DAY";
+
+function disabledReasonKey(r: DisabledReason): "book.disabled_min_advance" | "book.disabled_same_day" {
+  return r === "SAME_DAY" ? "book.disabled_same_day" : "book.disabled_min_advance";
+}
+
 const FEW_SLOTS_THRESHOLD = 3;
 
 export function StepDateTime({
@@ -148,7 +154,12 @@ export function StepDateTime({
       });
     } else {
       availability.forEach((d) => {
-        const count = d.staffAvailability.reduce((sum, sa) => sum + sa.slots.length, 0);
+        // Only count bookable (non-disabled) slots so the day indicator
+        // accurately reflects what the customer can actually book.
+        const count = d.staffAvailability.reduce(
+          (sum, sa) => sum + sa.slots.filter((s) => !s.disabled).length,
+          0
+        );
         map.set(d.date, count);
       });
     }
@@ -163,6 +174,9 @@ export function StepDateTime({
       });
     } else {
       availability.forEach((d) => {
+        // A day is "clickable" if it has any slots (including disabled ones)
+        // so customers can open it and read the tooltip explaining why the
+        // slots aren't bookable.
         if (d.staffAvailability.some((sa) => sa.slots.length > 0)) set.add(d.date);
       });
     }
@@ -179,6 +193,8 @@ export function StepDateTime({
         end: slot.end,
         bookedCount: slot.bookedCount,
         maxParticipants: slot.maxParticipants,
+        disabled: slot.disabled,
+        disabledReason: slot.disabledReason as DisabledReason | undefined,
       }))
     ) ?? [];
 
@@ -690,6 +706,8 @@ interface SlotItem {
   end: Date;
   bookedCount?: number;
   maxParticipants?: number;
+  disabled?: boolean;
+  disabledReason?: DisabledReason;
 }
 
 /* ---------- Time group ---------- */
@@ -742,6 +760,10 @@ function TimeGroup({
           const iso = startDate.toISOString();
           const endDate = new Date(startDate.getTime() + durationMin * 60_000);
           const isSelected = pickedTime === iso;
+          const isDisabled = Boolean(slot.disabled);
+          const disabledTooltip = isDisabled && slot.disabledReason
+            ? t(disabledReasonKey(slot.disabledReason))
+            : undefined;
 
           const spotsLeft = isGroup && slot.maxParticipants
             ? slot.maxParticipants - (slot.bookedCount ?? 0)
@@ -751,17 +773,22 @@ function TimeGroup({
             <motion.button
               key={iso}
               type="button"
-              onClick={() => onTimeClick(iso)}
+              onClick={() => !isDisabled && onTimeClick(iso)}
+              disabled={isDisabled}
+              title={disabledTooltip}
+              aria-label={disabledTooltip}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.02, duration: 0.15 }}
               className={`relative flex flex-col items-center rounded-xl border py-2.5 transition-all duration-200 ${
-                isSelected
-                  ? "border-transparent text-white"
-                  : "border-gray-100 bg-white text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:border-gray-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.97]"
+                isDisabled
+                  ? "cursor-not-allowed border-dashed border-gray-200 bg-gray-50 text-gray-300"
+                  : isSelected
+                    ? "border-transparent text-white"
+                    : "border-gray-100 bg-white text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:border-gray-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.97]"
               }`}
               style={
-                isSelected
+                !isDisabled && isSelected
                   ? {
                       backgroundColor: secondaryColor,
                       boxShadow: `0 4px 16px ${secondaryColor}40`,

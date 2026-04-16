@@ -64,6 +64,11 @@ export const appointments = pgTable(
     notes: text("notes"),
     seriesId: uuid("series_id"),
     googleEventId: text("google_event_id"),
+    // Soft-hide from the business owner's appointments list without deleting the
+    // underlying record. Used so owners can clear clutter (e.g. cancelled/past
+    // rows) from /dashboard/appointments while keeping history intact for
+    // analytics, customer timeline, and card/package restores.
+    hiddenFromListAt: timestamp("hidden_from_list_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

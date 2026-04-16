@@ -30,10 +30,12 @@ import type {
   FilterState,
 } from "./calendar-types";
 import {
-  STAFF_COLORS,
   EMPTY_FILTERS,
   hasActiveFilters,
   computeKPIs,
+  resolveStaffCalendarColor,
+  getStaffCardVisual,
+  type StaffCardVisual,
 } from "./calendar-types";
 
 interface CalendarShellProps {
@@ -123,14 +125,23 @@ export function CalendarShell({
     [filteredAppointments, filteredClasses, staff]
   );
 
-  // ── Staff color map ────────────────────────────────────────
-  const staffColorMap = useMemo(() => {
-    const map = new Map<string, (typeof STAFF_COLORS)[number]>();
-    staff.forEach((s, i) =>
-      map.set(s.id, STAFF_COLORS[i % STAFF_COLORS.length])
-    );
+  // ── Staff visual map ───────────────────────────────────────
+  // When the business has 2+ staff members, appointment cells are tinted by
+  // the staff member's resolved calendar color (persisted override OR a
+  // palette preset assigned by staff order). With a single staff member we
+  // fall back to the existing status-first coloring, since there's nothing
+  // to distinguish visually.
+  const useStaffColors = staff.length >= 2;
+
+  const staffVisualMap = useMemo(() => {
+    const map = new Map<string, StaffCardVisual>();
+    if (!useStaffColors) return map;
+    for (const s of staff) {
+      const hex = resolveStaffCalendarColor(s.id, staff);
+      map.set(s.id, getStaffCardVisual(hex));
+    }
     return map;
-  }, [staff]);
+  }, [staff, useStaffColors]);
 
   // ── Handlers ───────────────────────────────────────────────
   const handleAptClick = useCallback((apt: Appointment) => {
@@ -298,6 +309,7 @@ export function CalendarShell({
           services={services}
           filters={filters}
           onFiltersChange={setFilters}
+          staffVisualMap={staffVisualMap}
         />
       </div>
 
@@ -307,7 +319,7 @@ export function CalendarShell({
           appointments={filteredAppointments}
           classInstances={filteredClasses}
           staff={staff}
-          staffColorMap={staffColorMap}
+          staffVisualMap={staffVisualMap}
           staffFilter={legacyStaffFilter}
           currentDate={currentDate}
           onAptClick={handleAptClick}
@@ -323,7 +335,7 @@ export function CalendarShell({
               appointments={filteredAppointments}
               classInstances={filteredClasses}
               staff={staff}
-              staffColorMap={staffColorMap}
+              staffVisualMap={staffVisualMap}
               staffFilter={legacyStaffFilter}
               staffSchedules={staffSchedules}
               staffBlockedSlots={staffBlockedSlots}
@@ -343,6 +355,7 @@ export function CalendarShell({
             appointments={filteredAppointments}
             classInstances={filteredClasses}
             staff={staff}
+            staffVisualMap={staffVisualMap}
             staffSchedules={staffSchedules}
             staffBlockedSlots={staffBlockedSlots}
             staffTimeOff={staffTimeOff}
@@ -359,7 +372,7 @@ export function CalendarShell({
           appointments={filteredAppointments}
           classInstances={filteredClasses}
           staff={staff}
-          staffColorMap={staffColorMap}
+          staffVisualMap={staffVisualMap}
           currentDate={currentDate}
           onAptClick={handleAptClick}
           onClassClick={handleClassClick}

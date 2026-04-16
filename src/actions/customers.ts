@@ -1,11 +1,12 @@
 "use server";
 
-import { eq, and, ne, or, ilike, sql } from "drizzle-orm";
+import { eq, and, ne, or, ilike, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { customers, customerNotes, customerActivities, users } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { auth } from "@/lib/auth/config";
+import { normalizePhoneForStorage, phoneLookupCandidates } from "@/lib/utils/phone";
 import type { ActionResult } from "@/types";
 
 export async function addCustomerNote(
@@ -58,58 +59,178 @@ export async function updateCustomerTags(
   return { success: true, data: undefined };
 }
 
+/**
+ * Bulk-import customers from an uploaded spreadsheet. Safe to call in
+ * batches from the client — the action is idempotent per canonical phone:
+ * re-running with the same file will never create duplicates, never
+ * overwrite existing users, and never "swap" an existing user's phone
+ * with someone else's data.
+ *
+ * Failure modes handled:
+ *   • Same phone formatted differently across rows (`050-1…` vs
+ *     `+97250-1…`) — canonicalised so they collapse to one user.
+ *   • Phone already belongs to a different user globally (e.g. the
+ *     business owner previously typed that number for a different name)
+ *     — we still link the customer row to the existing user (phones are
+ *     globally unique), but we report it as `conflict` so the UI can
+ *     surface it. We explicitly do NOT overwrite the existing user's name.
+ *   • Invalid / missing name or phone — reported as `invalidRow`.
+ *   • Duplicate rows within the same request batch — reported as
+ *     `duplicateInBatch`.
+ *   • Customer already exists in this business — reported as
+ *     `alreadyInBusiness`.
+ */
 export async function importCustomers(
   rows: { name: string; phone: string; email?: string }[],
   initialStatus?: "LEAD" | "ACTIVE" | "INACTIVE"
-): Promise<ActionResult<{ imported: number; skipped: number }>> {
+): Promise<
+  ActionResult<{
+    imported: number;
+    skipped: number;
+    reasons: {
+      invalidRow: number;
+      duplicateInBatch: number;
+      alreadyInBusiness: number;
+      conflict: number;
+      error: number;
+    };
+  }>
+> {
   const { businessId } = await requireBusinessOwner();
 
+  const reasons = {
+    invalidRow: 0,
+    duplicateInBatch: 0,
+    alreadyInBusiness: 0,
+    conflict: 0,
+    error: 0,
+  };
   let imported = 0;
-  let skipped = 0;
+  const seenCanonical = new Set<string>();
 
   for (const row of rows) {
-    const phone = row.phone?.replace(/[^+\d]/g, "");
-    if (!row.name?.trim() || !phone) {
-      skipped++;
+    const name = row.name?.trim() ?? "";
+    const canonical = normalizePhoneForStorage(row.phone);
+
+    // Strict validation — bad rows never reach the DB.
+    if (!name || name.length < 2 || !canonical) {
+      reasons.invalidRow++;
       continue;
     }
 
+    // Collapse identical phones appearing twice in the same request batch so
+    // we never race against ourselves (two rows → two user inserts → unique
+    // constraint violation on the second one).
+    if (seenCanonical.has(canonical)) {
+      reasons.duplicateInBatch++;
+      continue;
+    }
+    seenCanonical.add(canonical);
+
+    const email = row.email?.trim().toLowerCase() || null;
+
     try {
-      const existing = await db.query.users.findFirst({
-        where: eq(users.phone, phone),
-        columns: { id: true },
-      });
+      // Look up by every possible formatting of this phone so that historical
+      // rows stored before canonicalisation still match.
+      const candidates = phoneLookupCandidates(canonical);
+      const existingUser = candidates.length
+        ? await db.query.users.findFirst({
+            where: inArray(users.phone, candidates),
+            columns: { id: true, name: true, phone: true, email: true },
+          })
+        : undefined;
 
       let userId: string;
-      if (existing) {
-        userId = existing.id;
+      let isConflict = false;
+
+      if (existingUser) {
+        userId = existingUser.id;
+
+        // A phone that already belongs to a differently-named user is a
+        // soft conflict: we still reuse the user (phones are globally unique
+        // so we cannot create a second one), but we DO NOT overwrite their
+        // name/email with the imported values. The UI surfaces this count
+        // so the owner can review.
+        const existingNameLc = (existingUser.name ?? "").trim().toLowerCase();
+        const importedNameLc = name.toLowerCase();
+        if (existingNameLc && existingNameLc !== importedNameLc) {
+          isConflict = true;
+        }
+
+        // Normalise the stored phone on the existing user so subsequent
+        // lookups hit the canonical form and we slowly clean up historical
+        // inconsistent data — but only for the phone itself, never for name.
+        if (existingUser.phone !== canonical) {
+          await db
+            .update(users)
+            .set({ phone: canonical, updatedAt: new Date() })
+            .where(eq(users.id, existingUser.id));
+        }
       } else {
+        // Email is globally unique too; if it collides with someone else we
+        // silently drop it from the insert so the row doesn't fail outright.
+        let emailToInsert: string | null = email;
+        if (emailToInsert) {
+          const emailClash = await db.query.users.findFirst({
+            where: eq(users.email, emailToInsert),
+            columns: { id: true },
+          });
+          if (emailClash) {
+            emailToInsert = null;
+            isConflict = true;
+          }
+        }
+
         const [newUser] = await db
           .insert(users)
-          .values({ name: row.name.trim(), phone, role: "CUSTOMER" })
+          .values({
+            name,
+            phone: canonical,
+            email: emailToInsert,
+            role: "CUSTOMER",
+          })
           .returning({ id: users.id });
         userId = newUser.id;
       }
 
+      // Is this user already a customer of THIS business? (Unique index on
+      // business_id + user_id guarantees we cannot duplicate.)
       const existingCustomer = await db.query.customers.findFirst({
-        where: and(eq(customers.businessId, businessId), eq(customers.userId, userId)),
+        where: and(
+          eq(customers.businessId, businessId),
+          eq(customers.userId, userId)
+        ),
         columns: { id: true },
       });
 
       if (existingCustomer) {
-        skipped++;
+        reasons.alreadyInBusiness++;
         continue;
       }
 
-      await db.insert(customers).values({ businessId, userId, ...(initialStatus ? { status: initialStatus } : {}) });
+      await db
+        .insert(customers)
+        .values({
+          businessId,
+          userId,
+          ...(initialStatus ? { status: initialStatus } : {}),
+        });
       imported++;
-    } catch {
-      skipped++;
+      if (isConflict) reasons.conflict++;
+    } catch (err) {
+      console.error("[importCustomers] row failed:", err);
+      reasons.error++;
     }
   }
 
+  const skipped =
+    reasons.invalidRow +
+    reasons.duplicateInBatch +
+    reasons.alreadyInBusiness +
+    reasons.error;
+
   revalidatePath("/dashboard/customers");
-  return { success: true, data: { imported, skipped } };
+  return { success: true, data: { imported, skipped, reasons } };
 }
 
 export async function updateCustomerName(
@@ -144,7 +265,9 @@ export async function addCustomer(data: {
 }): Promise<ActionResult<{ customerId: string }>> {
   const { businessId } = await requireBusinessOwner();
 
-  const phone = data.phone?.replace(/[^+\d]/g, "");
+  // Use the shared canonicalizer so manual-add and import paths produce
+  // byte-identical phone strings in the DB — essential for dedup.
+  const phone = normalizePhoneForStorage(data.phone);
   if (!data.name?.trim() || !phone) {
     return { success: false, error: "Name and phone are required." };
   }
@@ -152,7 +275,7 @@ export async function addCustomer(data: {
   const email = data.email?.trim() || null;
 
   const byPhone = await db.query.users.findFirst({
-    where: eq(users.phone, phone),
+    where: inArray(users.phone, phoneLookupCandidates(phone)),
     columns: { id: true },
   });
 

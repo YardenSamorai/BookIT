@@ -34,10 +34,9 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { useT, useLocale } from "@/lib/i18n/locale-context";
-import { telLink, whatsappLink } from "@/lib/utils/phone";
+import { telLink, whatsappLink, normalizePhoneForStorage } from "@/lib/utils/phone";
 import { importCustomers, deleteCustomer, addCustomer, archiveCustomer, updateCustomerStatus } from "@/actions/customers";
 import { BookingCalendarSheet } from "@/components/customers/booking-calendar-sheet";
 import type { CustomerRow } from "@/lib/db/queries/customers";
@@ -1506,7 +1505,23 @@ function AddCustomerDialog({
 // ─── Import Wizard Dialog ────────────────────────────────────────────────────
 
 type WizardStep = 0 | 1 | 2 | 3;
-interface ParsedRow { name: string; phone: string; email?: string; valid: boolean }
+/**
+ * A single row coming out of the Excel/CSV parser.
+ *
+ * `canonicalPhone` is the `+972…` storage form — it is what the server
+ * eventually dedups by, and what the preview uses to flag in-file
+ * duplicates so the owner sees the real import count before submitting.
+ * `reason` is a short tag shown in the preview table for invalid / dup rows.
+ */
+interface ParsedRow {
+  name: string;
+  phone: string;
+  email?: string;
+  canonicalPhone: string | null;
+  valid: boolean;
+  duplicateInFile: boolean;
+  reason?: "missing_name" | "invalid_phone" | "duplicate_in_file";
+}
 
 interface CustDetectedField {
   id: string;
@@ -1523,10 +1538,27 @@ const CUST_COL_HEADERS: Record<string, string[]> = {
   email: ["email", "Email", "אימייל", "מייל", "דוא\"ל", "e-mail"],
 };
 
-function findCustCol(row: Record<string, string>, headers: string[]): string {
+/**
+ * Read a cell from a parsed spreadsheet row while tolerating all the ways
+ * `xlsx` can hand us non-string values:
+ *   • Excel may strip the leading zero off phone columns and return the
+ *     value as a JS `number` (e.g. `501234567`).
+ *   • Blank cells come back as `undefined`, not `""`.
+ *   • Header keys sometimes carry stray whitespace.
+ * We `String(...)` the result and trim, so downstream code can always call
+ * `.trim()` / `.replace()` without a runtime crash.
+ */
+function findCustCol(
+  row: Record<string, unknown>,
+  headers: string[]
+): string {
   for (const h of headers) {
     for (const key of Object.keys(row)) {
-      if (key.trim().toLowerCase() === h.toLowerCase()) return row[key];
+      if (key.trim().toLowerCase() === h.toLowerCase()) {
+        const raw = row[key];
+        if (raw === null || raw === undefined) return "";
+        return String(raw).trim();
+      }
     }
   }
   return "";
@@ -1602,7 +1634,19 @@ function ImportWizardDialog({
   const [showErrors, setShowErrors] = useState(false);
   const [importStatus, setImportStatus] = useState<"LEAD" | "ACTIVE" | "INACTIVE">("LEAD");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{
+    imported: number;
+    skipped: number;
+    reasons: {
+      invalidRow: number;
+      duplicateInBatch: number;
+      alreadyInBusiness: number;
+      conflict: number;
+      error: number;
+      duplicateInFile: number;
+      invalidInFile: number;
+    };
+  } | null>(null);
 
   const FIELD_DEFS: { id: string; labelKey: string; required: boolean }[] = [
     { id: "name", labelKey: "cust.import_col_name", required: true },
@@ -1632,7 +1676,9 @@ function ImportWizardDialog({
     const buf = await file.arrayBuffer();
     const wb = read(buf);
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = utils.sheet_to_json<Record<string, string>>(ws);
+    // `raw:false` converts numeric cells to their displayed strings, which
+    // preserves leading zeros that Excel otherwise drops from phone columns.
+    const rows = utils.sheet_to_json<Record<string, unknown>>(ws, { raw: false });
 
     if (rows.length === 0) {
       setLoading(false);
@@ -1655,11 +1701,39 @@ function ImportWizardDialog({
       };
     });
 
-    const mapped: ParsedRow[] = rows.map((r) => {
+    // Two-pass build so we can flag in-file duplicates *by canonical phone*
+    // (050-1234567 and +972501234567 collapse to the same customer).
+    const seenCanonical = new Map<string, number>(); // canonical → first row index
+    const mapped: ParsedRow[] = rows.map((r, idx) => {
       const name = findCustCol(r, CUST_COL_HEADERS.name);
       const phone = findCustCol(r, CUST_COL_HEADERS.phone);
       const email = findCustCol(r, CUST_COL_HEADERS.email);
-      return { name, phone, email: email || undefined, valid: !!(name.trim() && phone.trim()) };
+      const canonicalPhone = normalizePhoneForStorage(phone);
+
+      const hasName = name.trim().length >= 2;
+      const hasValidPhone = !!canonicalPhone;
+
+      let duplicateInFile = false;
+      let reason: ParsedRow["reason"];
+
+      if (!hasName) reason = "missing_name";
+      else if (!hasValidPhone) reason = "invalid_phone";
+      else if (canonicalPhone && seenCanonical.has(canonicalPhone)) {
+        duplicateInFile = true;
+        reason = "duplicate_in_file";
+      } else if (canonicalPhone) {
+        seenCanonical.set(canonicalPhone, idx);
+      }
+
+      return {
+        name,
+        phone,
+        email: email || undefined,
+        canonicalPhone,
+        valid: hasName && hasValidPhone && !duplicateInFile,
+        duplicateInFile,
+        reason,
+      };
     });
 
     setDetectedFields(detected);
@@ -1681,7 +1755,11 @@ function ImportWizardDialog({
   }
 
   async function startImport() {
-    const valid = parsedRows.filter((r) => r.valid);
+    // Only submit rows we've already vetted client-side: they have a name,
+    // a canonical phone, and aren't an in-file duplicate. The server applies
+    // the same checks again as a safety net, but doing it here means the
+    // progress bar reflects real import effort, not rows bound to be rejected.
+    const valid = parsedRows.filter((r) => r.valid && r.canonicalPhone);
     if (valid.length === 0) return;
 
     setStep(3);
@@ -1690,18 +1768,42 @@ function ImportWizardDialog({
     const batchSize = 10;
     let imported = 0;
     let skipped = 0;
+    const reasons = {
+      invalidRow: 0,
+      duplicateInBatch: 0,
+      alreadyInBusiness: 0,
+      conflict: 0,
+      error: 0,
+      // Pre-count rows we deliberately discarded client-side so the final
+      // summary is truthful about what happened to the file as a whole.
+      duplicateInFile: parsedRows.filter((r) => r.duplicateInFile).length,
+      invalidInFile: parsedRows.filter(
+        (r) => !r.valid && !r.duplicateInFile
+      ).length,
+    };
 
     for (let i = 0; i < valid.length; i += batchSize) {
-      const batch = valid.slice(i, i + batchSize);
+      const batch = valid.slice(i, i + batchSize).map((r) => ({
+        name: r.name.trim(),
+        // Send the canonical phone — the server normalizes again but this
+        // keeps the storage form consistent across every entry point.
+        phone: r.canonicalPhone ?? r.phone,
+        email: r.email,
+      }));
       const res = await importCustomers(batch, importStatus);
       if (res.success) {
         imported += res.data.imported;
         skipped += res.data.skipped;
+        reasons.invalidRow += res.data.reasons.invalidRow;
+        reasons.duplicateInBatch += res.data.reasons.duplicateInBatch;
+        reasons.alreadyInBusiness += res.data.reasons.alreadyInBusiness;
+        reasons.conflict += res.data.reasons.conflict;
+        reasons.error += res.data.reasons.error;
       }
       setProgress({ done: Math.min(i + batchSize, valid.length), total: valid.length });
     }
 
-    setResult({ imported, skipped });
+    setResult({ imported, skipped, reasons });
     router.refresh();
   }
 
@@ -1966,7 +2068,18 @@ function ImportWizardDialog({
                             {row.valid ? (
                               <CheckCircle2 className="size-3.5 text-green-500" />
                             ) : (
-                              <AlertCircle className="size-3.5 text-red-500" />
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 dark:text-red-400"
+                                title={
+                                  row.reason === "duplicate_in_file"
+                                    ? t("cust.import_reason_duplicate")
+                                    : row.reason === "invalid_phone"
+                                      ? t("cust.import_reason_invalid_phone")
+                                      : t("cust.import_reason_missing_name")
+                                }
+                              >
+                                <AlertCircle className="size-3.5 text-red-500" />
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1994,11 +2107,33 @@ function ImportWizardDialog({
 
               <div className="space-y-1.5">
                 <Label className="text-sm">{t("cust.import_status_label")}</Label>
-                <Select value={importStatus} onValueChange={(v) => setImportStatus(v as typeof importStatus)}>
+                <Select
+                  value={importStatus}
+                  onValueChange={(v) => setImportStatus(v as typeof importStatus)}
+                >
                   <SelectTrigger className="h-9">
-                    <SelectValue />
+                    {/*
+                      base-ui's Select renders the raw `value` string by
+                      default — that's why the trigger previously showed
+                      "LEAD" instead of the Hebrew label. We render the
+                      translated label ourselves so the trigger always
+                      matches the user's locale.
+                    */}
+                    <span>
+                      {importStatus === "LEAD"
+                        ? t("cust.status_lead")
+                        : importStatus === "ACTIVE"
+                          ? t("cust.status_active")
+                          : t("cust.status_inactive")}
+                    </span>
                   </SelectTrigger>
-                  <SelectContent>
+                  {/*
+                    `position="popper"` anchors the popup to the trigger
+                    instead of the default `item-aligned` mode, which in RTL
+                    dialogs was pushing the list off-screen to the right so
+                    the owner couldn't see the options on first open.
+                  */}
+                  <SelectContent position="popper" className="w-(--anchor-width)">
                     <SelectItem value="LEAD">{t("cust.status_lead")}</SelectItem>
                     <SelectItem value="ACTIVE">{t("cust.status_active")}</SelectItem>
                     <SelectItem value="INACTIVE">{t("cust.status_inactive")}</SelectItem>
@@ -2050,16 +2185,68 @@ function ImportWizardDialog({
                   <p className="text-3xl font-bold text-green-700 dark:text-green-400 tabular-nums">{result.imported}</p>
                   <p className="mt-0.5 text-xs font-medium text-green-600 dark:text-green-500">{t("cust.import_imported")}</p>
                 </div>
-                {result.skipped > 0 && (
+                {(result.skipped + result.reasons.duplicateInFile + result.reasons.invalidInFile) > 0 && (
                   <div className="rounded-xl border bg-amber-50/50 px-8 py-4 text-center dark:bg-amber-950/20">
-                    <p className="text-3xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">{result.skipped}</p>
+                    <p className="text-3xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">
+                      {result.skipped + result.reasons.duplicateInFile + result.reasons.invalidInFile}
+                    </p>
                     <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">{t("cust.import_skipped")}</p>
                   </div>
                 )}
               </div>
-              {result.skipped > 0 && (
-                <p className="text-xs text-center text-muted-foreground max-w-sm">{t("cust.import_skipped_note")}</p>
-              )}
+
+              {/*
+                Detailed breakdown — without this the owner sees "42 skipped"
+                and has no idea whether it was duplicates, bad phones, or real
+                errors, and that's exactly the pain they described.
+              */}
+              {(() => {
+                const totalDups =
+                  result.reasons.duplicateInFile + result.reasons.duplicateInBatch;
+                const totalInvalid =
+                  result.reasons.invalidInFile + result.reasons.invalidRow;
+                const rows: { label: string; value: number }[] = [];
+                if (totalDups > 0)
+                  rows.push({ label: t("cust.import_reason_duplicate"), value: totalDups });
+                if (totalInvalid > 0)
+                  rows.push({ label: t("cust.import_reason_invalid_row"), value: totalInvalid });
+                if (result.reasons.alreadyInBusiness > 0)
+                  rows.push({
+                    label: t("cust.import_reason_already"),
+                    value: result.reasons.alreadyInBusiness,
+                  });
+                if (result.reasons.conflict > 0)
+                  rows.push({
+                    label: t("cust.import_reason_conflict"),
+                    value: result.reasons.conflict,
+                  });
+                if (result.reasons.error > 0)
+                  rows.push({
+                    label: t("cust.import_reason_error"),
+                    value: result.reasons.error,
+                  });
+                if (rows.length === 0) return null;
+                return (
+                  <div className="w-full max-w-sm space-y-1.5 rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs font-semibold text-foreground">
+                      {t("cust.import_breakdown_title")}
+                    </p>
+                    <ul className="space-y-1">
+                      {rows.map((r) => (
+                        <li
+                          key={r.label}
+                          className="flex items-center justify-between text-xs text-muted-foreground"
+                        >
+                          <span>{r.label}</span>
+                          <span className="tabular-nums font-medium text-foreground">
+                            {r.value}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
