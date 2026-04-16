@@ -80,7 +80,15 @@ const WEEK_DESKTOP_BAND_CLASS =
 // Overlap layout (side-by-side sub-columns within a single day)
 // ────────────────────────────────────────────────────────────────────────────
 
-type TimelineItem = { id: string; startTime: string; endTime: string };
+type TimelineItem = {
+  id: string;
+  // Accept either a serialized string or a Date instance. `Appointment.startTime`
+  // flows in as `Date` from the calendar shell while other callers may pass
+  // already-serialized timestamps; either way we only ever pipe them through
+  // `new Date(...)` below, which handles both.
+  startTime: string | Date;
+  endTime: string | Date;
+};
 type WeekLayoutInfo = { overlapIndex: number; overlapCount: number };
 
 /**

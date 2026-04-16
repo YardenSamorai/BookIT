@@ -1,6 +1,49 @@
-import { eq, desc, sql, count, inArray, and, isNull } from "drizzle-orm";
+import { eq, desc, sql, count, inArray, and, isNull, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notificationLogs, customers, users, businesses } from "@/lib/db/schema";
+
+/**
+ * Statuses that count toward a business's monthly message quota.
+ *
+ * A message "costs" a quota slot the moment Twilio accepts it — whether it
+ * later transitions to DELIVERED (WhatsApp read receipt / SMS delivery
+ * confirmation) is irrelevant for billing. We therefore treat SENT and
+ * DELIVERED identically here.
+ *
+ * `QUEUED` is intentionally excluded: those messages may still fail locally
+ * before they ever hit Twilio, and they get upgraded to SENT/FAILED within
+ * seconds. `FAILED` is excluded because a failed send is never charged.
+ *
+ * This list is the single source of truth consumed by both the quota
+ * banner on the messages dashboard and the server-side quota guard in
+ * `send-notification.ts`. Previously the banner only counted `SENT`, which
+ * made the bar silently reset to 0 as soon as the Twilio status-sync flipped
+ * rows to `DELIVERED`.
+ */
+export const QUOTA_COUNTING_STATUSES = ["SENT", "DELIVERED"] as const;
+
+/**
+ * Count how many messages this business has consumed from its monthly quota
+ * since the given month boundary. Historical rows already marked DELIVERED
+ * are automatically included, which is why no data backfill is needed — the
+ * "retroactive" fix happens on the next query.
+ */
+export async function countMessagesThisMonth(
+  businessId: string,
+  monthStart: Date
+): Promise<number> {
+  const [row] = await db
+    .select({ c: count() })
+    .from(notificationLogs)
+    .where(
+      and(
+        eq(notificationLogs.businessId, businessId),
+        inArray(notificationLogs.status, [...QUOTA_COUNTING_STATUSES]),
+        gte(notificationLogs.createdAt, monthStart)
+      )
+    );
+  return row?.c ?? 0;
+}
 
 export async function getNotificationLogs(businessId: string, limit = 100) {
   return db

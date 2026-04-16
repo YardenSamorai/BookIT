@@ -469,7 +469,11 @@ export function AppointmentQuickView({
         onOpenChange={setCancelDialogOpen}
         disabled={isPending}
         summary={{
-          customerName: appointment.customerName,
+          // QuickViewAppointment types `customerName` as `string | null`, but
+          // the dialog's optional summary expects `string | undefined`. Coerce
+          // so TS (strict builds on Vercel) is happy without weakening the
+          // upstream type.
+          customerName: appointment.customerName ?? undefined,
           serviceName: appointment.serviceName,
           staffName: appointment.staffName,
           dateStr,

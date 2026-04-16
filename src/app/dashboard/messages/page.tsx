@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
-import { eq, inArray, and, gte, sql, count } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, notificationPreferences, notificationLogs, users } from "@/lib/db/schema";
+import { businesses, notificationPreferences, users } from "@/lib/db/schema";
 import { requireBusinessOwner } from "@/lib/auth/guards";
 import { isModuleEnabled } from "@/lib/db/queries/business";
-import { getNotificationLogs, getNotificationStats, cleanupMisattributedLogs } from "@/lib/db/queries/notifications";
+import {
+  getNotificationLogs,
+  getNotificationStats,
+  cleanupMisattributedLogs,
+  countMessagesThisMonth,
+} from "@/lib/db/queries/notifications";
 import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
 import { getOrCreateTemplates } from "@/lib/notifications/templates";
 import { t, type Locale } from "@/lib/i18n";
@@ -29,17 +34,10 @@ export default async function MessagesPage() {
     db.query.notificationPreferences.findFirst({
       where: eq(notificationPreferences.businessId, businessId),
     }),
-    db
-      .select({ c: count() })
-      .from(notificationLogs)
-      .where(
-        and(
-          eq(notificationLogs.businessId, businessId),
-          eq(notificationLogs.status, "SENT"),
-          gte(notificationLogs.createdAt, monthStart)
-        )
-      )
-      .then(([r]) => r?.c ?? 0),
+    // Quota counter — uses the same SENT+DELIVERED rule as the server-side
+    // send guard, so the banner matches reality the moment Twilio's
+    // background sync flips rows from SENT → DELIVERED.
+    countMessagesThisMonth(businessId, monthStart),
   ]);
 
   const locale = (business?.language ?? "he") as Locale;

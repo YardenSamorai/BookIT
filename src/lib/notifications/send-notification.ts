@@ -1,7 +1,8 @@
-import { eq, and, sql, gte } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, notificationPreferences, notificationLogs, users, staffMembers, customers } from "@/lib/db/schema";
 import { getLimitsForPlan, type PlanType } from "@/lib/plans/limits";
+import { countMessagesThisMonth } from "@/lib/db/queries/notifications";
 import { sendWhatsAppText, sendWhatsAppTemplate, getTemplateSid, buildTemplateVariables, type WhatsAppResult } from "./whatsapp";
 import { sendSmsWithDetails } from "./sms";
 import { getTemplateForNotification, renderTemplate } from "./templates";
@@ -45,18 +46,10 @@ async function isOverMessageQuota(businessId: string, plan: PlanType, quotaOverr
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [result] = await db
-    .select({ c: sql<number>`count(*)` })
-    .from(notificationLogs)
-    .where(
-      and(
-        eq(notificationLogs.businessId, businessId),
-        eq(notificationLogs.status, "SENT"),
-        gte(notificationLogs.createdAt, monthStart)
-      )
-    );
-
-  return (result?.c ?? 0) >= quota;
+  // Uses the shared quota-counting helper so the send guard and the
+  // dashboard banner can never disagree again.
+  const used = await countMessagesThisMonth(businessId, monthStart);
+  return used >= quota;
 }
 
 async function getNotificationPrefs(businessId: string) {
